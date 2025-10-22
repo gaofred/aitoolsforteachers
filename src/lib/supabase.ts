@@ -8,3 +8,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// 导出createClient函数供其他组件使用
+export { createClient }

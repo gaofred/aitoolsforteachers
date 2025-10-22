@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const accessToken = cookieStore.get('sb-access-token')?.value
     const refreshToken = cookieStore.get('sb-refresh-token')?.value
 
