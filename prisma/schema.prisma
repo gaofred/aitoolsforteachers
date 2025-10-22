@@ -1,0 +1,155 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?   // 对于邮箱密码登录的用户
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 关联关系
+  points         UserPoints?
+  membership     Membership?
+  generations    AIGeneration[]
+  conversations  Conversation[]
+  pointTransactions PointTransaction[]
+  redemptionCodesUsed RedemptionCode[] @relation("RedeemedBy")
+
+  @@map("users")
+}
+
+model UserPoints {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  points       Int      @default(25) // 新用户赠送25积分
+  lastUpdated  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_points")
+}
+
+model Membership {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  membershipType MembershipType @default(FREE)
+  expiresAt     DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("memberships")
+}
+
+model AIGeneration {
+  id             String   @id @default(cuid())
+  userId         String
+  toolType       String   // 工具类型: text-analysis, grammar-fill, etc.
+  inputData      Json     // 输入数据
+  outputData     Json     // 输出数据
+  finalOutput    Json?    // 经过对话调整后的最终输出
+  tokensUsed     Int      @default(0)
+  pointsCost     Int      @default(0)
+  status         GenerationStatus @default(PENDING)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation Conversation?
+
+  @@map("ai_generations")
+}
+
+model Conversation {
+  id            String   @id @default(cuid())
+  userId        String
+  generationId  String?  @unique // 可选，有些对话可能不基于特定生成
+  messages      Json     // 对话消息数组
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generation  AIGeneration? @relation(fields: [generationId], references: [id], onDelete: SetNull)
+
+  @@map("conversations")
+}
+
+model RedemptionCode {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  type        RedemptionType
+  value       Int           // 会员天数或积分数量
+  description String?
+  expiresAt   DateTime?
+  isUsed      Boolean       @default(false)
+  usedBy      String?       // 使用者用户ID
+  usedAt      DateTime?
+  createdAt   DateTime      @default(now())
+
+  user User? @relation("RedeemedBy", fields: [usedBy], references: [id])
+
+  @@map("redemption_codes")
+}
+
+model PointTransaction {
+  id          String            @id @default(cuid())
+  userId      String
+  type        TransactionType
+  amount      Int
+  description String
+  relatedId   String?           // 相关的记录ID（如兑换码、生成记录等）
+  metadata    Json?             // 额外的元数据
+  createdAt   DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("point_transactions")
+}
+
+// 枚举类型
+enum Role {
+  USER
+  ADMIN
+}
+
+enum MembershipType {
+  FREE
+  PREMIUM  // 高级会员
+  PRO      // 专业会员
+}
+
+enum GenerationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RedemptionType {
+  MEMBERSHIP_DAYS  // 会员天数
+  POINTS           // 积分
+}
+
+enum TransactionType {
+  REDEEM      // 兑换
+  GENERATE    // 生成消耗
+  REFUND      // 退款
+  BONUS       // 奖励
+}
