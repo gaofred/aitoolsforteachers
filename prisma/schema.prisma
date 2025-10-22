@@ -17,6 +17,8 @@ model User {
   name          String?
   emailVerified DateTime?
   image         String?
+  avatarUrl     String?   // Supabase用户头像URL
+  provider      String    @default("email") // "google" | "email"
   role          Role      @default(USER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

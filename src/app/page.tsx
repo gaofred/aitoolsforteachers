@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { UserMenu } from "@/components/auth/UserMenu";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 // 导航数据结构
 const navigationData = [
@@ -130,6 +133,7 @@ const toolConfig = {
 };
 
 export default function Home() {
+  const router = useRouter();
   const [text, setText] = useState("");
   const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
   const [useCode, setUseCode] = useState("");
@@ -142,6 +146,35 @@ export default function Home() {
   const [analysisType, setAnalysisType] = useState("comprehensive");
   const [userPoints, setUserPoints] = useState(25); // 用户点数
   const [showExportModal, setShowExportModal] = useState(false); // 导出弹窗状态
+  const [currentUser, setCurrentUser] = useState<any>(null); // 当前用户
+  const [isLoadingUser, setIsLoadingUser] = useState(true); // 加载用户状态
+
+  // 检查用户登录状态
+  useEffect(() => {
+    checkCurrentUser();
+
+    // 检查URL参数中是否有登录成功的标志
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('signed_in') === 'true') {
+      // 清除URL参数
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const checkCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/user');
+      if (response.ok) {
+        const userData = await response.json();
+        setCurrentUser(userData);
+        setUserPoints(userData.user_points?.points || 25);
+      }
+    } catch (error) {
+      // 用户未登录或其他错误
+    } finally {
+      setIsLoadingUser(false);
+    }
+  };
 
   const charCount = text.length;
   const maxChars = 10000;
@@ -554,19 +587,23 @@ The future of AI depends on our ability to balance innovation with responsibilit
               </button>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 hidden sm:inline-flex"
-            >
-              登录
-            </Button>
-            <Button
-              size="sm"
-              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              开始使用
-            </Button>
+            {/* 用户认证区域 */}
+            {isLoadingUser ? (
+              <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
+            ) : currentUser ? (
+              <UserMenu />
+            ) : (
+              <div className="flex items-center gap-2">
+                <GoogleSignInButton />
+                <Button
+                  size="sm"
+                  onClick={() => router.push('/auth/signin')}
+                  className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  登录
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </header>

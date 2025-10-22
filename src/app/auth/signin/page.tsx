@@ -1,19 +1,60 @@
 "use client"
 
-import { useState } from "react"
-import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton"
+import { UserMenu } from "@/components/auth/UserMenu"
 import { toast } from "react-hot-toast"
 
 export default function SignIn() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    // 检查URL参数中的错误信息
+    const error = searchParams.get('error')
+    if (error) {
+      switch (error) {
+        case 'auth_failed':
+          toast.error('Google认证失败')
+          break
+        case 'auth_init_failed':
+          toast.error('Google登录初始化失败')
+          break
+        case 'auth_error':
+          toast.error('认证过程中发生错误')
+          break
+        case 'google_signin_failed':
+          toast.error('Google登录失败')
+          break
+        default:
+          toast.error('登录失败')
+      }
+    }
+
+    // 检查是否已经登录
+    checkCurrentUser()
+  }, [searchParams])
+
+  const checkCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/user')
+      if (response.ok) {
+        const userData = await response.json()
+        setCurrentUser(userData)
+      }
+    } catch (error) {
+      // 用户未登录或其他错误
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,6 +79,36 @@ export default function SignIn() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // 如果用户已经登录，显示登录成功状态
+  if (currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-gray-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="mb-8">
+            <UserMenu />
+          </div>
+          <Card className="p-8 shadow-xl border-0 bg-white/90 backdrop-blur-lg">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">登录成功</h1>
+            <p className="text-gray-600 mb-6">
+              欢迎回来，{currentUser.name || currentUser.email}！
+            </p>
+            <Button
+              onClick={() => router.push('/')}
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium py-3 rounded-lg transition-all duration-200"
+            >
+              进入主页
+            </Button>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -91,6 +162,17 @@ export default function SignIn() {
               {isLoading ? "登录中..." : "登录"}
             </Button>
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-gray-500">或者</span>
+            </div>
+          </div>
+
+          <GoogleSignInButton />
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
