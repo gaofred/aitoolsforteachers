@@ -173,20 +173,22 @@ export default function CDAdaptationPage() {
   }
 
   const recognizeText = async () => {
+    console.log('recognizeText函数被调用了！')
     const imagesToRecognize = uploadedImages.length > 0 ? uploadedImages : (photo ? [photo] : [])
+    console.log('要识别的图片数量:', imagesToRecognize.length)
     if (imagesToRecognize.length === 0) {
       alert('请先拍照或上传图片')
       return
     }
 
+    // 创建图片的快照，防止在识别过程中被清除
+    const imageSnapshot = [...imagesToRecognize]
     setIsRecognizing(true)
     let allTexts: string[] = []
 
     try {
-      // 逐个识别图片
-      for (let i = 0; i < imagesToRecognize.length; i++) {
-        const imageToRecognize = imagesToRecognize[i]
-
+      // 并行识别所有图片（使用快照，防止状态被清除）
+      const recognitionPromises = imageSnapshot.map(async (imageBase64, index) => {
         try {
           const response = await fetch('/api/ai/image-recognition', {
             method: 'POST',
@@ -194,32 +196,54 @@ export default function CDAdaptationPage() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              imageBase64: imageToRecognize
+              imageBase64: imageBase64
             })
           })
 
           const data = await response.json()
 
           if (data.success && data.result) {
-            allTexts.push(data.result)
+            console.log(`第${index + 1}张图片识别成功`)
+            return { success: true, text: data.result, index }
           } else {
-            console.warn(`第${i + 1}张图片识别失败:`, data.error)
-            // 继续处理其他图片
+            console.warn(`第${index + 1}张图片识别失败:`, data.error)
+            return { success: false, error: data.error, index }
           }
         } catch (error) {
-          console.error(`第${i + 1}张图片识别错误:`, error)
-          // 继续处理其他图片
+          console.error(`第${index + 1}张图片识别错误:`, error)
+          return { success: false, error: (error as Error).message, index }
         }
-      }
+      })
 
-      if (allTexts.length > 0) {
-        // 合并所有识别的文本
-        const combinedText = allTexts.join('\n\n')
+      // 等待所有识别任务完成
+      const results = await Promise.all(recognitionPromises)
+
+      // 按原始顺序过滤成功的结果
+      const successfulResults = results
+        .filter(result => result.success)
+        .sort((a, b) => a.index - b.index)
+        .map(result => result.text)
+
+      if (successfulResults.length > 0) {
+        // 合并所有识别的文本，保持上传顺序
+        const combinedText = successfulResults.join('\n\n')
         setArticle(prev => prev + (prev ? '\n\n' : '') + combinedText)
-        setIsCameraOpen(false)
-        clearPhoto()
-        clearUploadedImage()
-        stopCamera()
+
+        // 延迟清除图片状态，确保文本已经成功添加
+        setTimeout(() => {
+          setIsCameraOpen(false)
+          clearPhoto()
+          clearUploadedImage()
+          stopCamera()
+        }, 100)
+
+        // 显示成功信息
+        const failedCount = imageSnapshot.length - successfulResults.length
+        if (failedCount > 0) {
+          setTimeout(() => {
+            alert(`成功识别${successfulResults.length}张图片，${failedCount}张图片识别失败`)
+          }, 150)
+        }
       } else {
         alert('所有图片识别都失败了，请重试')
       }
@@ -330,11 +354,18 @@ export default function CDAdaptationPage() {
         setAnalysisResult(data.result)
         await refreshUser()
       } else {
-        alert(data.error || '改编失败，请稍后重试')
+        // 显示错误信息，如果包含退点信息则一起显示
+        let errorMessage = data.error || '改编失败，请稍后重试'
+        if (data.refunded && data.pointsRefunded) {
+          errorMessage += `\n\n已退还 ${data.pointsRefunded} 点数到您的账户`
+        }
+        alert(errorMessage)
+        await refreshUser() // 刷新用户点数信息
       }
     } catch (error) {
       console.error('改编错误:', error)
       alert('改编失败，请稍后重试')
+      await refreshUser() // 刷新用户信息，以防出现异常情况
     } finally {
       setIsAnalyzing(false)
     }
@@ -449,16 +480,49 @@ export default function CDAdaptationPage() {
                     className="hidden"
                   />
                   {(photo || uploadedImages.length > 0) && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        clearPhoto()
-                        clearUploadedImage()
-                      }}
-                    >
-                      清除图片
-                    </Button>
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            console.log('OCR按钮被点击了！')
+                            recognizeText()
+                          }}
+                          disabled={isRecognizing}
+                          className="bg-orange-500 hover:bg-orange-600 text-white"
+                        >
+                          {isRecognizing ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              AI识图中，请耐心等待......
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              豆包OCR识别
+                            </>
+                          )}
+                        </Button>
+                        <span className="text-xs text-gray-500 whitespace-nowrap">消耗1点数</span>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          clearPhoto()
+                          clearUploadedImage()
+                        }}
+                      >
+                        清除图片
+                      </Button>
+                    </>
                   )}
                 </div>
 
@@ -469,9 +533,24 @@ export default function CDAdaptationPage() {
                   <Button
                     onClick={handleAnalyze}
                     disabled={!hasEnoughPoints || isAnalyzing || !article.trim()}
-                    className="px-6"
+                    className="px-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
-                    {isAnalyzing ? '改编中...' : '开始改编'}
+                    {isAnalyzing ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        AI改编中...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        开始改编
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>
@@ -480,11 +559,82 @@ export default function CDAdaptationPage() {
 
           {/* 右侧：结果区域 */}
           <div className="space-y-6">
-            {analysisResult && (
+            {isAnalyzing && !analysisResult && (
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-center">
+                    <span className="text-purple-600">
+                      {analysisLevel === 'advanced' ? '国内Top模型智谱清言改编中......大约需要2分钟' : 'AI生成中，请耐心等待...'}
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-[400px]">
+                  <div className="text-center space-y-6">
+                    {/* AI机器人动画 */}
+                    <div className="relative inline-flex">
+                      <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center animate-pulse">
+                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-.983 5.976 5.976 0 01-.335-2z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+
+                      {/* 思维泡泡动画 */}
+                      <div className="absolute -top-2 -right-2 w-4 h-4 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                      <div className="absolute -top-4 -right-6 w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.5s' }}></div>
+                      <div className="absolute -top-1 -right-8 w-2 h-2 bg-purple-300 rounded-full animate-bounce" style={{ animationDelay: '1s' }}></div>
+                    </div>
+
+                    {/* 打字机效果 */}
+                    <div className="space-y-2">
+                      <div className="flex space-x-1 justify-center">
+                        <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                        <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                      </div>
+                      <p className="text-sm text-gray-600 animate-pulse">
+                        {analysisLevel === 'advanced' ? '正在使用国内Top模型智谱清言进行深度文本改编...' : '正在使用火山引擎豆包模型进行文本改编...'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {analysisLevel === 'advanced' ? '预计耗时 1-2 分钟，请耐心等待' : '预计耗时 10-30 秒，请稍候'}
+                      </p>
+                    </div>
+
+                    {/* 进度条动画 */}
+                    <div className="w-64 mx-auto">
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-purple-500 to-blue-600 rounded-full animate-pulse"
+                             style={{
+                               width: '60%',
+                               animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                             }}>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 提示信息 */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-sm mx-auto">
+                      <div className="flex items-center space-x-2 text-blue-700 text-sm">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <span>AI正在分析文本结构，生成适合高中生阅读的改编内容</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {analysisResult && !isAnalyzing && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    <span>改编结果</span>
+                    <span className="flex items-center gap-2">
+                      <span>改编结果</span>
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                        生成完成
+                      </span>
+                    </span>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -525,7 +675,7 @@ export default function CDAdaptationPage() {
               </Card>
             )}
 
-            {!analysisResult && (
+            {!analysisResult && !isAnalyzing && (
               <Card className="h-full">
                 <CardContent className="flex items-center justify-center h-full h-[400px]">
                   <div className="text-center text-gray-500">

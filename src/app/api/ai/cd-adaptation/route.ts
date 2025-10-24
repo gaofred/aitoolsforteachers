@@ -2,6 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { cookies } from 'next/headers';
 
+// 退还点数的辅助函数
+async function refundPoints(supabase: any, userId: string, amount: number, reason: string) {
+  try {
+    const { error } = await supabase.rpc('add_user_points', {
+      p_user_id: userId,
+      p_amount: amount,
+      p_type: 'REFUND',
+      p_description: reason,
+      p_related_id: null,
+      p_metadata: {
+        tool: 'cd_adaptation',
+        refund_reason: reason
+      }
+    } as any);
+
+    if (error) {
+      console.error('退还点数失败:', error);
+      return false;
+    }
+    console.log(`成功退还 ${amount} 点数给用户 ${userId}，原因: ${reason}`);
+    return true;
+  } catch (error) {
+    console.error('退还点数异常:', error);
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -152,8 +179,21 @@ export async function POST(request: NextRequest) {
     if (!aiResponse.ok) {
       const errorData = await aiResponse.text();
       console.error(`${isAdvanced ? '云雾API' : '豆包'}API调用失败:`, errorData);
+
+      // API调用失败，退还点数
+      const refundSuccess = await refundPoints(
+        supabase,
+        user.id,
+        pointsCost,
+        `CD篇改编失败 - ${isAdvanced ? '进阶版' : '基础版'}API调用失败`
+      );
+
       return NextResponse.json(
-        { error: 'AI服务调用失败，请稍后重试' },
+        {
+          error: 'AI服务调用失败，请稍后重试',
+          refunded: refundSuccess,
+          pointsRefunded: pointsCost
+        },
         { status: 500 }
       );
     }
@@ -162,8 +202,20 @@ export async function POST(request: NextRequest) {
     const adaptedText = aiData.choices?.[0]?.message?.content || '';
 
     if (!adaptedText) {
+      // AI返回空结果，退还点数
+      const refundSuccess = await refundPoints(
+        supabase,
+        user.id,
+        pointsCost,
+        `CD篇改编失败 - ${isAdvanced ? '进阶版' : '基础版'}AI返回空结果`
+      );
+
       return NextResponse.json(
-        { error: 'AI服务返回空结果，请稍后重试' },
+        {
+          error: 'AI服务返回空结果，请稍后重试',
+          refunded: refundSuccess,
+          pointsRefunded: pointsCost
+        },
         { status: 500 }
       );
     }
@@ -186,7 +238,10 @@ export async function POST(request: NextRequest) {
 
     if (deductError) {
       console.error('扣除点数失败:', deductError);
-      // 即使扣除点数失败，也返回结果，但记录错误
+      return NextResponse.json(
+        { error: '点数扣除失败，请稍后重试' },
+        { status: 500 }
+      );
     }
 
     // 记录AI生成历史

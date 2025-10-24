@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const pointsCost = 2; // 识图功能消耗2个点数
+    const pointsCost = 1; // 识图功能消耗1个点数
     
     if ((userPoints as any).points < pointsCost) {
       return NextResponse.json({ 

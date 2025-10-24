@@ -803,134 +803,9 @@ The future of AI depends on our ability to balance innovation with responsibilit
     }
   };
 
-  const handleExport = (format: string) => {
-    console.log(`导出为 ${format} 格式`);
-
-    if (!analysisResult) {
-      alert('请先进行文本分析后再导出结果');
-      return;
-    }
-
-    switch (format) {
-      case 'pdf':
-        alert('导出PDF功能即将推出！');
-        break;
-      case 'docx':
-        alert('导出Word文档功能即将推出！');
-        break;
-      case 'txt':
-        const element = document.createElement('a');
-        const file = new Blob([analysisResult], { type: 'text/plain' });
-        element.href = URL.createObjectURL(file);
-        element.download = '英语文本分析报告.txt';
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
-        break;
-    }
-
-    setShowExportModal(false);
-  };
+  
 
 
-
-  const ExportModal = () => {
-    if (!showExportModal) return null;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="evolink-card p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-          {/* 关闭按钮 */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl evolink-title text-foreground">导出分析报告</h2>
-            <button
-              onClick={() => setShowExportModal(false)}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* 副标题 */}
-          <p className="text-muted-foreground mb-6 text-center">选择导出格式</p>
-
-          {/* 导出选项 */}
-          <div className="space-y-4">
-            {/* PDF 导出 */}
-            <button
-              onClick={() => handleExport('pdf')}
-              className="w-full flex items-center gap-4 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200 group"
-            >
-              <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="flex-1 text-left">
-                <h3 className="font-semibold text-gray-900">保存为 PDF</h3>
-                <p className="text-sm text-muted-foreground">导出为多页PDF文件，便于打印和分发</p>
-              </div>
-              <span className="bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 text-xs px-2 py-1 rounded-full border border-amber-200 font-medium">
-                Pro
-              </span>
-            </button>
-
-            {/* Word 导出 */}
-            <button
-              onClick={() => handleExport('docx')}
-              className="w-full flex items-center gap-4 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200 group"
-            >
-              <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="flex-1 text-left">
-                <h3 className="font-semibold text-gray-900">导出到文本文件</h3>
-                <p className="text-sm text-muted-foreground">保存为简单的文本文件格式</p>
-              </div>
-              <span className="bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 text-xs px-2 py-1 rounded-full border border-amber-200 font-medium">
-                Pro
-              </span>
-            </button>
-
-            {/* 纯文本导出 */}
-            <button
-              onClick={() => handleExport('txt')}
-              className="w-full flex items-center gap-4 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200 group"
-            >
-              <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
-                <svg className="w-6 h-6 text-muted-foreground" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="flex-1 text-left">
-                <h3 className="font-semibold text-gray-900">纯文本格式</h3>
-                <p className="text-sm text-muted-foreground">保存为简单的文本文件</p>
-              </div>
-              <span className="bg-gradient-to-r from-green-100 to-green-50 text-green-700 text-xs px-2 py-1 rounded-full border border-green-200 font-medium">
-                免费
-              </span>
-            </button>
-          </div>
-
-          {/* 提示信息 */}
-          {!analysisResult && (
-            <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <div className="flex items-center gap-2 text-amber-700 text-sm">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <span>请先进行文本分析后再导出结果</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-screen transition-all duration-500 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50">
@@ -1650,31 +1525,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                             </>
                           )}
                         </Button>
-                        
-                          <Button
-                            onClick={exportToWord}
-                            disabled={isExporting}
-                            variant="outline"
-                            className="flex items-center gap-2 border-border text-foreground hover:bg-secondary"
-                          >
-                            {isExporting ? (
-                              <>
-                                <svg className="animate-spin -ml-1 mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                导出中...
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                导出文本
-                              </>
-                            )}
-                          </Button>
-                      </div>
+                        </div>
                     </div>
                   </div>
                 )}
@@ -1684,9 +1535,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
         </main>
       </div>
 
-      {/* 导出弹窗 */}
-      <ExportModal />
-
+  
       {/* 点数兑换弹窗 */}
       {showRedeemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
