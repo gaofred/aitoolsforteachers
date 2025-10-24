@@ -63,9 +63,11 @@ model AIGeneration {
   id             String   @id @default(cuid())
   userId         String
   toolType       String   // 工具类型: text-analysis, grammar-fill, etc.
+  toolName       String   // 工具名称: 阅读文本深度分析, 语法填空生成器等
   inputData      Json     // 输入数据
   outputData     Json     // 输出数据
   finalOutput    Json?    // 经过对话调整后的最终输出
+  modelType      AIModelType @default(STANDARD) // 使用的AI模型类型
   tokensUsed     Int      @default(0)
   pointsCost     Int      @default(0)
   status         GenerationStatus @default(PENDING)
@@ -125,6 +127,23 @@ model PointTransaction {
   @@map("point_transactions")
 }
 
+// 新增：AI工具配置表
+model AIToolConfig {
+  id              String   @id @default(cuid())
+  toolType        String   @unique // 工具类型标识
+  toolName        String   // 工具显示名称
+  description     String   // 工具描述
+  category        String   // 工具分类
+  standardCost    Int      // 标准版本消耗点数
+  proCost         Int?     // Pro版本消耗点数（可选）
+  isProOnly       Boolean  @default(false) // 是否仅Pro可用
+  isActive        Boolean  @default(true) // 是否启用
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("ai_tool_configs")
+}
+
 // 枚举类型
 enum Role {
   USER
@@ -154,4 +173,13 @@ enum TransactionType {
   GENERATE    // 生成消耗
   REFUND      // 退款
   BONUS       // 奖励
+  PURCHASE    // 购买
+  MEMBERSHIP  // 会员充值
+}
+
+// 新增：AI模型类型枚举
+enum AIModelType {
+  STANDARD    // 标准模型
+  ADVANCED    // 高级模型
+  PREMIUM     // 高级会员模型
 }

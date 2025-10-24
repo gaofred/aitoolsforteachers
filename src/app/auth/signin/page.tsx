@@ -49,8 +49,8 @@ function SignInPageContent() {
         throw new Error(data.error || '登录失败')
       }
 
-      // 登录成功，重定向到主页
-      window.location.href = '/'
+      // 登录成功，重定向到主页并刷新用户状态
+      window.location.href = '/?signed_in=true'
 
     } catch (error) {
       setError(error instanceof Error ? error.message : '登录失败，请稍后重试')

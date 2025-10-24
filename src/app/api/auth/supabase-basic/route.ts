@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { supabase } from '@/lib/supabase'
 import { z } from 'zod'
 
 const registerSchema = z.object({
   email: z.string().email("请输入有效的邮箱地址"),
   password: z.string().min(6, "密码至少需要6个字符"),
-  name: z.string().min(1, "请输入姓名").optional()
+  name: z.string().min(1, "请输入姓名").optional(),
+  skipEmailVerification: z.boolean().optional().default(false)
 })
 
 export async function POST(request: NextRequest) {
@@ -20,18 +22,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { email, password, name } = validation.data
+    const { email, password, name, skipEmailVerification } = validation.data
 
     const supabase = createServerSupabaseClient()
 
-    // 最基础的注册测试 - 不做任何额外操作
+    // 注册并自动登录（跳过邮箱验证）
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           display_name: name || email.split("@")[0]
-        }
+        },
+        emailRedirectTo: undefined // 禁用邮箱重定向
       }
     })
 
@@ -51,12 +54,84 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 注册成功后，创建用户的业务数据记录
+    if (data.user?.id) {
+      try {
+        console.log('开始创建用户业务数据记录，用户ID:', data.user.id);
+
+        // 1. 先创建用户业务记录（如果不存在）
+        const { error: userError } = await supabase
+          .from('users')
+          .upsert({
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.email?.split('@')[0], // 使用邮箱前缀作为默认名称
+            provider: 'email', // 默认provider，稍后可以更新
+            role: 'USER',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          } as any, {
+            onConflict: 'id'
+          } as any);
+
+        if (userError) {
+          console.error('创建用户记录失败:', userError);
+        } else {
+          console.log('用户记录创建成功');
+        }
+
+        // 2. 然后创建用户积分记录（如果不存在）
+        const { error: pointsError } = await supabase
+          .from('user_points')
+          .upsert({
+            user_id: data.user.id,
+            points: 25, // 新用户赠送25积分
+            last_updated: new Date().toISOString()
+          } as any, {
+            onConflict: 'user_id'
+          } as any);
+
+        if (pointsError) {
+          console.error('创建用户积分记录失败:', pointsError);
+        } else {
+          console.log('用户积分记录创建成功');
+        }
+
+        // 3. 最后创建用户会员记录（如果不存在）
+        const { error: membershipError } = await supabase
+          .from('memberships')
+          .upsert({
+            user_id: data.user.id,
+            membership_type: 'FREE',
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          } as any, {
+            onConflict: 'user_id'
+          } as any);
+
+        if (membershipError) {
+          console.error('创建用户会员记录失败:', membershipError);
+        } else {
+          console.log('用户会员记录创建成功');
+        }
+
+        console.log('用户业务数据记录创建完成');
+
+      } catch (createError) {
+        console.error('创建用户业务数据记录异常:', createError);
+        // 不阻断注册流程，只记录错误
+      }
+    }
+
     return NextResponse.json({
-      message: "注册成功！请检查邮箱确认链接。",
+      message: "注册成功！",
       user: {
         id: data.user?.id,
         email: data.user?.email,
-        emailConfirmed: data.user?.email_confirmed_at != null
+        name: data.user?.user_metadata?.display_name,
+        initialPoints: 25,
+        note: "新用户赠送25积分，首次每日签到再获得25积分，第一天共50积分"
       }
     })
 

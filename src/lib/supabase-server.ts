@@ -12,7 +12,7 @@ export const createServerSupabaseClient = () => {
 
   return createClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: {
-      autoRefreshToken: false,
+      autoRefreshToken: true,
       persistSession: false
     }
   })

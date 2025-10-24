@@ -30,7 +30,8 @@ export function EmailRegisterForm() {
         body: JSON.stringify({
           email,
           password,
-          name: name || undefined
+          name: name || undefined,
+          skipEmailVerification: true
         }),
       })
 
@@ -42,9 +43,9 @@ export function EmailRegisterForm() {
 
       setIsSuccess(true)
 
-      // 3秒后跳转到登录页面
+      // 3秒后直接跳转到主页
       setTimeout(() => {
-        router.push('/auth/signin?message=请检查邮箱并确认注册')
+        router.push('/')
       }, 3000)
 
     } catch (error) {
@@ -63,14 +64,14 @@ export function EmailRegisterForm() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">注册成功！</h2>
           <p className="text-gray-600 mb-4">
-            我们已向 <span className="font-semibold text-purple-600">{email}</span> 发送了确认邮件
+            欢迎 <span className="font-semibold text-purple-600">{email}</span> 加入英语AI教学工具
           </p>
           <p className="text-sm text-gray-500 mb-6">
-            请检查邮箱并点击确认链接以完成注册
+            您已获得25个初始积分，首次每日签到再获得25积分
           </p>
           <div className="flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm text-gray-600">3秒后自动跳转到登录页面...</span>
+            <span className="text-sm text-gray-600">3秒后自动跳转到主页...</span>
           </div>
         </div>
       </Card>
