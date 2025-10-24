@@ -1,0 +1,35 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { content, title } = await request.json();
+
+    if (!content) {
+      return NextResponse.json(
+        { error: '请提供要导出的内容' },
+        { status: 400 }
+      );
+    }
+
+    // 创建简单的文本内容
+    const textContent = `${title || '导出文档'}\n\n${content}`;
+    
+    // 在Node.js环境中，直接使用Buffer
+    const buffer = Buffer.from(textContent, 'utf-8');
+
+    // 返回文本文件
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': 'text/plain',
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(title || '导出文档')}.txt"`,
+      },
+    });
+
+  } catch (error) {
+    console.error('导出文本文件失败:', error);
+    return NextResponse.json(
+      { error: '导出失败，请稍后重试' },
+      { status: 500 }
+    );
+  }
+}
