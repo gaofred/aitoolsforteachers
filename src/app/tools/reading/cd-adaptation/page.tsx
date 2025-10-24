@@ -154,15 +154,14 @@ export default function CDAdaptationPage() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              image: imageToRecognize,
-              type: 'text'
+              imageBase64: imageToRecognize
             })
           })
 
           const data = await response.json()
 
-          if (data.success && data.text) {
-            allTexts.push(data.text)
+          if (data.success && data.result) {
+            allTexts.push(data.result)
           } else {
             console.warn(`第${i + 1}张图片识别失败:`, data.error)
             // 继续处理其他图片
@@ -362,7 +361,7 @@ export default function CDAdaptationPage() {
                   <Textarea
                     value={article}
                     onChange={(e) => setArticle(e.target.value)}
-                    placeholder="在此粘贴英文文章内容或点击下方拍照识图..."
+                    placeholder="在此粘贴英文文章内容，或使用火山引擎豆包模型拍照识别图片中的文字..."
                     className="h-[400px] resize-none overflow-y-auto"
                   />
                 </div>
@@ -504,7 +503,7 @@ export default function CDAdaptationPage() {
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
             <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-semibold">拍照识图</h3>
+              <h3 className="text-lg font-semibold">拍照识图（火山引擎豆包模型）</h3>
               <Button
                 variant="ghost"
                 size="sm"
@@ -588,7 +587,7 @@ export default function CDAdaptationPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 21v-2a2 2 0 012-2h4a2 2 0 012 2v2" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17v-1" />
                           </svg>
-                          识别文字
+                          识别文字(消耗2点数)
                         </>
                       )}
                     </Button>
