@@ -8,8 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserMenu } from "@/components/auth/UserMenu";
-import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
-import { ImageRecognitionButton } from "@/components/ImageRecognitionButton";
 import { useUser } from "@/lib/user-context";
 
 import { SupabasePointsService } from "@/lib/supabase-points-service";
@@ -167,16 +165,14 @@ export default function Home() {
   const [analysisType, setAnalysisType] = useState("comprehensive");
   // 使用共享的用户状态
   const { currentUser, userPoints, isLoadingUser, refreshUser } = useUser();
-  const [showExportModal, setShowExportModal] = useState(false); // 导出弹窗状态
-  const [showRedeemModal, setShowRedeemModal] = useState(false); // 点数兑换弹窗状态
+    const [showRedeemModal, setShowRedeemModal] = useState(false); // 点数兑换弹窗状态
   const [redemptionCode, setRedemptionCode] = useState(""); // 兑换码
   const [isRedeeming, setIsRedeeming] = useState(false); // 兑换状态
   const [dailyRewardClaimed, setDailyRewardClaimed] = useState(false); // 每日奖励是否已领取
   const [showDailyReward, setShowDailyReward] = useState(false); // 是否显示每日奖励弹窗
   const [isClaimingReward, setIsClaimingReward] = useState(false); // 防重复点击状态
   const [isCopying, setIsCopying] = useState(false); // 复制状态
-  const [isExporting, setIsExporting] = useState(false); // 导出状态
-  
+    
   // 图片识别相关状态
   const [uploadedImages, setUploadedImages] = useState<Array<{file: File, preview: string}>>([]);
   const [isRecognizing, setIsRecognizing] = useState(false);
@@ -373,50 +369,7 @@ export default function Home() {
     }
   };
 
-  // 导出为Word文档
-  const exportToWord = async () => {
-    if (!analysisResult) return;
-    
-    setIsExporting(true);
-    try {
-      const response = await fetch('/api/export/word', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: analysisResult,
-          title: `${getCurrentToolConfig().title} - ${new Date().toLocaleDateString()}`
-        }),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${getCurrentToolConfig().title}-${new Date().toISOString().split('T')[0]}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        alert('文本文件导出成功！');
-      } else {
-        throw new Error('导出失败');
-      }
-    } catch (error) {
-      console.error('导出失败:', error);
-      // 提供更详细的错误信息
-      if (error instanceof Error) {
-        alert(`导出失败: ${error.message}`);
-      } else {
-        alert('导出失败，请稍后重试');
-      }
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
+  
   // 图片上传处理函数
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -1005,20 +958,8 @@ The future of AI depends on our ability to balance innovation with responsibilit
             </div>
           </div>
 
-          {/* 右侧：图像识别 + 点数兑换 + 点数记录 + 导出按钮 + 点数显示 + 用户按钮 */}
+          {/* 右侧：点数兑换 + 点数记录 + 点数显示 + 用户按钮 */}
         <div className="flex items-center gap-2 md:gap-3">
-          {/* 图像识别按钮 */}
-          {currentUser && (
-            <ImageRecognitionButton 
-              className="border-border text-foreground hover:bg-secondary hidden sm:inline-flex"
-              onResultChange={(result) => {
-                // 可以选择将识别结果插入到当前文本框
-                if (result && activeItem === "cd-adaptation") {
-                  setText(prev => prev ? `${prev}\n\n图像识别结果：\n${result}` : result);
-                }
-              }}
-            />
-          )}
           
           {/* 每日奖励按钮 */}
           {currentUser && !dailyRewardClaimed && (
@@ -1064,19 +1005,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
               点数记录
             </Button>
 
-            {/* 导出按钮 */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowExportModal(true)}
-              className="border-border text-foreground hover:bg-secondary hidden sm:inline-flex"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              导出
-            </Button>
-
+  
             {/* 点数显示 */}
             <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-2 border border-border">
               <div className="w-5 h-5 rounded-full bg-gradient-to-r from-primary to-blue-600 flex items-center justify-center">
@@ -1098,7 +1027,6 @@ The future of AI depends on our ability to balance innovation with responsibilit
              <div className="text-xs text-muted-foreground mr-2">
                请先登录使用AI功能
              </div>
-             <GoogleSignInButton />
              <Button
                size="sm"
                onClick={() => router.push('/auth/signin')}

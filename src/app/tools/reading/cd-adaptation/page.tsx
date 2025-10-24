@@ -96,9 +96,9 @@ export default function CDAdaptationPage() {
         return
       }
 
-      // 验证文件大小 (5MB限制)
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`第${index + 1}个图片文件过大，请选择小于5MB的图片`)
+      // 验证文件大小 (10MB限制)
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`第${index + 1}个图片文件过大，请选择小于10MB的图片`)
         return
       }
 
@@ -106,17 +106,57 @@ export default function CDAdaptationPage() {
       reader.onload = (e) => {
         const result = e.target?.result
         if (typeof result === 'string') {
-          validFiles.push(result)
-        }
+          // 压缩图片
+          const img = new Image()
+          img.onload = () => {
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
 
-        processedCount++
-        if (processedCount === files.length) {
-          // 所有文件处理完成
-          if (validFiles.length > 0) {
-            setUploadedImages(validFiles)
-            setPhoto(null) // 清除拍照的照片
+            if (!ctx) {
+              validFiles.push(result)
+              processedCount++
+              if (processedCount === files.length) {
+                if (validFiles.length > 0) {
+                  setUploadedImages(validFiles)
+                  setPhoto(null)
+                }
+                setIsRecognizing(false)
+              }
+              return
+            }
+
+            // 计算压缩后的尺寸
+            const maxWidth = 1920
+            const maxHeight = 1080
+            let width = img.width
+            let height = img.height
+
+            if (width > maxWidth || height > maxHeight) {
+              const ratio = Math.min(maxWidth / width, maxHeight / height)
+              width *= ratio
+              height *= ratio
+            }
+
+            canvas.width = width
+            canvas.height = height
+
+            // 绘制压缩后的图片
+            ctx.drawImage(img, 0, 0, width, height)
+
+            // 转换为base64，质量设置为0.8
+            const compressedResult = canvas.toDataURL('image/jpeg', 0.8)
+            validFiles.push(compressedResult)
+
+            processedCount++
+            if (processedCount === files.length) {
+              if (validFiles.length > 0) {
+                setUploadedImages(validFiles)
+                setPhoto(null)
+              }
+              setIsRecognizing(false)
+            }
           }
-          setIsRecognizing(false)
+          img.src = result
         }
       }
       reader.onerror = () => {
