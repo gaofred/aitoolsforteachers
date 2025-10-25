@@ -46,7 +46,8 @@ const navigationData = [
     ),
     items: [
       { id: "vocabulary-practice", title: "词汇练习生成", cost: 3 },
-      { id: "word-analysis", title: "词汇分析工具", cost: 4 }
+      { id: "word-analysis", title: "词汇分析工具", cost: 4 },
+      { id: "bcd-vocabulary-organise", title: "BCD篇阅读重点词汇整理", cost: 5, route: "/tools/vocabulary/organiseBCDvocabulary" }
     ]
   },
   {
@@ -177,6 +178,23 @@ const toolConfig = {
     ],
     buttonText: "开始改编!",
     analysisText: "AI正在改编中..."
+  },
+  "bcd-vocabulary-organise": {
+    title: "BCD篇阅读重点词汇整理",
+    description: "输入BCD篇阅读文章，AI将为您整理出重点词汇、核心短语和固定搭配，并按照词汇等级和重要性进行分类，帮助学生高效掌握阅读材料中的核心词汇",
+    icon: (
+      <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M6.672 1.911a1 1 0 10-1.932.518l.259.966a1 1 0 001.932-.518l-.26-.966zM2.429 4.74a1 1 0 10-.517 1.932l.966.259a1 1 0 00.517-1.932l-.966-.26zm8.814-.569a1 1 0 00-1.415-1.414l-.707.707a1 1 0 101.415 1.415l.707-.708zm-7.071 7.072l.707-.707A1 1 0 003.465 9.12l-.708.707a1 1 0 001.415 1.415zm3.2-5.171a1 1 0 00-1.3 1.3l4 10a1 1 0 001.823.075l1.38-2.759 3.018 3.02a1 1 0 001.414-1.415l-3.019-3.02 2.76-1.379a1 1 0 00-.076-1.822l-10-4z" clipRule="evenodd" />
+      </svg>
+    ),
+    placeholder: "请粘贴BCD篇阅读文章内容...",
+    analysisOptions: [
+      { value: "comprehensive", label: "全面整理" },
+      { value: "essential", label: "核心词汇" },
+      { value: "advanced", label: "进阶词汇" }
+    ],
+    buttonText: "开始整理词汇!",
+    analysisText: "AI正在整理词汇中..."
   }
 };
 
@@ -1209,20 +1227,20 @@ The future of AI depends on our ability to balance innovation with responsibilit
                           <button
                             key={item.id}
                             onClick={() => handleItemClick(category.id, item.id)}
-                            disabled={!["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)}
+                            disabled={!["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)}
                             className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)
+                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)
                                 ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
                                 : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
                             }`}
                           >
                             <span>{item.title}</span>
                             <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)
+                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)
                                 ? 'bg-purple-200 text-purple-700'
                                 : 'bg-gray-300 text-gray-500'
                             }`}>
-                              {["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id) ? `${item.cost}点` : '敬请期待'}
+                              {["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id) ? `${item.cost}点` : '敬请期待'}
                             </span>
                           </button>
                         ))}
@@ -1330,20 +1348,20 @@ The future of AI depends on our ability to balance innovation with responsibilit
                               handleItemClick(category.id, item.id);
                               setSidebarCollapsed(true);
                             }}
-                            disabled={!["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)}
+                            disabled={!["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)}
                             className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)
+                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)
                                 ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
                                 : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
                             }`}
                           >
                             <span>{item.title}</span>
                             <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)
+                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)
                                 ? 'bg-purple-200 text-purple-700'
                                 : 'bg-gray-300 text-gray-500'
                             }`}>
-                              {["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id) ? `${item.cost}点` : '敬请期待'}
+                              {["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id) ? `${item.cost}点` : '敬请期待'}
                             </span>
                           </button>
                         ))}
