@@ -27,7 +27,7 @@ export default function BCDVocabularyOrganisePage() {
   const [redeemSuccess, setRedeemSuccess] = useState("");
 
   // 工具配置
-  const toolCost = 2; // BCD词汇整理消耗2个点数
+const toolCost = 2; // BCD词汇整理消耗2个点数
 
   // 确保组件只在客户端渲染
   useEffect(() => {
