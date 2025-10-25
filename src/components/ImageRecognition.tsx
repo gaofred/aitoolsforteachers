@@ -96,7 +96,7 @@ export function ImageRecognition({ onResultChange }: ImageRecognitionProps) {
     <div className="w-full space-y-4 p-4 border rounded-lg bg-white shadow-sm">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">图像识别</h3>
-        <div className="text-xs text-gray-500">消耗2点数</div>
+        <div className="text-xs text-green-600">免费使用</div>
       </div>
 
       {/* 图片上传区域 */}
@@ -177,4 +177,7 @@ export function ImageRecognition({ onResultChange }: ImageRecognitionProps) {
     </div>
   );
 }
+
+
+
 

@@ -37,7 +37,7 @@ model User {
 model UserPoints {
   id           String   @id @default(cuid())
   userId       String   @unique
-  points       Int      @default(25) // 新用户赠送25积分
+  points       Float    @default(25) // 新用户赠送25积分
   lastUpdated  DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -69,7 +69,7 @@ model AIGeneration {
   finalOutput    Json?    // 经过对话调整后的最终输出
   modelType      AIModelType @default(STANDARD) // 使用的AI模型类型
   tokensUsed     Int      @default(0)
-  pointsCost     Int      @default(0)
+  pointsCost     Float    @default(0)
   status         GenerationStatus @default(PENDING)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -116,7 +116,7 @@ model PointTransaction {
   id          String            @id @default(cuid())
   userId      String
   type        TransactionType
-  amount      Int
+  amount      Float
   description String
   relatedId   String?           // 相关的记录ID（如兑换码、生成记录等）
   metadata    Json?             // 额外的元数据
@@ -134,8 +134,8 @@ model AIToolConfig {
   toolName        String   // 工具显示名称
   description     String   // 工具描述
   category        String   // 工具分类
-  standardCost    Int      // 标准版本消耗点数
-  proCost         Int?     // Pro版本消耗点数（可选）
+  standardCost    Float    // 标准版本消耗点数
+  proCost         Float?   // Pro版本消耗点数（可选）
   isProOnly       Boolean  @default(false) // 是否仅Pro可用
   isActive        Boolean  @default(true) // 是否启用
   createdAt       DateTime @default(now())

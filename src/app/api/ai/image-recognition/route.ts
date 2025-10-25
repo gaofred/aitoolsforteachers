@@ -46,28 +46,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // 检查用户点数
-    const { data: userPoints, error: pointsError } = await supabase
-      .from("user_points")
-      .select("points")
-      .eq("user_id", user.id)
-      .single();
+    const pointsCost = 0; // 识图功能免费
 
-    if (pointsError || !userPoints) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "获取用户点数失败" 
-      }, { status: 400 });
-    }
-
-    const pointsCost = 1; // 识图功能消耗1个点数
-    
-    if ((userPoints as any).points < pointsCost) {
-      return NextResponse.json({ 
-        success: false, 
-        error: `点数不足，需要${pointsCost}个点数，当前剩余${(userPoints as any).points}个点数` 
-      }, { status: 400 });
-    }
+    // 免费功能，无需检查点数
 
     // 调用火山引擎API进行识图
     const response = await fetch(VOLCENGINE_API_URL, {
@@ -110,36 +91,13 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // 扣除用户点数
-    const { error: deductError } = await (supabase as any).rpc('add_user_points', {
-      p_user_id: user.id,
-      p_amount: -pointsCost,
-      p_type: 'GENERATE',
-      p_description: '图像识别功能',
-      p_related_id: null,
-      p_metadata: {
-        tool: 'image_recognition',
-        points_cost: pointsCost
-      }
-    });
-
-    if (deductError) {
-      console.error("扣除点数失败:", deductError);
-      // 即使扣除点数失败，也返回结果
-    }
-
-    // 获取更新后的点数
-    const { data: updatedPoints } = await supabase
-      .from("user_points")
-      .select("points")
-      .eq("user_id", user.id)
-      .single();
+    // 免费功能，无需扣除点数
 
     return NextResponse.json({
       success: true,
       result: data.choices[0].message.content,
       pointsCost: pointsCost,
-      remainingPoints: (updatedPoints as any)?.points || (userPoints as any).points - pointsCost
+      message: "OCR识图功能免费使用"
     });
 
   } catch (error) {

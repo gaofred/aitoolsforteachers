@@ -111,8 +111,7 @@ export class SupabasePointsService {
         p_amount: amount,
         p_type: type,
         p_description: description,
-        p_related_id: relatedId,
-        p_metadata: metadata
+        p_related_id: relatedId
       });
 
       if (error) {
@@ -413,6 +412,9 @@ export class SupabasePointsService {
     }
   }
 }
+
+
+
 
 
 

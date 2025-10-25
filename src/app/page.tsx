@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
+
+// 直接在组件中使用条件渲染避免水合问题
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,11 +27,26 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "text-analysis", title: "阅读文本深度分析", active: true, cost: 3 },
-      { id: "text-generator", title: "阅读文本生成神器", cost: 4 },
+      { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6 },
+      { id: "text-generator", title: "阅读文本生成神器", cost: 4, route: "/tools/reading/reading-generator" },
       { id: "cd-adaptation", title: "CD篇改编", cost: 5, route: "/tools/reading/cd-adaptation" },
+      { id: "cd-creator", title: "CD篇命题", active: true, cost: 7, route: "/tools/reading/cd-creator" },
       { id: "structure-analysis", title: "篇章结构分析", cost: 4 },
       { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6 }
+    ]
+  },
+  {
+    id: "vocabulary",
+    title: "词汇学习工具",
+    subtitle: "词汇学习与巩固工具",
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M6.672 1.911a1 1 0 10-1.932.518l.259.966a1 1 0 001.932-.518l-.26-.966zM2.429 4.74a1 1 0 10-.517 1.932l.966.259a1 1 0 00.517-1.932l-.966-.26zm8.814-.569a1 1 0 00-1.415-1.414l-.707.707a1 1 0 101.415 1.415l.707-.708zm-7.071 7.072l.707-.707A1 1 0 003.465 9.12l-.708.707a1 1 0 001.415 1.415zm3.2-5.171a1 1 0 00-1.3 1.3l4 10a1 1 0 001.823.075l1.38-2.759 3.018 3.02a1 1 0 001.414-1.415l-3.019-3.02 2.76-1.379a1 1 0 00-.076-1.822l-10-4z" clipRule="evenodd" />
+      </svg>
+    ),
+    items: [
+      { id: "vocabulary-practice", title: "词汇练习生成", cost: 3 },
+      { id: "word-analysis", title: "词汇分析工具", cost: 4 }
     ]
   },
   {
@@ -65,32 +82,44 @@ const navigationData = [
   },
   {
     id: "translation",
-    title: "翻译与多媒体工具",
-    subtitle: "翻译、音频与视频生成",
+    title: "文本翻译工具",
+    subtitle: "文本翻译与语言转换",
     icon: (
       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+        <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
       </svg>
     ),
     items: [
-      { id: "listening-generator", title: "英语听力生成器", cost: 8 },
       { id: "en-to-cn", title: "地道英译汉", cost: 3 },
       { id: "multi-translation", title: "一句多译", cost: 4 },
       { id: "cn-to-en", title: "地道汉译英", cost: 3 }
     ]
   },
   {
-    id: "vocabulary",
-    title: "词汇学习工具",
-    subtitle: "词汇学习与巩固工具",
+    id: "media",
+    title: "音频和视频工具",
+    subtitle: "音频视频生成与处理",
     icon: (
       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M6.672 1.911a1 1 0 10-1.932.518l.259.966a1 1 0 001.932-.518l-.26-.966zM2.429 4.74a1 1 0 10-.517 1.932l.966.259a1 1 0 00.517-1.932l-.966-.26zm8.814-.569a1 1 0 00-1.415-1.414l-.707.707a1 1 0 101.415 1.415l.707-.708zm-7.071 7.072l.707-.707A1 1 0 003.465 9.12l-.708.707a1 1 0 001.415 1.415zm3.2-5.171a1 1 0 00-1.3 1.3l4 10a1 1 0 001.823.075l1.38-2.759 3.018 3.02a1 1 0 001.414-1.415l-3.019-3.02 2.76-1.379a1 1 0 00-.076-1.822l-10-4z" clipRule="evenodd" />
+        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+        <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
       </svg>
     ),
     items: [
-      { id: "vocabulary-practice", title: "词汇练习生成", cost: 3 },
-      { id: "word-analysis", title: "词汇分析工具", cost: 4 }
+      { id: "listening-generator", title: "英语听力生成器", cost: 8 }
+    ]
+  },
+  {
+    id: "image",
+    title: "图片生成工具",
+    subtitle: "AI图片生成与编辑",
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+      </svg>
+    ),
+    items: [
+      { id: "image-generator", title: "AI图片生成", cost: 5 }
     ]
   }
 ];
@@ -98,8 +127,8 @@ const navigationData = [
 // 工具配置信息
 const toolConfig = {
   "text-analysis": {
-    title: "英语文本深度分析",
-    description: "输入英语文章，AI将提供详细的语言分析报告，包括词汇、语法、文体等多维度分析",
+    title: "阅读理解深度分析",
+    description: "输入英文文章，但不要包含题干和ABCD选项，Fred老师原创提示词将会生成全文解读、文章中心思想和情节走向、段落分析与衔接、篇章结构分析、逐个段落解读等详细剖析内容。",
     icon: (
       <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
         <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
@@ -153,6 +182,7 @@ const toolConfig = {
 
 export default function Home() {
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
   const [text, setText] = useState("");
   const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
   const [useCode, setUseCode] = useState("");
@@ -161,9 +191,7 @@ export default function Home() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
-  const [analysisLevel, setAnalysisLevel] = useState("intermediate");
-  const [analysisType, setAnalysisType] = useState("comprehensive");
-  // 使用共享的用户状态
+    // 使用共享的用户状态
   const { currentUser, userPoints, isLoadingUser, refreshUser } = useUser();
     const [showRedeemModal, setShowRedeemModal] = useState(false); // 点数兑换弹窗状态
   const [redemptionCode, setRedemptionCode] = useState(""); // 兑换码
@@ -172,40 +200,88 @@ export default function Home() {
   const [showDailyReward, setShowDailyReward] = useState(false); // 是否显示每日奖励弹窗
   const [isClaimingReward, setIsClaimingReward] = useState(false); // 防重复点击状态
   const [isCopying, setIsCopying] = useState(false); // 复制状态
-    
+
   // 图片识别相关状态
   const [uploadedImages, setUploadedImages] = useState<Array<{file: File, preview: string}>>([]);
   const [isRecognizing, setIsRecognizing] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  // 检查用户登录状态
-  useEffect(() => {
-    checkCurrentUser();
+  // 摄像头相关状态
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    // 检查URL参数中是否有登录成功的标志
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('signed_in') === 'true') {
-      // 清除URL参数
-      window.history.replaceState({}, document.title, window.location.pathname);
-      // 重新检查用户状态
-      setTimeout(() => {
-        checkCurrentUser();
-      }, 1000);
-    }
+  // 确保组件只在客户端渲染
+  useEffect(() => {
+    setIsMounted(true);
+    checkCurrentUser();
   }, []);
 
+  // 摄像头功能函数 - 移到useEffect前面
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+      setIsCameraOpen(true);
+    } catch (error) {
+      console.error('摄像头访问失败:', error);
+      alert('无法访问摄像头，请检查权限设置');
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsCameraOpen(false);
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+
+      if (context) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0);
+
+        const photoData = canvas.toDataURL('image/jpeg', 0.8);
+        setPhoto(photoData);
+        stopCamera();
+      }
+    }
+  };
+
+  // 组件卸载时清理摄像头
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [stream]);
+
+  // 检查用户登录状态
   const checkCurrentUser = async () => {
     try {
       const response = await fetch('/api/auth/user');
       if (response.ok) {
         const userData = await response.json();
         console.log('用户登录成功:', userData);
-        
+
         // 检查每日奖励状态
         checkDailyRewardStatus();
       } else {
         console.log('用户未登录或认证失败');
-        
+
         // 尝试检查认证状态
         const checkResponse = await fetch('/api/auth/check');
         if (checkResponse.ok) {
@@ -217,6 +293,22 @@ export default function Home() {
       console.error('检查用户状态失败:', error);
     }
   };
+
+  // 处理URL参数检查（只在客户端执行）
+  useEffect(() => {
+    if (isMounted && typeof window !== 'undefined') {
+      // 检查URL参数中是否有登录成功的标志
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('signed_in') === 'true') {
+        // 清除URL参数
+        window.history.replaceState({}, document.title, window.location.pathname);
+        // 重新检查用户状态
+        setTimeout(() => {
+          checkCurrentUser();
+        }, 1000);
+      }
+    }
+  }, [isMounted]);
 
   // 检查每日奖励状态（每次请求后重新检查）
   const checkDailyRewardStatus = async () => {
@@ -349,7 +441,7 @@ export default function Home() {
   // 一键复制功能
   const copyToClipboard = async () => {
     if (!analysisResult) return;
-    
+
     setIsCopying(true);
     try {
       await navigator.clipboard.writeText(analysisResult);
@@ -366,6 +458,53 @@ export default function Home() {
       alert('内容已复制到剪贴板！');
     } finally {
       setIsCopying(false);
+    }
+  };
+
+  // 导出txt文件功能
+  const exportToTxt = () => {
+    if (!analysisResult) {
+      alert('没有可导出的内容！');
+      return;
+    }
+
+    try {
+      // 创建文件内容，移除HTML标签
+      const cleanText = analysisResult
+        .replace(/<[^>]*>/g, '') // 移除HTML标签
+        .replace(/&nbsp;/g, ' ') // 替换空格实体
+        .replace(/&lt;/g, '<') // 替换小于号实体
+        .replace(/&gt;/g, '>') // 替换大于号实体
+        .replace(/&amp;/g, '&') // 替换和号实体
+        .replace(/&quot;/g, '"') // 替换引号实体
+        .replace(/&#39;/g, "'"); // 替换单引号实体
+
+      // 创建Blob对象
+      const blob = new Blob([cleanText], { type: 'text/plain;charset=utf-8' });
+
+      // 创建下载链接
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // 生成文件名（使用当前日期）
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const timeStr = now.toTimeString().slice(0, 5).replace(/:/g, '');
+      link.download = `阅读理解深度分析_${dateStr}_${timeStr}.txt`;
+
+      // 触发下载
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // 清理URL对象
+      URL.revokeObjectURL(url);
+
+      alert('文件导出成功！');
+    } catch (error) {
+      console.error('导出失败:', error);
+      alert('导出失败，请重试！');
     }
   };
 
@@ -415,71 +554,112 @@ export default function Home() {
 
   // 图片识别处理函数
   const handleImageRecognition = async () => {
-    if (uploadedImages.length === 0) return;
+    if (uploadedImages.length === 0 && !photo) {
+      alert('请先上传图片或拍照');
+      return;
+    }
 
     setIsRecognizing(true);
     try {
-      // 并行处理多张图片的识别，保持图片顺序
-      const recognitionPromises = uploadedImages.map(async (imageData, index) => {
-        const response = await fetch('/api/ai/image-recognition', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ imageBase64: imageData.preview }),
+      let imagesToRecognize: string[] = [];
+
+      // 处理上传的图片
+      if (uploadedImages.length > 0) {
+        const uploadPromises = uploadedImages.map(async (imageObj) => {
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(imageObj.file);
+          });
         });
+        const uploadResults = await Promise.all(uploadPromises);
+        imagesToRecognize = [...imagesToRecognize, ...uploadResults];
+      }
 
-        const data = await response.json();
-        if (data.success) {
-          return {
-            index: index,
-            result: data.result,
-            success: true
-          };
-        } else {
-          return {
-            index: index,
-            result: data.error || '识别失败',
-            success: false
-          };
+      // 处理拍照的图片
+      if (photo) {
+        imagesToRecognize.push(photo);
+      }
+
+      // 并行识别所有图片
+      const recognitionPromises = imagesToRecognize.map(async (imageBase64, index) => {
+        try {
+          const response = await fetch('/api/ai/image-recognition', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('sb-access-token') || ''}`
+            },
+            body: JSON.stringify({
+              imageBase64: imageBase64
+            })
+          });
+
+          const data = await response.json();
+
+          if (data.success && data.result) {
+            console.log(`第${index + 1}张图片识别成功`);
+            return { success: true, text: data.result, index };
+          } else {
+            console.warn(`第${index + 1}张图片识别失败:`, data.error);
+            return { success: false, error: data.error, index };
+          }
+        } catch (error) {
+          console.error(`第${index + 1}张图片识别错误:`, error);
+          return { success: false, error: (error as Error).message, index };
         }
       });
 
+      // 等待所有识别任务完成
       const results = await Promise.all(recognitionPromises);
-      
-      // 按照图片顺序排列结果
-      const sortedResults = results.sort((a, b) => a.index - b.index);
-      
-      // 构建识别结果文本，按照图片顺序
-      let combinedResult = '图片文字识别结果：\n\n';
-      sortedResults.forEach((item, index) => {
-        combinedResult += `图片 ${index + 1} 文字内容：\n${item.result}\n\n`;
-        if (index < sortedResults.length - 1) {
-          combinedResult += '---\n\n';
+
+      // 按原始顺序过滤成功的结果
+      const successfulResults = results
+        .filter(result => result.success)
+        .sort((a, b) => a.index - b.index)
+        .map(result => result.text);
+
+      if (successfulResults.length > 0) {
+        // 合并所有识别的文本，保持上传顺序
+        const combinedText = successfulResults.join('\n\n');
+        setText(prev => prev + (prev ? '\n\n' : '') + combinedText);
+
+        // 延迟清除图片状态，确保文本已经成功添加
+        setTimeout(() => {
+          clearImages();
+        }, 100);
+
+        // 显示成功信息
+        const failedCount = imagesToRecognize.length - successfulResults.length;
+        if (failedCount > 0) {
+          setTimeout(() => {
+            alert(`成功识别${successfulResults.length}张图片，${failedCount}张图片识别失败`);
+          }, 150);
+        } else {
+          setTimeout(() => {
+            alert(`成功识别所有${successfulResults.length}张图片！`);
+          }, 150);
         }
-      });
-      
-      // 清空文本框并将识别结果填入
-      setText(combinedResult);
-      
-      // 清空已上传的图片
-      setUploadedImages([]);
-      
-      // 检查是否有失败的识别
-      const failedCount = results.filter(r => !r.success).length;
-      if (failedCount > 0) {
-        alert(`文字识别完成！${results.length - failedCount}张图片文字识别成功，${failedCount}张识别失败。结果已添加到文本框中。`);
       } else {
-        alert(`文字识别完成！所有${results.length}张图片文字识别成功，结果已添加到文本框中。`);
+        alert('所有图片识别都失败了，请重试');
       }
     } catch (error) {
       console.error('图片识别失败:', error);
-      alert(`图片识别失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      alert('图片识别失败，请重试');
     } finally {
       setIsRecognizing(false);
     }
   };
 
+  // 清除所有图片
+  const clearImages = () => {
+    setUploadedImages([]);
+    setPhoto(null);
+    setIsCameraOpen(false);
+    stopCamera();
+  };
+
+  
   const charCount = text.length;
   const maxChars = 10000;
   const minChars = activeItem === "text-generator" ? 5 : 50;
@@ -503,12 +683,70 @@ export default function Home() {
   const hasEnoughPoints = userPoints >= toolCost;
   const currentTool = getCurrentToolConfig();
 
+  // 检测文本中是否包含题干和选项
+  const detectQuizOptions = (inputText: string) => {
+    const text = inputText.trim();
+    if (!text) return false;
+
+    // 检测题干模式：以数字开头，后跟问号的问题
+    const questionPattern = /^\d+\.\s+.*\?$/im;
+    // 检测选项模式：包含 A. B. C. D. 或类似格式
+    const optionPattern = /^[A-D]\.\s+/im;
+
+    try {
+      const hasQuestions = questionPattern.test(text);
+      const hasOptions = optionPattern.test(text);
+
+      return hasQuestions || hasOptions;
+    } catch (error) {
+      console.error('检测题干选项时出错:', error);
+      return false;
+    }
+  };
+
   const handleAnalyze = async () => {
     if (canAnalyze && !isAnalyzing && hasEnoughPoints) {
+      // 检测是否包含题干和选项
+      if (activeItem === "text-analysis" && detectQuizOptions(text)) {
+        alert('⚠️ 检测到您输入的内容包含题干和ABCD选项。\n\n请删除题干和选项，只输入英文文章原文。\n\nFred老师原创提示词需要纯文本才能生成高质量的深度分析内容。');
+        return;
+      }
+
       setIsAnalyzing(true);
 
       try {
-        if (activeItem === "cd-adaptation") {
+        if (activeItem === "text-analysis") {
+          // 阅读文本深度分析功能
+          console.log('🚀 开始发送文本分析请求，文本长度:', text.length);
+          console.log('📝 请求文本内容:', text);
+
+          const response = await fetch('/api/ai/text-analysis', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('sb-access-token') || ''}`
+            },
+            body: JSON.stringify({
+              text: text,
+              analysisType: "comprehensive"
+            }),
+          });
+
+          console.log('📡 收到响应，状态码:', response.status);
+          const data = await response.json();
+          console.log('📊 响应数据:', data);
+
+          if (data.success) {
+            console.log('✅ 文本分析成功！结果长度:', data.result?.length);
+            setAnalysisResult(data.result);
+            await refreshUser();
+            alert(`文本分析完成！消耗 ${data.pointsCost} 个点数，剩余 ${data.remainingPoints} 个点数`);
+          } else {
+            console.error('❌ 文本分析失败:', data.error);
+            alert(data.error || '文本分析失败，请稍后重试');
+            await refreshUser();
+          }
+        } else if (activeItem === "cd-adaptation") {
           // CD篇改编功能
           const response = await fetch('/api/ai/cd-adaptation', {
             method: 'POST',
@@ -519,7 +757,7 @@ export default function Home() {
             },
             body: JSON.stringify({
               text: text,
-              version: analysisType // basic 或 advanced
+              version: "basic"
             }),
           });
 
@@ -642,18 +880,18 @@ As we continue to explore and expand our knowledge of ${text.toLowerCase()}, new
 - Expand vocabulary in context
 - Practice critical thinking and analysis
 
-This article is designed for ${analysisLevel === 'beginner' ? 'beginner' : analysisLevel === 'intermediate' ? 'intermediate' : 'advanced'} learners and includes approximately ${Math.ceil(Math.random() * 200 + 300)} words, making it suitable for classroom use or self-study.
+This article is designed for intermediate learners and includes approximately 450 words, making it suitable for classroom use or self-study.
         `);
       } else {
         // 原有的文本分析功能
         setAnalysisResult(`
-# 📊 英语文本深度分析报告
+# 📊 阅读理解深度分析报告
 
 ## 基本信息
 - **字符总数**: ${charCount}
 - **单词估计**: ${Math.ceil(charCount / 5)}
 - **预估阅读时间**: ${Math.ceil(charCount / 200)} 分钟
-- **分析级别**: ${analysisLevel === 'beginner' ? '初级' : analysisLevel === 'intermediate' ? '中级' : '高级'}
+- **分析级别**: 中级
 
 ## 语言特征分析
 
@@ -747,10 +985,10 @@ The future of AI depends on our ability to balance innovation with responsibilit
       ?.items.find(item => item.id === itemId);
     
     if (item && (item as any).route) {
-      // 预加载路由以提高性能
-      router.prefetch((item as any).route);
-      // 使用replace而不是push，避免历史记录堆积
-      router.replace((item as any).route);
+      // 使用 startTransition 包装导航，避免预取错误
+      startTransition(() => {
+        router.push((item as any).route);
+      });
       return;
     }
     
@@ -806,6 +1044,17 @@ The future of AI depends on our ability to balance innovation with responsibilit
   
 
 
+  // 水合错误保护：如果组件还未挂载，显示加载状态
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">正在加载...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen transition-all duration-500 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50">
@@ -924,9 +1173,9 @@ The future of AI depends on our ability to balance innovation with responsibilit
             <>
               {/* 分类导航 */}
               <div className="flex-1 overflow-hidden p-4 h-full max-h-[calc(100vh-200px)]">
-                <nav className="space-y-2">
+                <nav className="space-y-1">
                   {navigationData.map((category) => (
-                    <div key={category.id} className="mb-3">
+                    <div key={category.id} className="mb-1">
                       <button
                         onClick={() => toggleCategory(category.id)}
                         className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 hover:bg-gray-100 group"
@@ -960,20 +1209,20 @@ The future of AI depends on our ability to balance innovation with responsibilit
                           <button
                             key={item.id}
                             onClick={() => handleItemClick(category.id, item.id)}
-                            disabled={item.id !== "cd-adaptation"}
+                            disabled={!["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)}
                             className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                              item.id === "cd-adaptation"
+                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)
                                 ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
                                 : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
                             }`}
                           >
                             <span>{item.title}</span>
                             <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                              item.id === "cd-adaptation"
+                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)
                                 ? 'bg-purple-200 text-purple-700'
                                 : 'bg-gray-300 text-gray-500'
                             }`}>
-                              {item.id !== "cd-adaptation" ? '敬请期待' : `${item.cost}点`}
+                              {["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id) ? `${item.cost}点` : '敬请期待'}
                             </span>
                           </button>
                         ))}
@@ -1043,9 +1292,9 @@ The future of AI depends on our ability to balance innovation with responsibilit
                   </button>
                 </div>
                 {/* 导航内容 */}
-                <nav className="space-y-2">
+                <nav className="space-y-1">
                   {navigationData.map((category) => (
-                    <div key={category.id} className="mb-3">
+                    <div key={category.id} className="mb-1">
                       <button
                         onClick={() => toggleCategory(category.id)}
                         className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 hover:bg-gray-100 group"
@@ -1081,20 +1330,20 @@ The future of AI depends on our ability to balance innovation with responsibilit
                               handleItemClick(category.id, item.id);
                               setSidebarCollapsed(true);
                             }}
-                            disabled={item.id !== "cd-adaptation"}
+                            disabled={!["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)}
                             className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                              item.id === "cd-adaptation"
+                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)
                                 ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
                                 : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
                             }`}
                           >
                             <span>{item.title}</span>
                             <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                              item.id === "cd-adaptation"
+                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id)
                                 ? 'bg-purple-200 text-purple-700'
                                 : 'bg-gray-300 text-gray-500'
                             }`}>
-                              {item.id !== "cd-adaptation" ? '敬请期待' : `${item.cost}点`}
+                              {["text-analysis", "text-generator", "cd-adaptation", "cd-creator"].includes(item.id) ? `${item.cost}点` : '敬请期待'}
                             </span>
                           </button>
                         ))}
@@ -1109,11 +1358,11 @@ The future of AI depends on our ability to balance innovation with responsibilit
 
         {/* 主内容区 */}
         <main className={`flex-1 bg-gradient-to-br from-transparent to-gray-50/30 transition-all duration-300 ${
-          sidebarCollapsed ? 'md:ml-12' : 'md:ml-56'
-        }`}>
+          sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
+        } md:-ml-px`}>
           <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row overflow-hidden">
             {/* 左半部分：工具配置区 */}
-            <div className="w-full lg:w-2/5 bg-card border-r border-border flex flex-col">
+            <div className="w-full lg:w-5/12 bg-card border-r border-border flex flex-col">
               {/* 工具信息卡片 */}
               <div className="p-3 border-b border-white/10">
                 <div className="flex items-start gap-2">
@@ -1179,36 +1428,203 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                         placeholder={currentTool.placeholder}
-                        className={`${activeItem === "cd-adaptation" ? "min-h-[300px]" : "min-h-[200px]"} text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500 resize-none transition-all duration-200`}
+                        className={`${activeItem === "cd-adaptation" ? "min-h-[450px]" : "min-h-[300px]"} text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500 resize-none transition-all duration-200`}
                         maxLength={maxChars}
                       />
                       <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-white px-2 py-1 rounded border">
                         {charCount}/{maxChars}
                       </div>
                     </div>
+
+                    {/* 文本分析功能的特殊提示 */}
+                    {activeItem === "text-analysis" && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex items-start space-x-2">
+                          <span className="text-amber-600 text-lg">📝</span>
+                          <div className="text-xs text-amber-700">
+                            <p className="font-medium mb-1">重要提醒：</p>
+                            <ul className="list-disc list-inside space-y-1 text-amber-600">
+                              <li>请只输入英文文章原文，不要包含题干和ABCD选项</li>
+                              <li>Fred老师原创提示词需要纯文本才能生成最佳分析效果</li>
+                              <li>如果检测到题干选项，系统会自动提醒您修改</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 阅读理解深度分析的图片识别功能 */}
+                    {activeItem === "text-analysis" && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          图片文字识别 (最多3张)
+                        </label>
+
+                        {/* 图片上传区域 */}
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+                          <div className="flex flex-col items-center justify-center space-y-3">
+                            <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-full">
+                              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm text-gray-600 mb-2">点击上传图片、拖拽图片到此处或拍照</p>
+                              <p className="text-xs text-gray-500">支持 JPG、PNG、GIF 格式，每张图片不超过 10MB</p>
+                              <p className="text-xs text-purple-600 mt-1">📝 功能：识别图片中的英文文章内容</p>
+                            </div>
+
+                            {/* 操作按钮 */}
+                            <div className="flex gap-3">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handleImageUpload}
+                                className="hidden"
+                                id="text-analysis-image-upload"
+                                ref={imageInputRef}
+                              />
+                              <label
+                                htmlFor="text-analysis-image-upload"
+                                className="cursor-pointer bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm font-medium"
+                              >
+                                选择图片
+                              </label>
+
+                              <button
+                                onClick={startCamera}
+                                disabled={isRecognizing}
+                                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                拍照
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 已上传的图片预览 */}
+                          {(uploadedImages.length > 0 || photo) && (
+                            <div className="mt-4">
+                              <div className="grid grid-cols-3 gap-2">
+                                {uploadedImages.map((image, index) => (
+                                  <div key={index} className="relative group">
+                                    <img
+                                      src={image.preview}
+                                      alt={`Uploaded image ${index + 1}`}
+                                      className="w-full h-20 object-cover rounded-lg border border-gray-200"
+                                    />
+                                    <button
+                                      onClick={() => removeImage(index)}
+                                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors duration-200"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                                {photo && (
+                                  <div className="relative group">
+                                    <img
+                                      src={photo}
+                                      alt="Taken photo"
+                                      className="w-full h-20 object-cover rounded-lg border border-gray-200"
+                                    />
+                                    <button
+                                      onClick={() => setPhoto(null)}
+                                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors duration-200"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 识别按钮 */}
+                              <div className="mt-3 flex justify-between items-center">
+                                <div className="text-xs text-gray-500">
+                                  已选择 {uploadedImages.length + (photo ? 1 : 0)} 张图片
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={clearImages}
+                                    disabled={isRecognizing}
+                                    className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                  >
+                                    清除图片
+                                  </button>
+                                  <button
+                                    onClick={handleImageRecognition}
+                                    disabled={isRecognizing || (uploadedImages.length === 0 && !photo)}
+                                    className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                  >
+                                    {isRecognizing ? (
+                                      <>
+                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        识别中...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        识别文字
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 摄像头界面 */}
+                        {isCameraOpen && (
+                          <div className="mt-4 p-4 bg-black rounded-lg">
+                            <div className="space-y-3">
+                              <div className="relative">
+                                <video
+                                  ref={videoRef}
+                                  autoPlay
+                                  playsInline
+                                  className="w-full rounded-lg"
+                                />
+                                <canvas ref={canvasRef} className="hidden" />
+                              </div>
+                              <div className="flex justify-center gap-3">
+                                <button
+                                  onClick={takePhoto}
+                                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  </svg>
+                                  拍照
+                                </button>
+                                <button
+                                  onClick={stopCamera}
+                                  className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                  关闭
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {activeItem === "text-analysis" ? (
-                    <>
-                      {/* 分析类型 */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">分析类型</label>
-                        <Select value={analysisType} onValueChange={setAnalysisType}>
-                          <SelectTrigger className="border-gray-300 focus:border-purple-500 transition-all duration-200">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {currentTool.analysisOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  ) : null}
-
+  
                   {/* CD篇改编的图片识别功能 */}
                   {activeItem === "cd-adaptation" && (
                     <div className="space-y-2">
@@ -1299,64 +1715,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                     </div>
                   )}
 
-                  {/* CD篇改编的大语言模型选择器或其他工具的难度级别 */}
-                  {activeItem === "cd-adaptation" ? (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        大语言模型
-                      </label>
-                      <Select value={analysisLevel} onValueChange={setAnalysisLevel}>
-                        <SelectTrigger className="border-gray-300 focus:border-purple-500 transition-all duration-200">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentTool.analysisOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      
-                      {/* 模型说明卡片 */}
-                      <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-3 mt-2">
-                        <div className="flex items-start gap-2">
-                          <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <svg className="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-sm font-medium text-purple-900 mb-1">🤖 模型选择说明</h4>
-                            <div className="text-xs text-purple-700 space-y-1">
-                              <p><strong>基础版（豆包驱动）</strong>：消耗5点数，适合日常改编需求</p>
-                              <p><strong>进阶版（Gemini-2.5-Pro驱动）</strong>：消耗9点数，适合复杂文本处理</p>
-                              <p className="text-orange-600">⚠️ 需要至少50个字符才能开始改编</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        {activeItem === "text-generator" ? "目标难度" : "目标学习者水平"}
-                      </label>
-                      <Select value={analysisLevel} onValueChange={setAnalysisLevel}>
-                        <SelectTrigger className="border-gray-300 focus:border-purple-500 transition-all duration-200">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentTool.analysisOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
+                  </div>
               </div>
 
               {/* 底部操作区 */}
@@ -1475,34 +1834,47 @@ The future of AI depends on our ability to balance innovation with responsibilit
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                       </div>
-                      <h3 className="text-xl font-semibold text-foreground mb-3">AI正在分析中</h3>
-                      <p className="text-muted-foreground">
-                        正在对您的文章进行深度分析，请稍候...
-                      </p>
+                      <h3 className="text-xl font-semibold text-foreground mb-3">AI正在深度分析中</h3>
+                      <div className="text-center space-y-2">
+                        <p className="text-muted-foreground">
+                          Fred老师正在进行详细的文本分析...
+                        </p>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                          <p className="text-amber-800 text-sm font-medium">
+                            ⏱️ 预计需要约3分钟，请耐心等待
+                          </p>
+                          <p className="text-amber-700 text-xs mt-1">
+                            AI正在生成全文解读、文章中心思想、段落分析等详细内容
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 md:p-8 animate-slide-up">
-                    <div className="max-w-none h-[calc(100vh-6rem)] overflow-hidden">
+                  <div className="p-4 md:p-8 animate-slide-up flex flex-col h-[calc(100vh-6rem)]">
+                    {/* 结果展示区域 */}
+                    <div className="flex-1 min-h-0">
                       <div className="evolink-glass rounded-lg shadow-lg border border-white/10 p-6 md:p-8 h-full overflow-hidden">
-                        <div className="prose prose-gray prose-sm max-w-none max-h-[calc(75vh-4rem)] overflow-y-auto">
+                        <div className="max-w-none max-h-[calc(100vh-10rem)] overflow-y-auto text-sm leading-relaxed" style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>
                           <div dangerouslySetInnerHTML={{
                             __html: (analysisResult || '')
                               .replace(/\n/g, '<br>')
-                              .replace(/# (.*)/g, '<h1 style="color: #374151; font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;">$1</h1>')
-                              .replace(/## (.*)/g, '<h2 style="color: #4b5563; font-size: 1.125rem; font-weight: 600; margin: 1.5rem 0 0.75rem 0;">$1</h2>')
-                              .replace(/### (.*)/g, '<h3 style="color: #6b7280; font-size: 1rem; font-weight: 600; margin: 1.25rem 0 0.5rem 0;">$1</h3>')
-                              .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #374151;">$1</strong>')
-                              .replace(/- (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem;">• $1</div>')
-                              .replace(/(\d+)\. (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem;">$1. $2</div>')
+                              .replace(/# (.*)/g, '<div style="color: #1f2937; font-size: 0.875rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.6;">$1</div>')
+                              .replace(/## (.*)/g, '<div style="color: #374151; font-size: 0.875rem; font-weight: 600; margin: 1rem 0 0.5rem 0; line-height: 1.6;">$1</div>')
+                              .replace(/### (.*)/g, '<div style="color: #6b7280; font-size: 0.875rem; font-weight: 600; margin: 0.75rem 0 0.25rem 0; line-height: 1.6;">$1</div>')
+                              .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1f2937; font-weight: 600;">$1</strong>')
+                              .replace(/- (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">• $1</div>')
+                              .replace(/(\d+)\. (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">$1. $2</div>')
                               .replace(/✅/g, '<span style="color: #10b981;">✅</span>')
                               .replace(/⚠️/g, '<span style="color: #f59e0b;">⚠️</span>')
                           }} />
                         </div>
                       </div>
-                      
-                      {/* 复制和导出按钮 */}
-                      <div className="mt-6 flex flex-wrap gap-3 justify-center">
+                    </div>
+
+                    {/* 复制和导出按钮 - 固定在底部 */}
+                    {["text-analysis", "cd-adaptation", "text-generator"].includes(activeItem) && (
+                      <div className="mt-4 flex flex-wrap gap-3 justify-center flex-shrink-0">
                         <Button
                           onClick={copyToClipboard}
                           disabled={isCopying}
@@ -1525,8 +1897,18 @@ The future of AI depends on our ability to balance innovation with responsibilit
                             </>
                           )}
                         </Button>
-                        </div>
-                    </div>
+
+                        <Button
+                          onClick={exportToTxt}
+                          className="evolink-button flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          导出TXT
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1597,7 +1979,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes fade-in {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }

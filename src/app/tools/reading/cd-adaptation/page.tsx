@@ -510,7 +510,7 @@ export default function CDAdaptationPage() {
                             </>
                           )}
                         </Button>
-                        <span className="text-xs text-gray-500 whitespace-nowrap">消耗1点数</span>
+                        <span className="text-xs text-green-600 whitespace-nowrap">免费使用</span>
                       </div>
                       <Button
                         variant="destructive"

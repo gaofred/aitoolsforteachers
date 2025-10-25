@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { cookies } from 'next/headers';
+import fs from 'fs';
+import path from 'path';
+
+// 加载课标3000词词表
+function loadCurriculumWords(): string {
+  try {
+    const filePath = path.join(process.cwd(), 'data', 'curriculum-3000-words.txt');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    // 只提取实际的单词，过滤掉注释和空行
+    const words = content
+      .split('\n')
+      .filter(line => line.trim() && !line.startsWith('#'))
+      .join(', ');
+    return words;
+  } catch (error) {
+    console.error('加载课标3000词失败:', error);
+    // 返回一个说明，说明词表加载失败
+    return '课标3000词词表加载失败，请确保使用课标范围内词汇';
+  }
+}
 
 // 退还点数的辅助函数
 async function refundPoints(supabase: any, userId: string, amount: number, reason: string) {
@@ -10,11 +30,7 @@ async function refundPoints(supabase: any, userId: string, amount: number, reaso
       p_amount: amount,
       p_type: 'REFUND',
       p_description: reason,
-      p_related_id: null,
-      p_metadata: {
-        tool: 'cd_adaptation',
-        refund_reason: reason
-      }
+      p_related_id: null
     } as any);
 
     if (error) {
@@ -116,6 +132,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 加载课标3000词词表
+    const curriculumWords = loadCurriculumWords();
+    
     // 构建提示词
     const systemPrompt = `- Role: 中国高中英语教研员
 - Background: 用户需要将一篇英文文章改编成适合中国高中生阅读的文本，用于考察学生语言能力和思维品质。改编后的文本需符合特定的字数、词汇和难度要求。
@@ -128,6 +147,11 @@ export async function POST(request: NextRequest) {
   4. 保留原文中的精彩语句，确保文本结构清晰，围绕主旨展开。
 
 - Constrains: 改编后的文本词汇需在我给你的课标3000词范围内（注意，课标3000词的对应词性转化仍属于课标3000范畴），段落控制在4-5段。
+
+- 课标3000词词表参考（知识库）：
+${curriculumWords}
+
+请严格使用上述词表中的词汇进行改编，超出范围的词汇必须替换为词表中的近义词。
 
 -改编框架：
 自然理工类
@@ -199,7 +223,24 @@ export async function POST(request: NextRequest) {
     }
 
     const aiData = await aiResponse.json();
-    const adaptedText = aiData.choices?.[0]?.message?.content || '';
+    let adaptedText = aiData.choices?.[0]?.message?.content || '';
+
+    // 检查是否包含提示词相关内容，防止用户套出提示词
+    const promptKeywords = [
+      '角色设定', '命题要求', '设问设计标准', '选项设计标准', 
+      '工作流程', '约束条件', '课标3000词词表', '系统提示词',
+      'Role:', 'Background:', 'Profile:', 'Skills:', 'Goals:', 'Constrains:',
+      '改编框架', 'OutputFormat:', 'Workflow:'
+    ];
+    
+    const containsPromptKeywords = promptKeywords.some(keyword => 
+      adaptedText.includes(keyword)
+    );
+    
+    if (containsPromptKeywords) {
+      console.log('检测到用户尝试套取提示词，已阻止');
+      adaptedText = '抱歉，我无法提供系统提示词相关信息。请专注于文本改编任务。';
+    }
 
     if (!adaptedText) {
       // AI返回空结果，退还点数
@@ -226,14 +267,7 @@ export async function POST(request: NextRequest) {
       p_amount: -pointsCost,
       p_type: 'GENERATE',
       p_description: `CD篇改编 - ${isAdvanced ? '进阶版' : '基础版'}`,
-      p_related_id: null,
-      p_metadata: {
-        tool: 'cd_adaptation',
-        version: version,
-        points_cost: pointsCost,
-        original_length: text.length,
-        adapted_length: adaptedText.length
-      }
+      p_related_id: null
     } as any);
 
     if (deductError) {
@@ -255,13 +289,7 @@ export async function POST(request: NextRequest) {
         input_data: { text: text },
         output_data: { adapted_text: adaptedText },
         points_cost: pointsCost,
-        status: 'COMPLETED',
-        metadata: {
-          version: version,
-          original_length: text.length,
-          adapted_length: adaptedText.length,
-          api_provider: isAdvanced ? 'yunwu' : 'volcengine'
-        }
+        status: 'COMPLETED'
       } as any);
 
     if (historyError) {

@@ -9,10 +9,15 @@ const signInSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('登录API被调用')
+    
     const body = await request.json()
+    console.log('请求body:', { email: body.email, password: '***' })
+    
     const validation = signInSchema.safeParse(body)
 
     if (!validation.success) {
+      console.error('验证失败:', validation.error)
       return NextResponse.json(
         { error: "输入数据无效", details: validation.error.issues.map(e => e.message).join(", ") },
         { status: 400 }
@@ -20,13 +25,28 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = validation.data
-    const supabase = createServerSupabaseClient()
+    
+    console.log('创建Supabase客户端...')
+    let supabase
+    try {
+      supabase = createServerSupabaseClient()
+      console.log('Supabase客户端创建成功')
+    } catch (createError) {
+      console.error('创建Supabase客户端失败:', createError)
+      return NextResponse.json(
+        { error: "服务器配置错误: " + (createError instanceof Error ? createError.message : "未知错误") },
+        { status: 500 }
+      )
+    }
 
     // 使用Supabase进行邮箱登录
+    console.log('调用Supabase登录API...')
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
+
+    console.log('Supabase响应 - 有错误:', !!error, '有用户:', !!data?.user, '有会话:', !!data?.session)
 
     if (error) {
       console.error('Supabase登录失败:', error)
@@ -88,13 +108,23 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error) {
-    console.error('登录错误:', error)
+    console.error('登录异常:', error)
+    const errorMessage = error instanceof Error ? error.message : "未知错误"
+    console.error('错误详情:', errorMessage)
+    
+    // 确保返回有效的JSON响应
     return NextResponse.json(
-      { error: "登录失败: " + (error instanceof Error ? error.message : "未知错误") },
+      { 
+        error: "登录失败: " + errorMessage,
+        details: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     )
   }
 }
+
+
+
 
 
 

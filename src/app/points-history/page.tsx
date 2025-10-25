@@ -156,14 +156,23 @@ export default function PointsHistoryPage() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
+    try {
+      const date = new Date(dateString);
+      // 检查日期是否有效
+      if (isNaN(date.getTime())) {
+        return '无效日期';
+      }
+      return new Intl.DateTimeFormat('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      console.error('日期格式化错误:', error, dateString);
+      return '无效日期';
+    }
   };
 
   return (

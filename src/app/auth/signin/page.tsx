@@ -35,6 +35,7 @@ function SignInPageContent() {
     setError('')
 
     try {
+      console.log('开始登录请求...')
       const response = await fetch('/api/auth/signin', {
         method: 'POST',
         headers: {
@@ -43,17 +44,50 @@ function SignInPageContent() {
         body: JSON.stringify({ email, password }),
       })
 
-      const data = await response.json()
-
+      console.log('登录响应状态:', response.status)
+      console.log('响应headers:', Object.fromEntries(response.headers.entries()))
+      
+      // 检查响应是否有效
       if (!response.ok) {
-        throw new Error(data.error || '登录失败')
+        let errorMessage = '登录失败'
+        try {
+          // 先读取原始文本
+          const responseText = await response.text()
+          console.log('响应原始文本:', responseText)
+          
+          // 尝试解析JSON
+          let errorData: { error?: string; rawText?: string } = {}
+          if (responseText) {
+            try {
+              errorData = JSON.parse(responseText)
+            } catch (e) {
+              console.error('JSON解析失败:', e)
+              errorData = { rawText: responseText }
+            }
+          }
+
+          errorMessage = errorData.error || errorMessage
+          console.error('登录错误详情:', errorData)
+        } catch (parseError) {
+          console.error('无法解析错误响应:', parseError)
+          errorMessage = `服务器错误 (${response.status})`
+        }
+        throw new Error(errorMessage)
       }
+
+      const data = await response.json()
+      console.log('登录成功:', data)
 
       // 登录成功，重定向到主页并刷新用户状态
       window.location.href = '/?signed_in=true'
 
     } catch (error) {
-      setError(error instanceof Error ? error.message : '登录失败，请稍后重试')
+      console.error('登录异常:', error)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError('无法连接到服务器，请检查网络连接或确保开发服务器正在运行')
+      } else {
+        setError(error instanceof Error ? error.message : '登录失败，请稍后重试')
+      }
     } finally {
       setIsLoading(false)
     }
