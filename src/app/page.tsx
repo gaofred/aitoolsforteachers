@@ -188,11 +188,6 @@ const toolConfig = {
       </svg>
     ),
     placeholder: "请粘贴BCD篇阅读文章内容...",
-    analysisOptions: [
-      { value: "comprehensive", label: "全面整理" },
-      { value: "essential", label: "核心词汇" },
-      { value: "advanced", label: "进阶词汇" }
-    ],
     buttonText: "开始整理词汇!",
     analysisText: "AI正在整理词汇中..."
   }

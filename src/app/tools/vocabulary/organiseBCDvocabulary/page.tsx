@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/lib/user-context";
@@ -14,7 +13,6 @@ export default function BCDVocabularyOrganisePage() {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const [text, setText] = useState("");
-  const [organiseType, setOrganiseType] = useState("comprehensive");
   const [isOrganising, setIsOrganising] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [charCount, setCharCount] = useState(0);
@@ -152,7 +150,6 @@ export default function BCDVocabularyOrganisePage() {
         },
         body: JSON.stringify({
           text: text.trim(),
-          organiseType: organiseType,
           userId: currentUser.id
         }),
       });
@@ -270,23 +267,6 @@ export default function BCDVocabularyOrganisePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* 整理选项 */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    整理类型
-                  </label>
-                  <Select value={organiseType} onValueChange={setOrganiseType}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="comprehensive">全面整理 - 所有词汇和短语</SelectItem>
-                      <SelectItem value="essential">核心词汇 - 重点词汇和搭配</SelectItem>
-                      <SelectItem value="advanced">进阶词汇 - 高级词汇和表达</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* 文本输入 */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
