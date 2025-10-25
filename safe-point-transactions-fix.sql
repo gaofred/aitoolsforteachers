@@ -67,3 +67,4 @@ SELECT 'point_transactions 表安全修复完成！' as message;
 
 
 
+

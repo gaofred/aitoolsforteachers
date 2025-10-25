@@ -1168,7 +1168,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
         {/* 侧边栏 */}
         <aside className={`${
           sidebarCollapsed ? 'w-16' : 'w-64'
-        } transition-all duration-300 border-r border-border bg-gradient-to-b from-white via-gray-50 to-gray-100 flex flex-col h-[calc(100vh-4rem)] sticky top-16 fixed left-0 hidden md:flex shadow-lg z-40`}>
+        } transition-all duration-300 border-r border-gray-200 bg-gradient-to-b from-white via-gray-50 to-gray-100 flex flex-col h-[calc(100vh-4rem)] sticky top-16 hidden md:flex z-40 flex-shrink-0`}>
           {!sidebarCollapsed && (
             <>
               {/* 分类导航 */}
@@ -1357,14 +1357,12 @@ The future of AI depends on our ability to balance innovation with responsibilit
         )}
 
         {/* 主内容区 */}
-        <main className={`flex-1 bg-gradient-to-br from-transparent to-gray-50/30 transition-all duration-300 ${
-          sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
-        } md:-ml-px`}>
-          <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row overflow-hidden">
+        <main className="flex-1 bg-white transition-all duration-300 lg:min-h-0">
+          <div className="min-h-[calc(100vh-4rem)] flex flex-col lg:flex-row lg:overflow-hidden gap-0 lg:h-[calc(100vh-4rem)]">
             {/* 左半部分：工具配置区 */}
-            <div className="w-full lg:w-5/12 bg-card border-r border-border flex flex-col">
+            <div className="w-full lg:w-5/12 bg-white lg:border-r border-gray-200 flex flex-col lg:overflow-hidden min-h-[60vh]">
               {/* 工具信息卡片 */}
-              <div className="p-3 border-b border-white/10">
+              <div className="p-2 md:p-3 border-b border-gray-200">
                 <div className="flex items-start gap-2">
                   <div className="w-8 h-8 rounded bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0 mt-1 border border-purple-200">
                     {currentTool.icon}
@@ -1391,8 +1389,8 @@ The future of AI depends on our ability to balance innovation with responsibilit
               </div>
 
               {/* 参数配置区 */}
-              <div className="flex-1 p-4 md:p-6 overflow-y-auto">
-                <div className="space-y-6">
+              <div className="flex-1 p-3 md:p-4 lg:p-6 overflow-y-auto lg:max-h-[calc(100vh-12rem)] lg:min-h-0">
+                <div className="space-y-4 md:space-y-6">
                   
                   {/* 文本输入 */}
                   <div className="space-y-2">
@@ -1428,7 +1426,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                         placeholder={currentTool.placeholder}
-                        className={`${activeItem === "cd-adaptation" ? "min-h-[450px]" : "min-h-[300px]"} text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500 resize-none transition-all duration-200`}
+                        className={`${activeItem === "cd-adaptation" ? "min-h-[350px] md:min-h-[450px]" : "min-h-[250px] md:min-h-[300px]"} text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500 resize-none transition-all duration-200`}
                         maxLength={maxChars}
                       />
                       <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-white px-2 py-1 rounded border">
@@ -1461,8 +1459,8 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         </label>
 
                         {/* 图片上传区域 */}
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-                          <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 md:p-4 bg-gray-50">
+                          <div className="flex flex-col items-center justify-center space-y-2 md:space-y-3">
                             <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-full">
                               <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1719,7 +1717,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
               </div>
 
               {/* 底部操作区 */}
-              <div className="p-4 md:p-6 border-t border-white/10 bg-gray-50/50">
+              <div className="p-3 md:p-4 lg:p-6 border-t border-gray-200 bg-gray-50">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-sm">
                     <div className="flex items-center gap-2">
@@ -1800,11 +1798,11 @@ The future of AI depends on our ability to balance innovation with responsibilit
             </div>
 
             {/* 右半部分：结果展示区 */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col lg:overflow-hidden bg-gray-50 min-h-[40vh]">
               {/* 结果展示内容 */}
               <div className="flex-1 overflow-y-auto">
                 {!analysisResult && !isAnalyzing ? (
-                  <div className="h-full flex items-center justify-center p-8">
+                  <div className="h-full flex items-center justify-center p-4 md:p-6 lg:p-8">
                     <div className="text-center max-w-md animate-fade-in">
                       <div className="w-24 h-24 rounded-full bg-card flex items-center justify-center mx-auto mb-6 border border-border shadow-lg">
                         <svg className="w-12 h-12 text-primary" fill="currentColor" viewBox="0 0 20 20">
@@ -1826,7 +1824,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                     </div>
                   </div>
                 ) : isAnalyzing ? (
-                  <div className="h-full flex items-center justify-center p-8">
+                  <div className="h-full flex items-center justify-center p-4 md:p-6 lg:p-8">
                     <div className="text-center animate-pulse">
                       <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center mx-auto mb-6 border border-purple-200 shadow-lg">
                         <svg className="animate-spin w-12 h-12 text-purple-600" fill="none" viewBox="0 0 24 24">
@@ -1851,10 +1849,10 @@ The future of AI depends on our ability to balance innovation with responsibilit
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 md:p-8 animate-slide-up flex flex-col h-[calc(100vh-6rem)]">
+                  <div className="p-3 md:p-4 lg:p-6 animate-slide-up flex flex-col lg:h-[calc(100vh-6rem)] min-h-[50vh]">
                     {/* 结果展示区域 */}
                     <div className="flex-1 min-h-0">
-                      <div className="evolink-glass rounded-lg shadow-lg border border-white/10 p-6 md:p-8 h-full overflow-hidden">
+                      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 lg:p-8 h-full overflow-hidden">
                         <div className="max-w-none max-h-[calc(100vh-10rem)] overflow-y-auto text-sm leading-relaxed" style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>
                           <div dangerouslySetInnerHTML={{
                             __html: (analysisResult || '')
@@ -1874,7 +1872,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
 
                     {/* 复制和导出按钮 - 固定在底部 */}
                     {["text-analysis", "cd-adaptation", "text-generator"].includes(activeItem) && (
-                      <div className="mt-4 flex flex-wrap gap-3 justify-center flex-shrink-0">
+                      <div className="mt-3 md:mt-4 flex flex-wrap gap-2 md:gap-3 justify-center flex-shrink-0">
                         <Button
                           onClick={copyToClipboard}
                           disabled={isCopying}
