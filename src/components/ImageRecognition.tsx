@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useUser } from "@/lib/user-context";
 
 interface ImageRecognitionProps {
   onResultChange?: (result: string) => void;
@@ -12,6 +13,7 @@ export function ImageRecognition({ onResultChange }: ImageRecognitionProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { currentUser } = useUser();
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -30,15 +32,61 @@ export function ImageRecognition({ onResultChange }: ImageRecognitionProps) {
     }
 
     setError(null);
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
-        const base64String = event.target.result.toString().split(',')[1];
-        setSelectedImage(base64String);
+        // 保留完整的data URL，包含mime type
+        const dataUrl = event.target.result.toString();
+        setSelectedImage(dataUrl);
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  // 拍照功能
+  const handleCameraCapture = async () => {
+    try {
+      // 请求相机权限
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+
+      // 创建视频元素和canvas
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+
+      // 等待视频加载
+      await new Promise((resolve) => {
+        video.onloadedmetadata = resolve;
+      });
+
+      // 创建canvas来捕获图片
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+
+        // 转换为data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        setSelectedImage(dataUrl);
+
+        // 停止相机流
+        stream.getTracks().forEach(track => track.stop());
+      }
+    } catch (error) {
+      console.error('相机访问错误:', error);
+      setError('无法访问相机，请检查权限设置或使用文件上传');
+
+      // 如果相机不可用，回退到文件选择
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+    }
   };
 
   const handleRecognize = async () => {
@@ -47,16 +95,22 @@ export function ImageRecognition({ onResultChange }: ImageRecognitionProps) {
       return;
     }
 
+    if (!currentUser) {
+      setError('请先登录后再使用识图功能');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
+      // 直接发送完整的data URL格式，使用cookie认证（不需要Authorization头）
       const response = await fetch('/api/ai/image-recognition', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // 确保发送cookies
         body: JSON.stringify({
           imageBase64: selectedImage
         })
@@ -70,6 +124,7 @@ export function ImageRecognition({ onResultChange }: ImageRecognitionProps) {
           onResultChange(data.result);
         }
       } else {
+        console.error('识图API错误:', data);
         setError(data.error || '识图失败，请稍后重试');
       }
     } catch (err) {
@@ -112,10 +167,21 @@ export function ImageRecognition({ onResultChange }: ImageRecognitionProps) {
           />
           <label
             htmlFor="image-upload"
-            className="px-4 py-2 bg-blue-50 text-blue-600 rounded-md cursor-pointer hover:bg-blue-100 border border-blue-200 transition-colors flex-1 text-center"
+            className="px-3 py-2 bg-blue-50 text-blue-600 rounded-md cursor-pointer hover:bg-blue-100 border border-blue-200 transition-colors flex-1 text-center text-sm"
           >
             选择图片
           </label>
+          <Button
+            onClick={handleCameraCapture}
+            variant="outline"
+            className="bg-green-50 text-green-600 border-green-200 hover:bg-green-100 text-sm"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            拍照
+          </Button>
           <Button
             onClick={handleRecognize}
             disabled={!selectedImage || isLoading}
@@ -148,7 +214,7 @@ export function ImageRecognition({ onResultChange }: ImageRecognitionProps) {
         {selectedImage && (
           <div className="mt-2 relative">
             <img
-              src={`data:image/jpeg;base64,${selectedImage}`}
+              src={selectedImage.startsWith('data:') ? selectedImage : `data:image/jpeg;base64,${selectedImage}`}
               alt="预览"
               className="max-h-48 rounded-md mx-auto border border-gray-200"
             />

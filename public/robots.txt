@@ -1,0 +1,22 @@
+# 英语AI教学工具 - robots.txt
+# https://www.englishteachingtools.com
+
+User-agent: *
+Allow: /
+
+# 优先爬取核心页面
+Allow: /tools/
+Allow: /auth/signin
+Allow: /auth/signup
+
+# 禁止爬取管理页面和API
+Disallow: /admin-*/
+Disallow: /api/
+Disallow: /_next/
+Disallow: /temp/
+
+# 站点地图
+Sitemap: https://www.englishteachingtools.com/sitemap.xml
+
+# 爬取延迟 (可选，对大型站点有用)
+Crawl-delay: 1

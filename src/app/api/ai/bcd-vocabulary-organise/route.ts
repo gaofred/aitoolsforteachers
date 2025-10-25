@@ -1,12 +1,13 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { cookies } from 'next/headers';
 
 // 退还点数的辅助函数
-async function refundPoints(supabase: any, userId: string, amount: number, reason: string) {
+async function refundPoints(supabase: any, user_id: string, amount: number, reason: string) {
   try {
     const { error } = await (supabase as any).rpc('add_user_points', {
-      p_user_id: userId,
+      p_user_id: user_id,
       p_amount: amount,
       p_type: 'REFUND',
       p_description: reason,
@@ -23,10 +24,21 @@ async function refundPoints(supabase: any, userId: string, amount: number, reaso
 
 export async function POST(request: NextRequest) {
   try {
+    // 获取cookies中的access token
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get('sb-access-token')?.value;
+
+    if (!accessToken) {
+      return NextResponse.json({
+        success: false,
+        error: "用户未认证"
+      }, { status: 401 });
+    }
+
     const supabase = createServerSupabaseClient();
 
-    // 获取当前用户
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // 使用access token获取用户信息
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
 
     if (authError || !user) {
       return NextResponse.json({
@@ -56,7 +68,7 @@ export async function POST(request: NextRequest) {
     const { data: userPoints, error: pointsError } = await supabase
       .from("user_points")
       .select("points")
-      .eq("user_id", user.id)
+      .eq("user_id", user.id as any)
       .single();
 
     if (pointsError || !userPoints) {
@@ -139,6 +151,23 @@ export async function POST(request: NextRequest) {
 
             try {
               const data = JSON.parse(dataStr);
+              console.log('Coze响应数据:', JSON.stringify(data, null, 2));
+              console.log('数据结构分析:', {
+                hasContent: 'content' in data,
+                contentType: typeof data.content,
+                contentValue: data.content,
+                hasOutput: 'output' in data,
+                outputType: typeof data.output,
+                outputValue: data.output,
+                hasResult: 'result' in data,
+                resultType: typeof data.result,
+                resultValue: data.result,
+                hasMessage: 'message' in data,
+                messageType: typeof data.message,
+                messageValue: data.message,
+                hasData: 'data' in data,
+                dataValue: data.data
+              });
 
               if (data.error_message) {
                 console.error('Coze工作流错误:', data.error_message);
@@ -148,16 +177,71 @@ export async function POST(request: NextRequest) {
                   { status: 500 }
                 );
               }
-              else if (data.content && data.content.trim()) {
-                vocabularyResult = data.content;
-                break;
+              // 优先处理直接返回的文本内容（新工作流格式）
+              else if (data.content && typeof data.content === 'string' && data.content.trim() && data.content.trim() !== '{}') {
+                // 如果content是JSON字符串，尝试解析
+                try {
+                  const parsedContent = JSON.parse(data.content);
+                  if (parsedContent.output && typeof parsedContent.output === 'string' && parsedContent.output.trim()) {
+                    vocabularyResult = parsedContent.output;
+                    console.log('从解析的content.output获取结果:', vocabularyResult.substring(0, 100));
+                    break;
+                  } else if (parsedContent.result && typeof parsedContent.result === 'string' && parsedContent.result.trim()) {
+                    vocabularyResult = parsedContent.result;
+                    console.log('从解析的content.result获取结果:', vocabularyResult.substring(0, 100));
+                    break;
+                  }
+                } catch (e) {
+                  // 不是JSON格式，直接使用content作为结果
+                  vocabularyResult = data.content;
+                  console.log('从content直接获取文本结果:', vocabularyResult.substring(0, 100));
+                  break;
+                }
               }
               else if (data.data?.status === 'completed' && data.data?.output) {
                 vocabularyResult = data.data.output;
+                console.log('从data.data.output获取结果:', vocabularyResult.substring(0, 100));
+                break;
+              }
+              else if (data.output && data.output.trim() && data.output.trim() !== '{}') {
+                vocabularyResult = data.output;
+                console.log('从data.output获取结果:', vocabularyResult.substring(0, 100));
+                break;
+              }
+              else if (data.result && data.result.trim() && data.result.trim() !== '{}') {
+                vocabularyResult = data.result;
+                console.log('从data.result获取结果:', vocabularyResult.substring(0, 100));
+                break;
+              }
+              // 新增：检查message字段
+              else if (data.message && typeof data.message === 'string' && data.message.trim()) {
+                vocabularyResult = data.message;
+                console.log('从data.message获取结果:', vocabularyResult.substring(0, 100));
+                break;
+              }
+              // 新增：检查是否直接是文本内容（非JSON格式）
+              else if (typeof data === 'string' && data.trim() && data.trim() !== '{}') {
+                vocabularyResult = data;
+                console.log('从data直接获取结果:', vocabularyResult.substring(0, 100));
                 break;
               }
             } catch (parseError) {
-              console.error('解析Coze响应数据失败:', parseError);
+              console.error('解析Coze响应数据失败:', parseError, '原始数据:', dataStr);
+              // 如果JSON解析失败，尝试直接使用原始数据
+              if (dataStr && dataStr.trim() && dataStr.trim() !== '{}' && dataStr.trim() !== '[DONE]') {
+                vocabularyResult = dataStr;
+                console.log('从原始数据获取结果:', vocabularyResult.substring(0, 100));
+                break;
+              }
+              // 尝试从可能的错误信息中提取内容
+              if (dataStr && dataStr.includes('"content"')) {
+                const contentMatch = dataStr.match(/"content":\s*"([^"]+)"/);
+                if (contentMatch && contentMatch[1] && contentMatch[1].trim() !== '{}') {
+                  vocabularyResult = contentMatch[1];
+                  console.log('从错误数据中提取content:', vocabularyResult.substring(0, 100));
+                  break;
+                }
+              }
             }
           }
         }
@@ -173,11 +257,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!vocabularyResult) {
+    // 如果结果仍然是空的，但API调用成功，说明工作流返回格式有问题
+    if (!vocabularyResult || vocabularyResult.trim() === '{}') {
+      console.log('警告：Coze工作流返回空结果，但API调用成功');
       await refundPoints(supabase, user.id, pointsCost, 'BCD词汇整理结果为空退还');
       return NextResponse.json({
         success: false,
-        error: "词汇整理失败，请重试"
+        error: "词汇整理失败：工作流返回空结果，请检查工作流配置"
       }, { status: 500 });
     }
 

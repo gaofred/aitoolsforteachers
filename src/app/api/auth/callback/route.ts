@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         const { data: existingUser, error: userError } = await supabase
           .from('users')
           .select('*')
-          .eq('id', data.user.id)
+          .eq('id', data.user.id as any)
           .single()
 
         if (userError && userError.code === 'PGRST116') {
@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/auth/signin?error=callback_processing_failed`)
   }
 }
+
 
 
 

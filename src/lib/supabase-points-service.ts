@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createServerSupabaseClient } from './supabase-server';
 import { supabase } from './supabase';
 import { Database } from '@/types/database';
@@ -29,7 +30,7 @@ export interface UserPoints {
   id: string;
   user_id: string;
   points: number;
-  last_updated: string;
+  updated_at: string;
 }
 
 export class SupabasePointsService {

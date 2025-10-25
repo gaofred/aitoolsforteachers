@@ -11,7 +11,7 @@ export async function GET() {
       points: 25,
       membershipType: "FREE",
       membershipExpiresAt: null,
-      createdAt: new Date(),
+      created_at: new Date(),
     }
   })
 }

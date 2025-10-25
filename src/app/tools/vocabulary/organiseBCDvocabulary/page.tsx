@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/lib/user-context";
+import { ImageRecognition } from "@/components/ImageRecognition";
 import Link from "next/link";
 
 export default function BCDVocabularyOrganisePage() {
@@ -17,6 +18,12 @@ export default function BCDVocabularyOrganisePage() {
   const [result, setResult] = useState<string | null>(null);
   const [charCount, setCharCount] = useState(0);
   const [isCopying, setIsCopying] = useState(false);
+  const [showOCR, setShowOCR] = useState(false);
+
+  // 处理OCR识别结果
+  const handleOCRResult = (ocrResult: string) => {
+    setText(text + (text ? '\n\n' : '') + ocrResult);
+  };
 
   // 使用共享的用户状态
   const { currentUser, userPoints, isLoadingUser, refreshUser } = useUser();
@@ -72,6 +79,35 @@ const toolCost = 2; // BCD词汇整理消耗2个点数
       console.error('复制失败:', error);
       setIsCopying(false);
     }
+  };
+
+  // 导出为文本文件
+  const exportToTextFile = () => {
+    if (!result) return;
+
+    // 创建文件内容
+    const fileContent = `BCD篇阅读重点词汇整理
+生成时间：${new Date().toLocaleString('zh-CN')}
+====================================
+
+${result.replace(/<[^>]*>/g, '')}`;
+
+    // 创建Blob对象
+    const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `BCD词汇整理_${new Date().toISOString().split('T')[0]}.txt`;
+
+    // 触发下载
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // 清理URL对象
+    URL.revokeObjectURL(url);
   };
 
   // 兑换码功能
@@ -244,7 +280,7 @@ const toolCost = 2; // BCD词汇整理消耗2个点数
                       BCD篇阅读重点词汇整理
                     </CardTitle>
                     <p className="text-sm text-gray-600 leading-relaxed">
-                      输入BCD篇阅读文章，AI将为您整理出重点词汇、核心短语和固定搭配，并按照词汇等级和重要性进行分类，帮助学生高效掌握阅读材料中的核心词汇。
+                      输入一篇B篇、C篇或D篇阅读文章，AI将为您整理出重点词汇、核心短语和固定搭配，并配上英文例句和对应句子翻译，帮助学生高效掌握阅读材料中的核心词汇。
                     </p>
                     <div className="flex items-center gap-2 mt-3">
                       <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
@@ -273,9 +309,22 @@ const toolCost = 2; // BCD词汇整理消耗2个点数
                     <label className="text-sm font-medium text-gray-700">
                       BCD篇阅读文章内容
                     </label>
-                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
-                      本功能一次只能选择一篇
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
+                        本功能一次只能选择一篇
+                      </span>
+                      <Button
+                        onClick={() => setShowOCR(!showOCR)}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {showOCR ? '关闭识图' : '图片识图'}
+                      </Button>
+                    </div>
                   </div>
                   <div className="relative">
                     <Textarea
@@ -291,6 +340,13 @@ const toolCost = 2; // BCD词汇整理消耗2个点数
                   </div>
                 </div>
 
+                {/* OCR识图功能 */}
+                {showOCR && (
+                  <div className="mt-4">
+                    <ImageRecognition onResultChange={handleOCRResult} />
+                  </div>
+                )}
+
                 {/* 使用提示 */}
                 <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-start gap-2">
@@ -303,6 +359,8 @@ const toolCost = 2; // BCD词汇整理消耗2个点数
                       <h4 className="text-sm font-medium text-green-900 mb-1">💡 使用提示</h4>
                       <ul className="text-xs text-green-700 space-y-1">
                         <li>• 粘贴完整的BCD篇阅读文章内容</li>
+                        <li>• 点击"图片识图"按钮上传阅读文章图片进行OCR识别</li>
+                        <li>• 支持拍照上传或选择本地图片文件</li>
                         <li>• AI会自动识别和分类重点词汇</li>
                         <li>• 包含词汇释义、搭配和例句</li>
                         <li>• 按照词汇等级进行分类整理</li>
@@ -329,7 +387,15 @@ const toolCost = 2; // BCD词汇整理消耗2个点数
                     disabled={!text.trim() || isOrganising || (!currentUser || (currentUser && userPoints < toolCost))}
                     className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white"
                   >
-                    {isOrganising ? "整理中..." : "开始整理词汇!"}
+                    {isOrganising ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        大模型正在卖力整理中，请耐心等待。大约需要3分钟
+                      </span>
+                    ) : "开始整理词汇!"}
                   </Button>
                 </div>
               </CardContent>
@@ -345,14 +411,27 @@ const toolCost = 2; // BCD词汇整理消耗2个点数
                     <CardTitle className="text-lg font-semibold text-gray-900">
                       词汇整理结果
                     </CardTitle>
-                    <Button
-                      onClick={copyToClipboard}
-                      disabled={isCopying}
-                      variant="outline"
-                      size="sm"
-                    >
-                      {isCopying ? "已复制" : "复制结果"}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={copyToClipboard}
+                        disabled={isCopying}
+                        variant="outline"
+                        size="sm"
+                      >
+                        {isCopying ? "已复制" : "复制结果"}
+                      </Button>
+                      <Button
+                        onClick={exportToTextFile}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        导出文本
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>

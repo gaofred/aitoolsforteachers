@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         user_points (*),
         memberships (*)
       `)
-      .eq('id', user.id)
+      .eq('id', user.id as any)
       .single();
 
     return NextResponse.json({

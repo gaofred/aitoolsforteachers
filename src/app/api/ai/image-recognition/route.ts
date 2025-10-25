@@ -8,11 +8,29 @@ const VOLCENGINE_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/comple
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('图片识别API - 开始处理请求');
+
+    // 检查API配置
+    if (!VOLCENGINE_API_KEY) {
+      console.error('火山引擎API Key未配置');
+      return NextResponse.json(
+        { error: '火山引擎API Key未配置' },
+        { status: 500 }
+      );
+    }
+
     const cookieStore = await cookies();
-    
+
     // 获取Supabase认证相关的cookies
     const accessToken = cookieStore.get('sb-access-token')?.value;
     const refreshToken = cookieStore.get('sb-refresh-token')?.value;
+
+    console.log('图片识别API - Cookie检查:', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      accessTokenLength: accessToken?.length || 0,
+      allCookies: cookieStore.getAll().map(c => c.name)
+    });
 
     if (!accessToken) {
       return NextResponse.json(
@@ -38,13 +56,27 @@ export async function POST(request: NextRequest) {
 
     // 获取请求数据
     const { imageBase64 } = await request.json();
-    
+
     if (!imageBase64) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "未提供图片数据" 
+      return NextResponse.json({
+        success: false,
+        error: "未提供图片数据"
       }, { status: 400 });
     }
+
+    // 确保图片数据是完整的data URL格式
+    let imageDataUrl = imageBase64;
+    if (!imageBase64.startsWith('data:')) {
+      // 如果不是data URL格式，添加JPEG的data URL前缀
+      imageDataUrl = `data:image/jpeg;base64,${imageBase64}`;
+    }
+
+    console.log('图片识别 - 数据格式检查:', {
+      原始格式: imageBase64.substring(0, 50) + '...',
+      最终格式: imageDataUrl.substring(0, 50) + '...',
+      是否DataURL: imageDataUrl.startsWith('data:'),
+      数据长度: imageDataUrl.length
+    });
 
     const pointsCost = 0; // 识图功能免费
 
@@ -70,7 +102,7 @@ export async function POST(request: NextRequest) {
               {
                 type: "image_url",
                 image_url: {
-                  url: imageBase64
+                  url: imageDataUrl
                 }
               }
             ]

@@ -38,19 +38,19 @@ export interface Database {
           id: string
           user_id: string
           points: number
-          last_updated: string
+          updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
           points?: number
-          last_updated?: string
+          updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
           points?: number
-          last_updated?: string
+          updated_at?: string
         }
       }
       memberships: {

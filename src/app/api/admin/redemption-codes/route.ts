@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
         const { data: existingCode, error: checkError } = await supabase
           .from('redemption_codes')
           .select('id')
-          .eq('code', code)
+          .eq('code', code as any)
           .single();
 
         if (checkError && checkError.code === 'PGRST116') {

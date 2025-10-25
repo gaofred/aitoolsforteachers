@@ -1,0 +1,210 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { cookies } from 'next/headers';
+
+// 豆包大模型API配置
+const VOLCENGINE_API_KEY = process.env.VOLCENGINE_API_KEY;
+const VOLCENGINE_CHAT_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log('故事拆解API - 开始处理请求');
+
+    // 检查API配置
+    if (!VOLCENGINE_API_KEY) {
+      console.error('火山引擎API Key未配置');
+      return NextResponse.json(
+        { error: '火山引擎API Key未配置' },
+        { status: 500 }
+      );
+    }
+
+    const cookieStore = await cookies();
+
+    // 获取Supabase认证相关的cookies
+    const accessToken = cookieStore.get('sb-access-token')?.value;
+    const refreshToken = cookieStore.get('sb-refresh-token')?.value;
+
+    console.log('故事拆解API - Cookie检查:', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      accessTokenLength: accessToken?.length || 0,
+      allCookies: cookieStore.getAll().map(c => c.name)
+    });
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: '未认证 - 请先登录' },
+        { status: 401 }
+      );
+    }
+
+    const supabase = createServerSupabaseClient();
+
+    // 使用access token获取用户信息
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      console.error('故事拆解认证错误:', authError);
+      return NextResponse.json(
+        { error: '认证失败 - 请重新登录' },
+        { status: 401 }
+      );
+    }
+
+    console.log('故事拆解用户认证成功:', user.id);
+
+    // 获取请求数据
+    const { story } = await request.json();
+
+    if (!story || !story.trim()) {
+      return NextResponse.json({
+        success: false,
+        error: "未提供故事内容"
+      }, { status: 400 });
+    }
+
+    console.log('故事拆解 - 开始调用豆包大模型:', {
+      storyLength: story.length,
+      storyPreview: story.substring(0, 100) + '...'
+    });
+
+    // 调用豆包大模型进行故事拆解
+    const response = await fetch(VOLCENGINE_CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${VOLCENGINE_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "doubao-seed-1-6-251015",
+        messages: [
+          {
+            role: "system",
+            content: `你是一个专业的故事分析师，专门将英语叙事文章拆解为4个关键阶段的简洁描述。
+
+请按照以下要求分析故事：
+1. 识别故事的4个关键阶段：Exposition (开端)、Conflict (发展)、Climax (高潮)、Resolution (结局)
+2. 为每个阶段生成简洁的英文描述（1-2句话）
+3. 确保描述适合AI图片生成
+4. 保持风格一致性
+
+输出格式必须是JSON格式：
+{
+  "stages": [
+    {
+      "stage": "Exposition",
+      "description": "简洁的英文描述，包括场景、人物、氛围等"
+    },
+    {
+      "stage": "Conflict",
+      "description": "简洁的英文描述，展现上升的行动和冲突"
+    },
+    {
+      "stage": "Climax",
+      "description": "简洁的英文描述，展现故事的高潮时刻"
+    },
+    {
+      "stage": "Resolution",
+      "description": "简洁的英文描述，展现故事的结局"
+    }
+  ]
+}`
+          },
+          {
+            role: "user",
+            content: `请分析以下英语故事并拆解为4个阶段：\n\n${story.trim()}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("豆包大模型API错误:", data);
+      return NextResponse.json({
+        success: false,
+        error: `故事拆解失败: ${data.error?.message || "未知错误"}`
+      }, { status: 500 });
+    }
+
+    console.log('豆包大模型成功响应:', {
+      hasChoices: !!data.choices,
+      choiceCount: data.choices?.length || 0
+    });
+
+    // 提取AI回复内容
+    const aiResponse = data.choices?.[0]?.message?.content;
+
+    if (!aiResponse) {
+      console.error('豆包大模型返回空响应');
+      return NextResponse.json({
+        success: false,
+        error: "故事拆解失败：AI返回空响应"
+      }, { status: 500 });
+    }
+
+    console.log('豆包大模型返回的拆解结果:', aiResponse);
+
+    // 尝试解析JSON响应
+    let parsedStages;
+    try {
+      // 尝试直接解析JSON
+      parsedStages = JSON.parse(aiResponse);
+    } catch (parseError) {
+      console.warn('直接JSON解析失败，尝试提取JSON部分:', parseError);
+
+      // 尝试从文本中提取JSON部分
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsedStages = JSON.parse(jsonMatch[0]);
+        } catch (secondParseError) {
+          console.error('JSON提取也失败:', secondParseError);
+          return NextResponse.json({
+            success: false,
+            error: "故事拆解失败：无法解析AI响应格式"
+          }, { status: 500 });
+        }
+      } else {
+        console.error('无法从响应中找到JSON格式');
+        return NextResponse.json({
+          success: false,
+          error: "故事拆解失败：AI响应格式不正确"
+        }, { status: 500 });
+      }
+    }
+
+    // 验证解析结果
+    if (!parsedStages || !parsedStages.stages || !Array.isArray(parsedStages.stages)) {
+      console.error('解析结果格式不正确:', parsedStages);
+      return NextResponse.json({
+        success: false,
+        error: "故事拆解失败：AI返回的数据格式不正确"
+      }, { status: 500 });
+    }
+
+    if (parsedStages.stages.length !== 4) {
+      console.warn('阶段数量不是4个:', parsedStages.stages.length);
+    }
+
+    console.log(`成功解析出 ${parsedStages.stages.length} 个故事阶段`);
+
+    return NextResponse.json({
+      success: true,
+      stages: parsedStages.stages,
+      originalStory: story,
+      message: `成功拆解故事为 ${parsedStages.stages.length} 个阶段`
+    });
+
+  } catch (error) {
+    console.error("故事拆解处理错误:", error);
+    return NextResponse.json({
+      success: false,
+      error: "故事拆解处理失败"
+    }, { status: 500 });
+  }
+}

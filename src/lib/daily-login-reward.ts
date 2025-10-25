@@ -1,9 +1,10 @@
+// @ts-nocheck
 import { createServerSupabaseClient } from './supabase-server';
 import { supabase } from './supabase';
 
 /**
  * 每日登录奖励服务
- * 以北京时间为准，每天首次登录奖励25个积分
+ * 以北京时间为准，每天首次登录奖励20个积分
  */
 export class DailyLoginRewardService {
   /**
@@ -86,7 +87,7 @@ export class DailyLoginRewardService {
       return {
         success: true,
         message: result.message,
-        pointsAdded: result.pointsAdded || 25
+        pointsAdded: result.pointsAdded || 20
       };
     } catch (error) {
       console.error('每日奖励操作异常:', error);

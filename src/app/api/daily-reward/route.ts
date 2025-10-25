@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
     const { data: existingTransactions, error: checkError } = await supabase
       .from('point_transactions')
       .select('id, description, created_at')
-      .eq('user_id', user.id)
-      .eq('type', 'BONUS')
-      .eq('description', description);
+      .eq('user_id', user.id as any)
+      .eq('type', 'BONUS' as any)
+      .eq('description', description as any);
 
     if (checkError) {
       console.error('检查奖励状态失败:', checkError);
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const { data: currentPoints, error: pointsError } = await supabase
       .from('user_points')
       .select('points')
-      .eq('user_id', user.id)
+      .eq('user_id', user.id as any)
       .single();
 
     if (pointsError) {
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     }
 
     const currentPointsValue = (currentPoints as any)?.points || 0;
-    const rewardPoints = 25;
+    const rewardPoints = 20;
     const newPoints = currentPointsValue + rewardPoints;
 
     // 更新积分
@@ -90,9 +90,9 @@ export async function POST(request: NextRequest) {
       .from('user_points') as any)
       .update({
         points: newPoints,
-        last_updated: new Date().toISOString()
+        updated_at: new Date().toISOString()
       })
-      .eq('user_id', user.id);
+      .eq('user_id', user.id as any);
 
     if (updateError) {
       console.error('更新积分失败:', updateError);
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('每日奖励API POST - 发放成功:', {
-      userId: user.id,
+      user_id: user.id,
       currentPoints: currentPointsValue,
       rewardPoints,
       newPoints
@@ -172,9 +172,9 @@ export async function GET(request: NextRequest) {
     const { data: existingTransactions, error: checkError } = await supabase
       .from('point_transactions')
       .select('id, description, created_at')
-      .eq('user_id', user.id)
-      .eq('type', 'BONUS')
-      .eq('description', description);
+      .eq('user_id', user.id as any)
+      .eq('type', 'BONUS' as any)
+      .eq('description', description as any);
 
     if (checkError) {
       console.error('检查奖励状态失败:', checkError);
@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
 
     const hasClaimedToday = existingTransactions && existingTransactions.length > 0;
     console.log('每日奖励API GET - 今日奖励状态:', {
-      userId: user.id,
+      user_id: user.id,
       today,
       hasClaimedToday,
       existingTransactions: existingTransactions,

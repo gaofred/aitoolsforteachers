@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { useUser } from "@/lib/user-context";
+import { LogoWithText } from "@/components/Logo";
 
 import { SupabasePointsService } from "@/lib/supabase-points-service";
 import { DailyLoginRewardService } from "@/lib/daily-login-reward";
@@ -45,9 +46,10 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "vocabulary-practice", title: "词汇练习生成", cost: 3 },
-      { id: "word-analysis", title: "词汇分析工具", cost: 4 },
-    { id: "bcd-vocabulary-organise", title: "BCD篇阅读重点词汇整理", cost: 2, route: "/tools/vocabulary/organiseBCDvocabulary" }
+      { id: "vocabulary-practice", title: "词汇练习生成", cost: 3, disabled: true },
+      { id: "word-analysis", title: "词汇分析工具", cost: 4, disabled: true },
+      { id: "bcd-vocabulary-organise", title: "BCD篇阅读重点词汇整理", cost: 2, route: "/tools/vocabulary/organiseBCDvocabulary" },
+      { id: "full-exam-vocabulary", title: "整份试卷词汇一次性整理（全国卷）", cost: 0, disabled: true }
     ]
   },
   {
@@ -60,9 +62,9 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "single-grammar-fill", title: "单句语法填空", cost: 2 },
-      { id: "grammar-generator", title: "单句语法填空生成器", cost: 4 },
-      { id: "grammar-questions", title: "语法填空命题", cost: 5 }
+      { id: "single-grammar-fill", title: "单句语法填空", cost: 2, disabled: true },
+      { id: "grammar-generator", title: "单句语法填空生成器", cost: 4, disabled: true },
+      { id: "grammar-questions", title: "语法填空命题", cost: 5, disabled: true }
     ]
   },
   {
@@ -75,10 +77,10 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "application-writing", title: "应用文高分范文", cost: 4 },
-      { id: "application-lesson", title: "应用文学案", cost: 6 },
-      { id: "continuation-writing", title: "读后续写范文", cost: 5 },
-      { id: "continuation-lesson", title: "读后续写学案", cost: 7 }
+      { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
+      { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
+      { id: "continuation-writing", title: "读后续写范文", cost: 5, disabled: true },
+      { id: "continuation-lesson", title: "读后续写学案", cost: 7, disabled: true }
     ]
   },
   {
@@ -91,9 +93,9 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "en-to-cn", title: "地道英译汉", cost: 3 },
-      { id: "multi-translation", title: "一句多译", cost: 4 },
-      { id: "cn-to-en", title: "地道汉译英", cost: 3 }
+      { id: "en-to-cn", title: "地道英译汉", cost: 3, disabled: true },
+      { id: "multi-translation", title: "一句多译", cost: 4, disabled: true },
+      { id: "cn-to-en", title: "地道汉译英", cost: 3, disabled: true }
     ]
   },
   {
@@ -107,21 +109,56 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "listening-generator", title: "英语听力生成器", cost: 8 }
+      { id: "listening-generator", title: "英语听力生成器", cost: 8, disabled: true }
     ]
   },
   {
     id: "image",
-    title: "图片生成工具",
-    subtitle: "AI图片生成与编辑",
+    title: "AI连环画工具",
+    subtitle: "智能连环画生成与编辑",
     icon: (
       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
         <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
       </svg>
     ),
     items: [
-      { id: "image-generator", title: "AI图片生成", cost: 5 }
+      { id: "image-generator", title: "英语故事图片生成", cost: 14, route: "/tools/pictures/Word_to_Multiple_pictures" }
     ]
+  },
+  {
+    id: "paper",
+    title: "论文相关工具",
+    subtitle: "学术论文分析与辅助",
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+      </svg>
+    ),
+    items: [
+      { id: "paper-understand", title: "一键看懂学术论文", cost: 0, disabled: true }
+    ]
+  },
+  {
+    id: "correction",
+    title: "批改类工具",
+    subtitle: "作业批改与评分辅助",
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+      </svg>
+    ),
+    items: []
+  },
+  {
+    id: "games",
+    title: "互动游戏类",
+    subtitle: "教学互动游戏工具",
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/>
+      </svg>
+    ),
+    items: []
   }
 ];
 
@@ -190,6 +227,18 @@ const toolConfig = {
     placeholder: "请粘贴BCD篇阅读文章内容...",
     buttonText: "开始整理词汇!",
     analysisText: "AI正在整理词汇中..."
+  },
+  "image-generator": {
+    title: "AI连环画生成",
+    description: "输入描述文字，AI将为您生成一组连贯的插画，支持自定义图片数量和风格",
+    icon: (
+      <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+      </svg>
+    ),
+    placeholder: "请输入提示词，例如：生成一组共4张连贯插画，核心为同一庭院一角的四季变迁...",
+    buttonText: "开始生成连环画!",
+    analysisText: "AI正在生成连环画中..."
   }
 };
 
@@ -230,6 +279,8 @@ export default function Home() {
   useEffect(() => {
     setIsMounted(true);
     checkCurrentUser();
+    // 清除任何可能缓存的analysisResult
+    setAnalysisResult(null);
   }, []);
 
   // 摄像头功能函数 - 移到useEffect前面
@@ -675,7 +726,7 @@ export default function Home() {
   
   const charCount = text.length;
   const maxChars = 10000;
-  const minChars = activeItem === "text-generator" ? 5 : 50;
+  const minChars = activeItem === "text-generator" ? 5 : activeItem === "image-generator" ? 10 : 50;
   const canAnalyze = charCount >= minChars;
 
   // 获取当前工具的点数消耗
@@ -783,6 +834,71 @@ export default function Home() {
           } else {
             alert(data.error || '改编失败，请稍后重试');
             // 如果失败，刷新用户状态
+            await refreshUser();
+          }
+        } else if (activeItem === "image-generator") {
+          // AI连环画生成功能
+          console.log('🎨 开始发送连环画生成请求，提示词长度:', text.length);
+          console.log('📝 提示词内容:', text);
+
+          const response = await fetch('/api/ai/image-generator', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include', // 确保发送cookies
+            body: JSON.stringify({
+              prompt: text.trim(),
+              max_images: 4 // 默认生成4张图片
+            })
+          });
+
+          console.log('📡 收到连环画生成响应，状态码:', response.status);
+          const data = await response.json();
+          console.log('🎨 连环画生成响应数据:', data);
+
+          if (data.success) {
+            console.log('✅ 连环画生成成功！生成了', data.images?.length || 0, '张图片');
+
+            // 构建图片展示HTML
+            const imagesHtml = data.images?.map((img: any, index: number) => `
+              <div style="margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                <div style="background: #f5f5f5; padding: 10px; border-bottom: 1px solid #ddd;">
+                  <h4 style="margin: 0; color: #333;">第 ${index + 1} 张</h4>
+                </div>
+                <div style="padding: 10px; text-align: center;">
+                  <img src="${img.url}" alt="第${index + 1}张连环画" style="max-width: 100%; height: auto; border-radius: 4px;" />
+                  <div style="margin-top: 10px;">
+                    <a href="${img.url}" download="连环画第${index + 1}张.jpg" style="display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">下载图片</a>
+                  </div>
+                </div>
+              </div>
+            `).join('') || '';
+
+            setAnalysisResult(`
+# 🎨 生成的连环画
+
+**提示词：** ${text}
+
+**生成时间：** ${new Date().toLocaleString('zh-CN')}
+
+**图片数量：** ${data.images?.length || 0}张
+
+${imagesHtml}
+
+---
+            `);
+
+            // 更新用户点数
+            await refreshUser();
+
+            // 显示成功消息
+            alert(`✅ 连环画生成完成！
+成功生成 ${data.images?.length || 0} 张图片，消耗 ${data.pointsCost} 个点数，请刷新查看最新点数。
+💡 提示：点击每张图片下方的"下载图片"按钮可以单独下载图片。`);
+          } else {
+            console.error('❌ 连环画生成失败:', data.error);
+            alert(data.error || '连环画生成失败，请稍后重试');
             await refreshUser();
           }
         } else {
@@ -1085,14 +1201,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
               </svg>
             </button>
 
-            <div className="flex items-center gap-2 md:gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-sm">EN</span>
-              </div>
-              <h1 className="text-lg md:text-xl evolink-title text-foreground truncate evolink-gradient-text">
-                英语AI教学工具
-              </h1>
-            </div>
+            <LogoWithText size="normal" />
           </div>
 
           {/* 右侧：点数兑换 + 点数记录 + 点数显示 + 用户按钮 */}
@@ -1218,27 +1327,30 @@ The future of AI depends on our ability to balance innovation with responsibilit
                       <div className={`ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
                         expandedCategories.includes(category.id) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                       }`}>
-                        {category.items.map((item) => (
+                        {category.items.map((item) => {
+                          const isAvailable = !(item as any).disabled;
+                          return (
                           <button
                             key={item.id}
-                            onClick={() => handleItemClick(category.id, item.id)}
-                            disabled={!["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)}
+                            onClick={() => isAvailable && handleItemClick(category.id, item.id)}
+                            disabled={!isAvailable}
                             className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)
+                              isAvailable
                                 ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
                                 : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
                             }`}
                           >
                             <span>{item.title}</span>
                             <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)
+                              isAvailable
                                 ? 'bg-purple-200 text-purple-700'
                                 : 'bg-gray-300 text-gray-500'
                             }`}>
-                              {["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id) ? `${item.cost}点` : '敬请期待'}
+                              {isAvailable ? `${item.cost}点` : '敬请期待'}
                             </span>
                           </button>
-                        ))}
+                        );
+                      })}
                       </div>
                     </div>
                   ))}
@@ -1336,30 +1448,35 @@ The future of AI depends on our ability to balance innovation with responsibilit
                       <div className={`ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
                         expandedCategories.includes(category.id) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                       }`}>
-                        {category.items.map((item) => (
+                        {category.items.map((item) => {
+                          const isAvailable = !(item as any).disabled;
+                          return (
                           <button
                             key={item.id}
                             onClick={() => {
-                              handleItemClick(category.id, item.id);
-                              setSidebarCollapsed(true);
+                              if (isAvailable) {
+                                handleItemClick(category.id, item.id);
+                                setSidebarCollapsed(true);
+                              }
                             }}
-                            disabled={!["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)}
+                            disabled={!isAvailable}
                             className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)
+                              isAvailable
                                 ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
                                 : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
                             }`}
                           >
                             <span>{item.title}</span>
                             <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                              ["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id)
+                              isAvailable
                                 ? 'bg-purple-200 text-purple-700'
                                 : 'bg-gray-300 text-gray-500'
                             }`}>
-                              {["text-analysis", "text-generator", "cd-adaptation", "cd-creator", "bcd-vocabulary-organise"].includes(item.id) ? `${item.cost}点` : '敬请期待'}
+                              {isAvailable ? `${item.cost}点` : '敬请期待'}
                             </span>
                           </button>
-                        ))}
+                        );
+                      })}
                       </div>
                     </div>
                   ))}
@@ -1804,7 +1921,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         </svg>
                         {currentTool.analysisText}
                       </>
-                    ) : canAnalyze ? (hasEnoughPoints ? currentTool.buttonText : `需要 ${toolCost} 点数`) : (activeItem === "text-generator" ? '输入生成要求' : activeItem === "cd-questions" ? '开始改编' : '输入文章内容')}
+                    ) : canAnalyze ? (hasEnoughPoints ? currentTool.buttonText : `需要 ${toolCost} 点数`) : (activeItem === "text-generator" ? '输入生成要求' : activeItem === "cd-questions" ? '开始改编' : activeItem === "image-generator" ? '输入提示词' : '输入文章内容')}
                   </Button>
                 </div>
               </div>
@@ -1823,12 +1940,15 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         </svg>
                       </div>
                       <h3 className="text-xl evolink-heading text-foreground mb-3">
-                        {activeItem === "cd-adaptation" ? "准备开始改编" : "准备开始分析"}
+                        {activeItem === "cd-adaptation" ? "准备开始改编" : activeItem === "image-generator" ? "准备开始生成连环画" : "准备开始分析"}
                       </h3>
                       <p className="text-muted-foreground leading-relaxed">
                         {activeItem === "cd-adaptation" ? (
                           <>在左侧输入您要改编的英文文章，选择大语言模型，点击"开始改编"按钮，
                           AI将为您生成适合中国高中生阅读的改编版本。</>
+                        ) : activeItem === "image-generator" ? (
+                          <>在左侧输入详细的提示词，描述您想要生成的连环画内容，点击"开始生成连环画"按钮，
+                          AI将为您生成一组精美的连贯插画。</>
                         ) : (
                           <>在左侧输入您的英语文章，选择分析参数，点击"开始神奇分析"按钮，
                           AI将为您生成详细的语言分析报告。</>
@@ -1867,18 +1987,26 @@ The future of AI depends on our ability to balance innovation with responsibilit
                     <div className="flex-1 min-h-0">
                       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 lg:p-8 h-full overflow-hidden">
                         <div className="max-w-none max-h-[calc(100vh-10rem)] overflow-y-auto text-sm leading-relaxed" style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>
-                          <div dangerouslySetInnerHTML={{
-                            __html: (analysisResult || '')
-                              .replace(/\n/g, '<br>')
-                              .replace(/# (.*)/g, '<div style="color: #1f2937; font-size: 0.875rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.6;">$1</div>')
-                              .replace(/## (.*)/g, '<div style="color: #374151; font-size: 0.875rem; font-weight: 600; margin: 1rem 0 0.5rem 0; line-height: 1.6;">$1</div>')
-                              .replace(/### (.*)/g, '<div style="color: #6b7280; font-size: 0.875rem; font-weight: 600; margin: 0.75rem 0 0.25rem 0; line-height: 1.6;">$1</div>')
-                              .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1f2937; font-weight: 600;">$1</strong>')
-                              .replace(/- (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">• $1</div>')
-                              .replace(/(\d+)\. (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">$1. $2</div>')
-                              .replace(/✅/g, '<span style="color: #10b981;">✅</span>')
-                              .replace(/⚠️/g, '<span style="color: #f59e0b;">⚠️</span>')
-                          }} />
+                          {activeItem === "image-generator" ? (
+                            // AI连环画生成工具 - 直接渲染HTML
+                            <div dangerouslySetInnerHTML={{
+                              __html: analysisResult || ''
+                            }} />
+                          ) : (
+                            // 其他工具 - 保持原有的格式化逻辑
+                            <div dangerouslySetInnerHTML={{
+                              __html: (analysisResult || '')
+                                .replace(/\n/g, '<br>')
+                                .replace(/# (.*)/g, '<div style="color: #1f2937; font-size: 0.875rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.6;">$1</div>')
+                                .replace(/## (.*)/g, '<div style="color: #374151; font-size: 0.875rem; font-weight: 600; margin: 1rem 0 0.5rem 0; line-height: 1.6;">$1</div>')
+                                .replace(/### (.*)/g, '<div style="color: #6b7280; font-size: 0.875rem; font-weight: 600; margin: 0.75rem 0 0.25rem 0; line-height: 1.6;">$1</div>')
+                                .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1f2937; font-weight: 600;">$1</strong>')
+                                .replace(/- (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">• $1</div>')
+                                .replace(/(\d+)\. (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">$1. $2</div>')
+                                .replace(/✅/g, '<span style="color: #10b981;">✅</span>')
+                                .replace(/⚠️/g, '<span style="color: #f59e0b;">⚠️</span>')
+                            }} />
+                          )}
                         </div>
                       </div>
                     </div>

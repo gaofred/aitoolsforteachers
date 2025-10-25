@@ -67,7 +67,7 @@ export function EmailRegisterForm() {
             欢迎 <span className="font-semibold text-purple-600">{email}</span> 加入英语AI教学工具
           </p>
           <p className="text-sm text-gray-500 mb-6">
-            您已获得25个初始积分，首次每日签到再获得25积分
+            您已获得25个初始积分，首次每日签到再获得20积分
           </p>
           <div className="flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" />

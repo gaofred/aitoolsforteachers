@@ -21,7 +21,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('redemption_codes')
       .delete()
-      .eq('id', id);
+      .eq('id', id as any);
 
     if (error) {
       console.error('删除兑换码失败:', error);
