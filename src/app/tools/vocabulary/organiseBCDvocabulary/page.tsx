@@ -27,7 +27,7 @@ export default function BCDVocabularyOrganisePage() {
   const [redeemSuccess, setRedeemSuccess] = useState("");
 
   // 工具配置
-  const toolCost = 5; // BCD词汇整理消耗5个点数
+  const toolCost = 2; // BCD词汇整理消耗2个点数
 
   // 确保组件只在客户端渲染
   useEffect(() => {
@@ -269,9 +269,14 @@ export default function BCDVocabularyOrganisePage() {
               <CardContent className="space-y-4">
                 {/* 文本输入 */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    BCD篇阅读文章内容
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">
+                      BCD篇阅读文章内容
+                    </label>
+                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
+                      本功能一次只能选择一篇
+                    </span>
+                  </div>
                   <div className="relative">
                     <Textarea
                       value={text}

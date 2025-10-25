@@ -47,7 +47,7 @@ const navigationData = [
     items: [
       { id: "vocabulary-practice", title: "词汇练习生成", cost: 3 },
       { id: "word-analysis", title: "词汇分析工具", cost: 4 },
-      { id: "bcd-vocabulary-organise", title: "BCD篇阅读重点词汇整理", cost: 5, route: "/tools/vocabulary/organiseBCDvocabulary" }
+      { id: "bcd-vocabulary-organise", title: "BCD篇阅读重点词汇整理", cost: 2, route: "/tools/vocabulary/organiseBCDvocabulary" }
     ]
   },
   {

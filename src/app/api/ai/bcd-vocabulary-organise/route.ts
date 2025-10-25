@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const pointsCost = 5; // BCD词汇整理消耗5个点数
+    const pointsCost = 2; // BCD词汇整理消耗2个点数
 
     if ((userPoints as any).points < pointsCost) {
       return NextResponse.json({
