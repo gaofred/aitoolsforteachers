@@ -32,7 +32,7 @@ const navigationData = [
       { id: "text-generator", title: "阅读文本生成神器", cost: 4, route: "/tools/reading/reading-generator" },
       { id: "cd-adaptation", title: "CD篇改编", cost: 5, route: "/tools/reading/cd-adaptation" },
       { id: "cd-creator", title: "CD篇命题", active: true, cost: 7, route: "/tools/reading/cd-creator" },
-        { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6 }
+        { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true }
     ]
   },
   {
@@ -48,6 +48,7 @@ const navigationData = [
       { id: "vocabulary-practice", title: "词汇练习生成", cost: 3, disabled: true },
       { id: "word-analysis", title: "词汇分析工具", cost: 4, disabled: true },
       { id: "bcd-vocabulary-organise", title: "BCD篇阅读重点词汇整理", cost: 2, route: "/tools/vocabulary/organiseBCDvocabulary" },
+      { id: "cloze-vocabulary-organise", title: "完形填空重点词汇整理", cost: 6, route: "/tools/vocabulary/organise_cloze_vocabulary" },
       { id: "full-exam-vocabulary", title: "整份试卷词汇一次性整理（全国卷）", cost: 0, disabled: true }
     ]
   },
@@ -113,7 +114,7 @@ const navigationData = [
   },
   {
     id: "image",
-    title: "AI连环画工具",
+    title: "AI图片生成工具",
     subtitle: "智能连环画生成与编辑",
     icon: (
       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -121,7 +122,7 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "image-generator", title: "英语故事图片生成", cost: 14, route: "/tools/pictures/Word_to_Multiple_pictures" }
+      { id: "image-generator", title: "AI生成故事组图", cost: 14, route: "/tools/pictures/Word_to_Multiple_pictures" }
     ]
   },
   {
@@ -227,9 +228,21 @@ const toolConfig = {
     buttonText: "开始整理词汇!",
     analysisText: "AI正在整理词汇中..."
   },
+  "cloze-vocabulary-organise": {
+    title: "完形填空重点词汇整理",
+    description: "输入完形填空文章，AI将为您整理出完形填空中的重点词汇、固定搭配、语法结构和解题关键点，帮助学生深入理解完形填空的词汇考察重点和答题技巧",
+    icon: (
+      <svg className="w-4 h-4 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M6.672 1.911a1 1 0 10-1.932.518l.259.966a1 1 0 001.932-.518l-.26-.966zM2.429 4.74a1 1 0 10-.517 1.932l.966.259a1 1 0 00.517-1.932l-.966-.26zm8.814-.569a1 1 0 00-1.415-1.414l-.707.707a1 1 0 101.415 1.415l.707-.708zm-7.071 7.072l.707-.707A1 1 0 003.465 9.12l-.708.707a1 1 0 001.415 1.415zm3.2-5.171a1 1 0 00-1.3 1.3l4 10a1 1 0 001.823.075l1.38-2.759 3.018 3.02a1 1 0 001.414-1.415l-3.019-3.02 2.76-1.379a1 1 0 00-.076-1.822l-10-4z" clipRule="evenodd" />
+      </svg>
+    ),
+    placeholder: "请粘贴完形填空文章内容（包含选项的完整完形填空）...",
+    buttonText: "开始整理词汇!",
+    analysisText: "AI正在整理完形填空词汇中..."
+  },
   "image-generator": {
-    title: "AI连环画生成",
-    description: "输入描述文字，AI将为您生成一组连贯的插画，支持自定义图片数量和风格",
+    title: "AI图片生成工具",
+    description: "输入描述文字，AI将为您生成高质量的图片，支持自定义图片数量和风格",
     icon: (
       <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
         <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
@@ -768,8 +781,8 @@ export default function Home() {
             await refreshUser();
           }
         } else if (activeItem === "image-generator") {
-          // AI连环画生成功能
-          console.log('🎨 开始发送连环画生成请求，提示词长度:', text.length);
+          // AI图片生成功能
+          console.log('🎨 开始发送图片生成请求，提示词长度:', text.length);
           console.log('📝 提示词内容:', text);
 
           const response = await fetch('/api/ai/image-generator', {
@@ -1779,7 +1792,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 lg:p-8 h-full overflow-hidden">
                         <div className="max-w-none max-h-[calc(100vh-10rem)] overflow-y-auto text-sm leading-relaxed" style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>
                           {activeItem === "image-generator" ? (
-                            // AI连环画生成工具 - 直接渲染HTML
+                            // AI图片生成工具 - 直接渲染HTML
                             <div dangerouslySetInnerHTML={{
                               __html: analysisResult || ''
                             }} />
