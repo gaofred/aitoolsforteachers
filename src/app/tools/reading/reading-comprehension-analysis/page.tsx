@@ -343,6 +343,7 @@ export default function ReadingComprehensionAnalysisPage() {
     }
   }
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
       {/* 导航栏 */}
@@ -658,6 +659,7 @@ export default function ReadingComprehensionAnalysisPage() {
                 </CardContent>
               </Card>
             )}
+
 
             {!analysisResult && !isAnalyzing && (
               <Card className="h-full">

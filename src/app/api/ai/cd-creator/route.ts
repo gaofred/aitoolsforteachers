@@ -80,13 +80,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: `点数不足，需要 ${optimizationCost} 个点数` }, { status: 400 });
     }
 
-    // 使用豆包进行优化
-    const apiKey = process.env.VOLCENGINE_API_KEY;
-    const apiUrl = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
-    const model = 'doubao-seed-1-6-251015';
+    // 使用Gemini进行优化
+    const apiKey = process.env.CLOUDMIST_GOOGLE_API_KEY;
+    const apiUrl = 'https://yunwu.ai/v1/chat/completions';
+    const model = 'gemini-2.5-pro';
 
     if (!apiKey) {
-      return NextResponse.json({ error: '火山引擎API Key未配置' }, { status: 500 });
+      return NextResponse.json({ error: '云雾API (Google) Key未配置' }, { status: 500 });
     }
 
     // 加载课标3000词词表
@@ -123,7 +123,7 @@ ${questions}
     });
 
     if (!aiResponse.ok) {
-      return NextResponse.json({ error: '优化服务调用失败' }, { status: 500 });
+      return NextResponse.json({ error: '云雾API (Gemini) 优化服务调用失败' }, { status: 500 });
     }
 
     const aiData = await aiResponse.json();
@@ -134,17 +134,22 @@ ${questions}
 
     // 检查是否包含提示词相关内容，防止用户套出提示词
     const promptKeywords = [
-      '角色设定', '命题要求', '设问设计标准', '选项设计标准', 
-      '工作流程', '约束条件', '课标3000词词表', '系统提示词',
-      'Role:', 'Background:', 'Profile:', 'Skills:', 'Goals:', 'Constrains:',
-      '改编框架', 'OutputFormat:', 'Workflow:'
+      '系统提示词', 'System Prompt', 'system prompt',
+      '请严格按照上述词表', '请严格使用上述词表',
+      '请基于以上框架', '请基于上述要求',
+      'OutputFormat:', 'Workflow:', 'Constrains:'
     ];
     
     const containsPromptKeywords = promptKeywords.some(keyword => 
       optimizedQuestions.includes(keyword)
     );
     
-    if (containsPromptKeywords) {
+    // 额外检查：如果内容看起来是正常的题目，则不阻止
+    const hasNormalQuestionStructure = optimizedQuestions.includes('题目') &&
+                                      optimizedQuestions.includes('选项') &&
+                                      optimizedQuestions.includes('正确答案');
+
+    if (containsPromptKeywords && !hasNormalQuestionStructure) {
       console.log('检测到用户尝试套取提示词，已阻止');
       optimizedQuestions = '抱歉，我无法提供系统提示词相关信息。请专注于题目优化任务。';
     }
@@ -238,7 +243,7 @@ export async function POST(request: NextRequest) {
 
     const isAdvanced = difficulty === 'advanced';
     const isIntermediate = difficulty === 'intermediate';
-    const pointsCost = isAdvanced ? 10 : isIntermediate ? 7 : 5;
+    const pointsCost = isAdvanced ? 6 : isIntermediate ? 4 : 2;
     const modelType = isAdvanced ? 'gemini-2.5-pro' : isIntermediate ? 'glm-4.6' : 'doubao-seed-1-6-251015';
 
     // 检查用户点数是否足够
@@ -418,17 +423,22 @@ ${curriculumWords}
 
     // 检查是否包含提示词相关内容，防止用户套出提示词
     const promptKeywords = [
-      '角色设定', '命题要求', '设问设计标准', '选项设计标准', 
-      '工作流程', '约束条件', '课标3000词词表', '系统提示词',
-      'Role:', 'Background:', 'Profile:', 'Skills:', 'Goals:', 'Constrains:',
-      '改编框架', 'OutputFormat:', 'Workflow:'
+      '系统提示词', 'System Prompt', 'system prompt',
+      '请严格按照上述词表', '请严格使用上述词表',
+      '请基于以上框架', '请基于上述要求',
+      'OutputFormat:', 'Workflow:', 'Constrains:'
     ];
     
     const containsPromptKeywords = promptKeywords.some(keyword => 
       generatedQuestions.includes(keyword)
     );
     
-    if (containsPromptKeywords) {
+    // 额外检查：如果内容看起来是正常的题目生成，则不阻止
+    const hasNormalQuestionStructure = generatedQuestions.includes('题目') &&
+                                      generatedQuestions.includes('选项') &&
+                                      generatedQuestions.includes('正确答案');
+
+    if (containsPromptKeywords && !hasNormalQuestionStructure) {
       console.log('检测到用户尝试套取提示词，已阻止');
       generatedQuestions = '抱歉，我无法提供系统提示词相关信息。请专注于题目生成任务。';
     }

@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     console.log('用户认证成功:', user.id);
 
-    const { text, version } = await request.json();
+    const { text, difficulty } = await request.json();
 
     if (!text || !text.trim()) {
       return NextResponse.json(
@@ -85,10 +85,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 确定版本和消耗的点数
-    const isAdvanced = version === 'advanced';
-    const pointsCost = isAdvanced ? 8 : 5;
-    const modelType = isAdvanced ? 'zhipu-qingyan' : 'doubao-seed-1-6-251015';
+    if (!difficulty) {
+      return NextResponse.json(
+        { error: '请提供难度级别' },
+        { status: 400 }
+      );
+    }
+
+    const difficultyLabels = {
+      'basic': '基础版',
+      'intermediate': '标准版',
+      'advanced': '高阶版'
+    };
+
+    // 确定难度和消耗的点数
+    const isAdvanced = difficulty === 'advanced';
+    const isIntermediate = difficulty === 'intermediate';
+    const pointsCost = isAdvanced ? 6 : isIntermediate ? 4 : 2;
+    const modelType = isAdvanced ? 'gemini-2.5-pro' : isIntermediate ? 'glm-4.6' : 'doubao-seed-1-6-251015';
 
     // 检查用户点数是否足够
     const { data: userPoints, error: pointsError } = await supabase
@@ -111,11 +125,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 根据版本选择API Key和模型
+    // 根据难度选择API Key和模型
     let apiKey, apiUrl, model;
-    
+
     if (isAdvanced) {
-      // 进阶版使用云雾API
+      // 高阶版使用云雾API的Gemini-2.5-pro（专用Google API Key）
+      apiKey = process.env.CLOUDMIST_GOOGLE_API_KEY;
+      apiUrl = 'https://yunwu.ai/v1/chat/completions';
+      model = 'gemini-2.5-pro';
+    } else if (isIntermediate) {
+      // 标准版使用云雾API的GLM-4.6
       apiKey = process.env.CLOUDMIST_API_KEY;
       apiUrl = 'https://yunwu.ai/v1/chat/completions';
       model = 'glm-4.6';
@@ -125,10 +144,12 @@ export async function POST(request: NextRequest) {
       apiUrl = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
       model = 'doubao-seed-1-6-251015';
     }
-    
+
+    const apiName = isAdvanced ? '云雾API (Gemini)' : isIntermediate ? '云雾API (智谱)' : '豆包';
+
     if (!apiKey) {
       return NextResponse.json(
-        { error: `${isAdvanced ? '云雾API' : '火山引擎'}API Key未配置` },
+        { error: `${apiName}API Key未配置` },
         { status: 500 }
       );
     }
@@ -137,43 +158,28 @@ export async function POST(request: NextRequest) {
     const curriculumWords = loadCurriculumWords();
     
     // 构建提示词
-    const systemPrompt = `- Role: 中国高中英语教研员
-- Background: 用户需要将一篇英文文章改编成适合中国高中生阅读的文本，用于考察学生语言能力和思维品质。改编后的文本需符合特定的字数、词汇和难度要求。
-- Profile: 你是一位资深的中国高中英语教研员，拥有丰富的文本改编经验，熟悉中国高中英语教学大纲和学生水平，能够精准地对文本进行改编。
-- Skills: 你具备文本分析、词汇筛选、句式简化、语篇结构调整等能力，能够将复杂的文本改编成适合特定水平学生的材料，同时保留原文的核心内容和亮点。
-- Goals:
-  1. 判断文章所属类别（自然理工科学类、人文社会科学类理论类、人文社会科学类非理论类）。
-  2. 按照语篇框架对文章进行改编，控制字数在320-350词以内。
-  3. 确保改编后的文本适合中国高中生阅读（欧州语言标准B2级别），语法句式复杂度保持在欧标B2水平。
-  4. 保留原文中的精彩语句，确保文本结构清晰，围绕主旨展开。
+    const systemPrompt = `请将英文文章改编成320-350词的高中生适读文本。
 
-- Constrains: 改编后的文本词汇需在我给你的课标3000词范围内（注意，课标3000词的对应词性转化仍属于课标3000范畴），段落控制在4-5段。
+【最重要要求：字数必须达到320-350词，不得少于320词！】
 
-- 课标3000词词表参考（知识库）：
+**严格标准：**
+- 字数：320-350词（必须严格执行，这是首要要求）
+- 段落：4-5段
+- 词汇：仅使用课标3000词表内的单词
+
+**课标3000词表：**
 ${curriculumWords}
 
-请严格使用上述词表中的词汇进行改编，超出范围的词汇必须替换为词表中的近义词。
+**改编指导：**
+1. 保留原文核心内容和主旨
+2. 简化复杂词汇和句式
+3. 删除无关细节，突出主线
+4. 确保逻辑清晰连贯
+5. 如果字数不够，请适当扩展细节描述来达到要求
 
--改编框架：
-自然理工类
-①问题/现象引入型：现在有某种问题（problem/phenomenon/concern）→针对该问题，有人进行了研究，发现了XX/得出了某种结论（researchers/professors/scientists/experts; found/revealed/explained/concluded that XX）→研究人员是怎么进行研究/实验的〔研究/实验对象（participants/subjects）、研究/实验方法（methods）、研究/实验步骤（steps/procedures）、研究/实验中遇到的问题（problems）〕→研究的价值（values）/潜在运用（applications/prospect/future）→关于该研究的评价（significance/limitations）
-②开门见山型：研究人员发现了XX（researchers found that XX）→研究人员是怎么进行研究/实验的〔研究/实验对象（participants/subjects）、研究/实验方法（methods）、研究/实验步骤（steps/procedures）、研究/实验中遇到的问题（problems）〕→就研究的发现进行具体展开说明→研究的价值/潜在运用（applications/prospect/future）
-③人文社会科学类（理论类）：
-理论的起源（谁提出、发现的过程、理论的内涵是什么）→理论的具体表现→理论的影响/功能/作用→理论的局限性/批判
-④人文社会科学类（非理论类）：
-现象引入→提出观点→历史案例→现状分析→反思与呼吁
-提出问题→核心论点→论证→结论
+【再次强调：必须生成完整的320-350词文本，不要在中途停止！】
 
-改编后的文章要适合中国高中生阅读（欧州语言标准B2级别），语法句式复杂度可以保持在欧标B2水平。可以删减（与主线不相干的内容全部删掉，留下主干部分），改述（对于生词、难词、长难句等，在不影响原文意思的前提下，改述成学生易懂的表达方式），替换（用一个简单的词替换较难的词），移动（改变词汇或句子的位置）、合并（将部分零散的信息进行整合）、拆分（将1个句子或段落拆分成多个句子或段落）。总之，改编后的文章要紧紧围绕文章主旨大意，结构清晰，同时要尽量保留原文中的精彩有亮点的语句。文本段落控制在4-5段，不多不少。
-
-- OutputFormat: 改编后的英文文本，字数控制在320-350词以内，段落4-5段。
-- Workflow:
-  1. 分析文章所属类别（以上4种的哪一种），确定改编框架。
-  2. 梳理文章主线，删减与主线无关的内容，保留核心部分。
-  3. 如果文章里有专家或相关人员说的话"直接引语"，可适当保留一两句，以"直接引语"呈现，以增强文章的信服力。
-  4. 对生词、难词、长难句进行改述或替换，调整词汇和句式复杂度。句子层面删除冗余信息，提升文本信息密度和表达效率；单词层面替换专业术语与非常用词，删减冗余修饰词，辅以术语注释，全面提升文本的清晰度、流畅性与大众可读性。
-  5. 优化语篇结构，确保段落清晰，逻辑连贯。
-  6. 检查字数、词汇范围，确保符合要求。`;
+请直接输出改编后的完整英文文本，确保字数达标。不要解释改编过程。`;
 
     const userPrompt = `请对以下文章进行改编：\n\n${text}`;
 
@@ -197,20 +203,20 @@ ${curriculumWords}
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 8000
       })
     });
 
     if (!aiResponse.ok) {
       const errorData = await aiResponse.text();
-      console.error(`${isAdvanced ? '云雾API' : '豆包'}API调用失败:`, errorData);
+      console.error(`${apiName}API调用失败:`, errorData);
 
       // API调用失败，退还点数
       const refundSuccess = await refundPoints(
         supabase,
         user.id,
         pointsCost,
-        `CD篇改编失败 - ${isAdvanced ? '进阶版' : '基础版'}API调用失败`
+        `CD篇改编失败 - ${difficultyLabels[difficulty as keyof typeof difficultyLabels]}API调用失败`
       );
 
       return NextResponse.json(
@@ -228,10 +234,10 @@ ${curriculumWords}
 
     // 检查是否包含提示词相关内容，防止用户套出提示词
     const promptKeywords = [
-      '角色设定', '命题要求', '设问设计标准', '选项设计标准', 
-      '工作流程', '约束条件', '课标3000词词表', '系统提示词',
-      'Role:', 'Background:', 'Profile:', 'Skills:', 'Goals:', 'Constrains:',
-      '改编框架', 'OutputFormat:', 'Workflow:'
+      '系统提示词', 'System Prompt', 'system prompt',
+      '请严格按照上述词表', '请严格使用上述词表',
+      '请基于以上框架', '请基于上述要求',
+      'OutputFormat:', 'Workflow:', 'Constrains:'
     ];
     
     const containsPromptKeywords = promptKeywords.some(keyword => 
@@ -249,7 +255,7 @@ ${curriculumWords}
         supabase,
         user.id,
         pointsCost,
-        `CD篇改编失败 - ${isAdvanced ? '进阶版' : '基础版'}AI返回空结果`
+        `CD篇改编失败 - ${difficultyLabels[difficulty as keyof typeof difficultyLabels]}AI返回空结果`
       );
 
       return NextResponse.json(
@@ -267,7 +273,7 @@ ${curriculumWords}
       p_user_id: user.id,
       p_amount: -pointsCost,
       p_type: 'GENERATE',
-      p_description: `CD篇改编 - ${isAdvanced ? '进阶版' : '基础版'}`,
+      p_description: `CD篇改编 - ${difficultyLabels[difficulty as keyof typeof difficultyLabels]}`,
       p_related_id: null
     } as any);
 
@@ -310,16 +316,297 @@ ${curriculumWords}
       pointsCost: pointsCost,
       remainingPoints: (updatedUserPoints as any)?.points || 0,
         metadata: {
-          version: version,
+          difficulty: difficulty,
           originalLength: text.length,
           adaptedLength: adaptedText.length,
           model: modelType,
-          provider: isAdvanced ? 'yunwu' : 'volcengine'
+          provider: isAdvanced ? 'yunwu_google' : isIntermediate ? 'yunwu' : 'volcengine'
         }
     });
 
   } catch (error) {
     console.error('CD篇改编API错误:', error);
+    return NextResponse.json(
+      { error: '服务器错误' },
+      { status: 500 }
+    );
+  }
+}
+
+// 优化功能的API处理
+export async function PUT(request: NextRequest) {
+  try {
+    const cookieStore = await cookies();
+
+    // 获取Supabase认证相关的cookies
+    const accessToken = cookieStore.get('sb-access-token')?.value;
+    const refreshToken = cookieStore.get('sb-refresh-token')?.value;
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: '未认证 - 请先登录' },
+        { status: 401 }
+      );
+    }
+
+    const supabase = createServerSupabaseClient();
+
+    // 使用access token获取用户信息
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      console.error('认证错误:', authError);
+      return NextResponse.json(
+        { error: '认证失败 - 请重新登录' },
+        { status: 401 }
+      );
+    }
+
+    console.log('CD篇改编优化请求 - 用户认证成功:', user.id);
+
+    const { originalText, adaptedText, context } = await request.json();
+
+    if (!originalText || !adaptedText || !context) {
+      return NextResponse.json(
+        { error: '优化请求参数不完整' },
+        { status: 400 }
+      );
+    }
+
+    const optimizationCost = 2;
+
+    // 检查用户点数是否足够
+    const { data: userPoints, error: pointsError } = await supabase
+      .from('user_points')
+      .select('points')
+      .eq('user_id', user.id as any)
+      .single();
+
+    if (pointsError || !userPoints) {
+      return NextResponse.json(
+        { error: '获取用户点数失败' },
+        { status: 500 }
+      );
+    }
+
+    if ((userPoints as any)?.points < optimizationCost) {
+      return NextResponse.json(
+        { error: `点数不足，需要 ${optimizationCost} 个点数进行优化` },
+        { status: 400 }
+      );
+    }
+
+    // 使用Gemini-2.5-pro模型进行优化（专用Google API Key）
+    const apiKey = process.env.CLOUDMIST_GOOGLE_API_KEY;
+    const apiUrl = 'https://yunwu.ai/v1/chat/completions';
+    const model = 'gemini-2.5-pro';
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: '云雾Google API Key未配置' },
+        { status: 500 }
+      );
+    }
+
+    // 加载课标3000词词表
+    const curriculumWords = loadCurriculumWords();
+
+    // 优化提示词
+    const optimizationPrompt = `请基于原始文本优化CD篇改编内容。
+
+【最重要要求：字数必须达到320-350词，不得少于320词！】
+
+**严格标准：**
+- 字数：320-350词（必须严格执行，这是首要要求）
+- 段落：4-5段
+- 词汇：仅使用课标3000词表内的单词
+
+**课标3000词表：**
+${curriculumWords}
+
+**优化任务：**
+1. 分析当前改编结果的不足
+2. 参考原始文本补充内容
+3. 提升文本流畅性和逻辑性
+4. 确保字数严格达标
+5. 如果字数不够，请适当扩展细节来达到要求
+
+【再次强调：必须生成完整的320-350词文本，不要在中途停止！】
+
+请直接输出优化后的完整英文文本，确保字数达标。不要解释优化过程。`;
+
+    const userPrompt = `请基于以下信息对CD篇改编结果进行优化：
+
+原始文本：
+${originalText}
+
+当前改编结果：
+${adaptedText}
+
+请生成优化后的改编内容。`;
+
+    console.log('🎯 开始调用Gemini-2.5-pro模型进行CD篇改编优化');
+
+    // 调用AI API
+    const aiResponse = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          {
+            role: 'system',
+            content: optimizationPrompt
+          },
+          {
+            role: 'user',
+            content: userPrompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 8000
+      })
+    });
+
+    if (!aiResponse.ok) {
+      const errorData = await aiResponse.text();
+      console.error('Gemini-2.5-pro优化API调用失败:', errorData);
+
+      // API调用失败，退还点数
+      const refundSuccess = await refundPoints(
+        supabase,
+        user.id,
+        optimizationCost,
+        'CD篇改编优化失败 - Gemini-2.5-pro API调用失败'
+      );
+
+      return NextResponse.json(
+        {
+          error: 'AI服务调用失败，请稍后重试',
+          refunded: refundSuccess,
+          pointsRefunded: optimizationCost
+        },
+        { status: 500 }
+      );
+    }
+
+    const aiData = await aiResponse.json();
+    let optimizedText = aiData.choices?.[0]?.message?.content || '';
+
+    // 检查是否包含提示词相关内容
+    const promptKeywords = [
+      '系统提示词', 'System Prompt', 'system prompt',
+      '请严格按照上述词表', '请严格使用上述词表',
+      '请基于以上框架', '请基于上述要求',
+      'OutputFormat:', 'Workflow:', 'Constrains:'
+    ];
+
+    const containsPromptKeywords = promptKeywords.some(keyword =>
+      optimizedText.includes(keyword)
+    );
+
+    if (containsPromptKeywords) {
+      console.log('检测到用户尝试套取提示词，已阻止');
+      optimizedText = '抱歉，我无法提供系统提示词相关信息。请专注于文本改编任务。';
+    }
+
+    if (!optimizedText) {
+      // AI返回空结果，退还点数
+      const refundSuccess = await refundPoints(
+        supabase,
+        user.id,
+        optimizationCost,
+        'CD篇改编优化失败 - AI返回空结果'
+      );
+
+      return NextResponse.json(
+        {
+          error: 'AI服务返回空结果，请稍后重试',
+          refunded: refundSuccess,
+          pointsRefunded: optimizationCost
+        },
+        { status: 500 }
+      );
+    }
+
+    // 扣除用户点数
+    const { error: deductError } = await supabase.rpc('add_user_points', {
+      p_user_id: user.id,
+      p_amount: -optimizationCost,
+      p_type: 'GENERATE',
+      p_description: 'CD篇改编优化 - Gemini-2.5-pro',
+      p_related_id: null
+    } as any);
+
+    if (deductError) {
+      console.error('扣除点数失败:', deductError);
+      return NextResponse.json(
+        { error: '点数扣除失败，请稍后重试' },
+        { status: 500 }
+      );
+    }
+
+    // 记录AI生成历史
+    const { error: historyError } = await supabase
+      .from('ai_generations')
+      .insert({
+        user_id: user.id,
+        tool_name: 'cd_adaptation_optimization',
+        tool_type: 'reading',
+        model_type: 'glm-4.6',
+        input_data: { originalText, adaptedText, context },
+        output_data: { optimized_text: optimizedText },
+        points_cost: optimizationCost,
+        status: 'COMPLETED'
+      } as any);
+
+    if (historyError) {
+      console.error('记录AI生成历史失败:', historyError);
+    }
+
+    // 获取更新后的用户点数
+    const { data: updatedUserPoints } = await supabase
+      .from('user_points')
+      .select('points')
+      .eq('user_id', user.id as any)
+      .single();
+
+    console.log('✅ CD篇改编优化完成');
+
+    return NextResponse.json({
+      success: true,
+      optimizedAdaptedText: optimizedText,
+      pointsCost: optimizationCost,
+      remainingPoints: (updatedUserPoints as any)?.points || 0,
+      metadata: {
+        originalLength: originalText.length,
+        optimizedLength: optimizedText.length,
+        model: 'gemini-2.5-pro',
+        provider: 'yunwu_google'
+      }
+    });
+
+  } catch (error) {
+    console.error('CD篇改编优化API错误:', error);
+
+    // 尝试退回积分
+    try {
+      const cookieStore = await cookies();
+      const accessToken = cookieStore.get('sb-access-token')?.value;
+      if (accessToken) {
+        const supabase = createServerSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser(accessToken);
+        if (user) {
+          await refundPoints(supabase, user.id, 2, 'CD篇改编优化异常退回');
+        }
+      }
+    } catch (refundError) {
+      console.error('积分退回异常:', refundError);
+    }
+
     return NextResponse.json(
       { error: '服务器错误' },
       { status: 500 }

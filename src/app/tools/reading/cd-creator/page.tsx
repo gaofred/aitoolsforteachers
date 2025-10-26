@@ -30,7 +30,7 @@ export default function CDCreatorPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const toolCost = difficulty === 'advanced' ? 10 : difficulty === 'intermediate' ? 7 : 5
+  const toolCost = difficulty === 'advanced' ? 6 : difficulty === 'intermediate' ? 4 : 2
   const hasEnoughPoints = userPoints >= toolCost
 
   // 使用 useEffect 避免水合错误
@@ -487,9 +487,9 @@ export default function CDCreatorPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="basic">基础版 (豆包 5点)</SelectItem>
-                        <SelectItem value="intermediate">标准版 (智谱清言 7点)</SelectItem>
-                        <SelectItem value="advanced">进阶版 (Gemini-2.5-pro 10点)</SelectItem>
+                        <SelectItem value="basic">基础版 (豆包 2点)</SelectItem>
+                        <SelectItem value="intermediate">标准版 (智谱清言 4点)</SelectItem>
+                        <SelectItem value="advanced">进阶版 (Gemini-2.5-pro 6点)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -783,8 +783,8 @@ export default function CDCreatorPage() {
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <span>优化后结果</span>
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                        豆包优化完成
+                      <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                        Gemini大模型优化完成
                       </span>
                     </span>
                     <div className="flex gap-2">

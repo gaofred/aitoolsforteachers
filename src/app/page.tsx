@@ -32,7 +32,7 @@ const navigationData = [
       { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6 },
       { id: "text-generator", title: "阅读文本生成神器", cost: 4, route: "/tools/reading/reading-generator" },
       { id: "cd-adaptation", title: "CD篇改编", cost: 5, route: "/tools/reading/cd-adaptation" },
-      { id: "cd-creator", title: "CD篇命题", active: true, cost: 7, route: "/tools/reading/cd-creator" },
+      { id: "cd-creator", title: "CD篇命题", active: true, cost: 4, route: "/tools/reading/cd-creator" },
         { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true },
         { id: "reading-comprehension-analysis", title: "阅读理解解析", cost: 2, route: "/tools/reading/reading-comprehension-analysis" }
     ]

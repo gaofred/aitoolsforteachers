@@ -5,16 +5,20 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/lib/user-context'
+import toast from 'react-hot-toast'
 
 export default function CDAdaptationPage() {
   const router = useRouter()
   const { currentUser, userPoints, refreshUser } = useUser()
-  const [analysisLevel, setAnalysisLevel] = useState<'basic' | 'advanced'>('basic')
+  const [difficulty, setDifficulty] = useState<'basic' | 'intermediate' | 'advanced'>('intermediate')
   const [article, setArticle] = useState('')
   const [analysisResult, setAnalysisResult] = useState('')
+  const [optimizedResult, setOptimizedResult] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isOptimizing, setIsOptimizing] = useState(false)
 
   // 摄像头相关状态
   const [isCameraOpen, setIsCameraOpen] = useState(false)
@@ -27,7 +31,7 @@ export default function CDAdaptationPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const toolCost = analysisLevel === 'advanced' ? 8 : 5
+  const toolCost = difficulty === 'advanced' ? 6 : difficulty === 'intermediate' ? 4 : 2
   const hasEnoughPoints = userPoints >= toolCost
 
   // 使用 useEffect 避免水合错误
@@ -272,9 +276,10 @@ export default function CDAdaptationPage() {
   }
 
   // 复制和导出功能
-  const copyToClipboard = async () => {
+  const copyToClipboard = async (text?: string) => {
     try {
-      await navigator.clipboard.writeText(analysisResult)
+      const textToCopy = text || analysisResult
+      await navigator.clipboard.writeText(textToCopy)
       alert('文本已复制到剪贴板')
     } catch (error) {
       console.error('复制失败:', error)
@@ -282,12 +287,14 @@ export default function CDAdaptationPage() {
     }
   }
 
-  const exportToText = () => {
+  const exportToText = (text?: string, filename?: string) => {
     try {
+      const textToExport = text || analysisResult
+      const fileName = filename || 'CD_adaptation_result.txt'
       const element = document.createElement('a')
-      const file = new Blob([analysisResult], { type: 'text/plain;charset=utf-8' })
+      const file = new Blob([textToExport], { type: 'text/plain;charset=utf-8' })
       element.href = URL.createObjectURL(file)
-      element.download = 'CD_adaptation_result.txt'
+      element.download = fileName
       document.body.appendChild(element)
       element.click()
       document.body.removeChild(element)
@@ -344,7 +351,7 @@ export default function CDAdaptationPage() {
         },
         body: JSON.stringify({
           text: article,
-          version: analysisLevel,
+          difficulty: difficulty,
         }),
       })
 
@@ -368,6 +375,57 @@ export default function CDAdaptationPage() {
       await refreshUser() // 刷新用户信息，以防出现异常情况
     } finally {
       setIsAnalyzing(false)
+    }
+  }
+
+  const handleOptimize = async () => {
+    if (!article.trim() || !analysisResult.trim()) {
+      alert('请先进行CD篇改编，然后再使用优化功能')
+      return
+    }
+
+    const optimizationCost = 2 // 保持优化成本不变
+    if (userPoints < optimizationCost) {
+      alert(`点数不足，需要 ${optimizationCost} 个点数进行优化`)
+      return
+    }
+
+    setIsOptimizing(true)
+
+    try {
+      const response = await fetch('/api/ai/cd-adaptation', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          originalText: article, // 传入原始文本作为上下文
+          adaptedText: analysisResult, // 传入当前改编结果
+          context: article, // 传入上下文信息
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setOptimizedResult(data.optimizedAdaptedText)
+        await refreshUser()
+        toast.success('优化完成！字数已调整至320-350之间')
+      } else {
+        // 显示错误信息，如果包含退点信息则一起显示
+        let errorMessage = data.error || '优化失败，请稍后重试'
+        if (data.refunded && data.pointsRefunded) {
+          errorMessage += `\n\n已退还 ${data.pointsRefunded} 点数到您的账户`
+        }
+        alert(errorMessage)
+        await refreshUser() // 刷新用户点数信息
+      }
+    } catch (error) {
+      console.error('优化错误:', error)
+      alert('优化失败，请稍后重试')
+      await refreshUser() // 刷新用户信息，以防出现异常情况
+    } finally {
+      setIsOptimizing(false)
     }
   }
 
@@ -411,18 +469,25 @@ export default function CDAdaptationPage() {
                   <span>CD篇改编工具</span>
                   <div className="flex gap-2">
                     <Button
-                      variant={analysisLevel === 'basic' ? 'default' : 'outline'}
+                      variant={difficulty === 'basic' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setAnalysisLevel('basic')}
+                      onClick={() => setDifficulty('basic')}
                     >
-                      基础版 (5点)
+                      基础版 (2点)
                     </Button>
                     <Button
-                      variant={analysisLevel === 'advanced' ? 'default' : 'outline'}
+                      variant={difficulty === 'intermediate' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setAnalysisLevel('advanced')}
+                      onClick={() => setDifficulty('intermediate')}
                     >
-                      进阶版 (智谱清言驱动 8点)
+                      标准版 (4点)
+                    </Button>
+                    <Button
+                      variant={difficulty === 'advanced' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setDifficulty('advanced')}
+                    >
+                      高阶版 (Gemini驱动 6点)
                     </Button>
                   </div>
                 </CardTitle>
@@ -567,7 +632,7 @@ export default function CDAdaptationPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-center">
                     <span className="text-purple-600">
-                      {analysisLevel === 'advanced' ? '国内Top模型智谱清言改编中......大约需要2分钟' : 'AI生成中，请耐心等待...'}
+                      {difficulty === 'advanced' ? 'Gemini高阶模型改编中......大约需要2分钟' : difficulty === 'intermediate' ? 'GLM-4.6标准模型改编中......大约需要1.5分钟' : '豆包基础模型改编中，请耐心等待...'}
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -595,10 +660,10 @@ export default function CDAdaptationPage() {
                         <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
                       </div>
                       <p className="text-sm text-gray-600 animate-pulse">
-                        {analysisLevel === 'advanced' ? '正在使用国内Top模型智谱清言进行深度文本改编...' : '正在使用火山引擎豆包模型进行文本改编...'}
+                        {difficulty === 'advanced' ? '正在使用Gemini高阶模型进行深度文本改编...' : difficulty === 'intermediate' ? '正在使用GLM-4.6标准模型进行文本改编...' : '正在使用火山引擎豆包模型进行文本改编...'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {analysisLevel === 'advanced' ? '预计耗时 1-2 分钟，请耐心等待' : '预计耗时 10-30 秒，请稍候'}
+                        {difficulty === 'advanced' ? '预计耗时 1-2 分钟，请耐心等待' : difficulty === 'intermediate' ? '预计耗时 30-60 秒，请耐心等待' : '预计耗时 10-30 秒，请稍候'}
                       </p>
                     </div>
 
@@ -628,7 +693,7 @@ export default function CDAdaptationPage() {
               </Card>
             )}
 
-            {analysisResult && !isAnalyzing && (
+            {analysisResult && !isAnalyzing && !isOptimizing && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
@@ -642,7 +707,7 @@ export default function CDAdaptationPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={copyToClipboard}
+                        onClick={() => copyToClipboard(analysisResult)}
                         className="flex items-center space-x-1"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -654,7 +719,163 @@ export default function CDAdaptationPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={exportToText}
+                        onClick={() => exportToText(analysisResult)}
+                        className="flex items-center space-x-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6M8 21l4-4m0 0l4 4m-4-4v12a2 2 0 01-2 2H8a2 2 0 01-2-2V7a2 2 0 012-2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 2H6a2 2 0 00-2v6a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2z" />
+                        </svg>
+                        导出文本
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleOptimize}
+                        disabled={userPoints < 2 || isOptimizing}
+                        className="flex items-center space-x-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+                      >
+                        {isOptimizing ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            GLM-4.6优化中...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                            字数优化
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[500px] overflow-y-auto prose prose-gray prose-sm max-w-none">
+                    {analysisResult.split('\n').map((paragraph, index) => (
+                      <p key={index} className="mb-4">
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                </CardContent>
+                <div className="px-6 pb-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <div className="flex items-start space-x-2 text-amber-800 text-sm">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="font-medium mb-1">温馨提示</p>
+                        <p className="text-xs">
+                          AI本身机制决定，"字数优化"其实不能保证字数一定在320-350之间，可当作另一个版本的参考。（字数优化消耗2个积分）
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {isOptimizing && (
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-center">
+                    <span className="text-orange-600">
+                      Gemini-2.5-pro模型优化中......字数调整至320-350之间
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-[400px]">
+                  <div className="text-center space-y-6">
+                    {/* AI机器人动画 */}
+                    <div className="relative inline-flex">
+                      <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center animate-pulse">
+                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-.983 5.976 5.976 0 01-.335-2z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+
+                      {/* 思维泡泡动画 */}
+                      <div className="absolute -top-2 -right-2 w-4 h-4 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                      <div className="absolute -top-4 -right-6 w-3 h-3 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '0.5s' }}></div>
+                      <div className="absolute -top-1 -right-8 w-2 h-2 bg-orange-300 rounded-full animate-bounce" style={{ animationDelay: '1s' }}></div>
+                    </div>
+
+                    {/* 打字机效果 */}
+                    <div className="space-y-2">
+                      <div className="flex space-x-1 justify-center">
+                        <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                        <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                      </div>
+                      <p className="text-sm text-gray-600 animate-pulse">
+                        正在使用GLM-4.6模型进行CD篇改编优化...
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        保证字数在320-350之间，请稍等
+                      </p>
+                    </div>
+
+                    {/* 进度条动画 */}
+                    <div className="w-64 mx-auto">
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-orange-500 to-red-600 rounded-full animate-pulse"
+                             style={{
+                               width: '70%',
+                               animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                             }}>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 提示信息 */}
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 max-w-sm mx-auto">
+                      <div className="flex items-center space-x-2 text-orange-700 text-sm">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <span>AI正在优化改编内容，调整字数至320-350之间</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 优化结果独立输出框 */}
+            {optimizedResult && !isOptimizing && (
+              <Card className="mt-6 border-orange-200 bg-orange-50/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <span className="text-orange-600">优化结果</span>
+                      <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                        Gemini-2.5-pro优化
+                      </span>
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(optimizedResult)}
+                        className="flex items-center space-x-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15H4a2 2 0 01-2v4a2 2 0 012 2h4a2 2 0 012-2v-4a2 2 0 01-2z" />
+                        </svg>
+                        一键复制
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => exportToText(optimizedResult, 'cd_adaptation_optimized')}
                         className="flex items-center space-x-1"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -667,20 +888,35 @@ export default function CDAdaptationPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[400px] overflow-y-auto prose prose-gray prose-sm max-w-none">
-                    {analysisResult.split('\n').map((paragraph, index) => (
+                  <div className="h-[500px] overflow-y-auto prose prose-gray prose-sm max-w-none">
+                    {optimizedResult.split('\n').map((paragraph, index) => (
                       <p key={index} className="mb-4">
                         {paragraph}
                       </p>
                     ))}
                   </div>
                 </CardContent>
+                <div className="px-6 pb-4">
+                  <div className="bg-orange-100 border border-orange-200 rounded-lg p-3">
+                    <div className="flex items-start space-x-2 text-orange-800 text-sm">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="font-medium mb-1">优化说明</p>
+                        <p className="text-xs">
+                          这是通过Gemini-2.5-pro模型优化后的版本，已调整字数至320-350之间，可作参考使用。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </Card>
             )}
 
-            {!analysisResult && !isAnalyzing && (
+            {!analysisResult && !isAnalyzing && !isOptimizing && (
               <Card className="h-full">
-                <CardContent className="flex items-center justify-center h-full h-[400px]">
+                <CardContent className="flex items-center justify-center h-full h-[500px]">
                   <div className="text-center text-gray-500">
                     <p>改编结果将在这里显示</p>
                   </div>
