@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { cookies } from 'next/headers';
 
 // 火山引擎API配置
 const VOLCENGINE_API_KEY = process.env.VOLCENGINE_API_KEY;
@@ -19,40 +17,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cookieStore = await cookies();
-
-    // 获取Supabase认证相关的cookies
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    const refreshToken = cookieStore.get('sb-refresh-token')?.value;
-
-    console.log('图片识别API - Cookie检查:', {
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-      accessTokenLength: accessToken?.length || 0,
-      allCookies: cookieStore.getAll().map(c => c.name)
-    });
-
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: '未认证 - 请先登录' },
-        { status: 401 }
-      );
-    }
-
-    const supabase = createServerSupabaseClient();
-
-    // 使用access token获取用户信息
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-
-    if (authError || !user) {
-      console.error('图片识别认证错误:', authError);
-      return NextResponse.json(
-        { error: '认证失败 - 请重新登录' },
-        { status: 401 }
-      );
-    }
-
-    console.log('图片识别用户认证成功:', user.id);
+    // OCR识图是免费功能，无需认证检查
+    console.log('图片识别API - 免费功能，跳过认证检查');
 
     // 获取请求数据
     const { imageBase64 } = await request.json();

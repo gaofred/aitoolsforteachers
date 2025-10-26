@@ -32,8 +32,7 @@ const navigationData = [
       { id: "text-generator", title: "阅读文本生成神器", cost: 4, route: "/tools/reading/reading-generator" },
       { id: "cd-adaptation", title: "CD篇改编", cost: 5, route: "/tools/reading/cd-adaptation" },
       { id: "cd-creator", title: "CD篇命题", active: true, cost: 7, route: "/tools/reading/cd-creator" },
-      { id: "structure-analysis", title: "篇章结构分析", cost: 4 },
-      { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6 }
+        { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6 }
     ]
   },
   {
@@ -283,48 +282,42 @@ export default function Home() {
     setAnalysisResult(null);
   }, []);
 
-  // 摄像头功能函数 - 移到useEffect前面
+  // 摄像头功能函数 - 参考reading-generator的简洁实现
   const startCamera = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
-      setStream(mediaStream);
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+        videoRef.current.srcObject = mediaStream
       }
-      setIsCameraOpen(true);
-    } catch (error) {
-      console.error('摄像头访问失败:', error);
-      alert('无法访问摄像头，请检查权限设置');
+    } catch (e) {
+      console.error('摄像头访问失败:', e)
+      alert('无法访问摄像头，请检查权限设置')
     }
-  };
+  }
 
   const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach(track => track.stop())
+      videoRef.current.srcObject = null
     }
-    setIsCameraOpen(false);
-  };
+  }
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
-
-      if (context) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0);
-
-        const photoData = canvas.toDataURL('image/jpeg', 0.8);
-        setPhoto(photoData);
-        stopCamera();
-      }
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const photoData = canvas.toDataURL('image/jpeg', 0.8)
+      setPhoto(photoData)
+      // Stop camera after taking photo
+      stopCamera()
     }
-  };
+  }
 
   // 组件卸载时清理摄像头
   useEffect(() => {
@@ -332,6 +325,13 @@ export default function Home() {
       stopCamera();
     };
   }, [stream]);
+
+  // Auto start camera when overlay opens - 参考reading-generator实现
+  useEffect(() => {
+    if (isCameraOpen && !photo) {
+      startCamera()
+    }
+  }, [isCameraOpen])
 
   // 检查用户登录状态
   const checkCurrentUser = async () => {
@@ -573,42 +573,23 @@ export default function Home() {
   };
 
   
-  // 图片上传处理函数
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
-
-    const fileArray = Array.from(files);
-    const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
-    
-    // 限制最多3张图片
-    const filesToProcess = imageFiles.slice(0, 3 - uploadedImages.length);
-    
-    if (filesToProcess.length === 0) {
-      alert('最多只能上传3张图片！');
-      return;
-    }
-
-    const newImages: Array<{file: File, preview: string}> = [];
-    let processedCount = 0;
-
-    filesToProcess.forEach((file) => {
+  // 图片上传处理函数 - 参考reading-generator的简洁实现
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    const arr: string[] = []
+    Array.from(files).forEach(f => {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const preview = e.target?.result as string;
-        newImages.push({ file, preview });
-        processedCount++;
-        
-        // 当所有文件都处理完成时，更新状态
-        if (processedCount === filesToProcess.length) {
-          setUploadedImages(prev => [...prev, ...newImages]);
+      reader.onload = o => {
+        if (typeof o.target?.result === 'string') {
+          arr.push(o.target.result as string);
+          if (arr.length === files.length) {
+            recognizeText(arr)
+          }
         }
-      };
-      reader.readAsDataURL(file);
-    });
-
-    // 清空input，允许重复选择相同文件
-    event.target.value = '';
+      }
+      reader.readAsDataURL(f)
+    })
   };
 
   // 移除图片函数
@@ -616,102 +597,52 @@ export default function Home() {
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  // 图片识别处理函数
+  // 图片识别处理函数 - 参考reading-generator的简洁实现
+  const recognizeText = async (images: string[]) => {
+    if (images.length === 0) return
+    setIsRecognizing(true)
+    // Show recognition alert
+    alert('识图中，请稍等...')
+    try {
+      const texts: string[] = []
+      for (const img of images) {
+        const res = await fetch('/api/ai/image-recognition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:img})})
+        const d = await res.json()
+        if (d.success && d.result) texts.push(d.result)
+      }
+      if(texts.length){
+        setText(prev => prev + (prev ? '\n\n' : '') + texts.join('\n\n'));
+        alert('识别成功！')
+      } else alert('识别失败')
+    }catch(e){console.error(e);alert('识别错误')}
+    setIsRecognizing(false)
+    clearImages();
+  }
+
   const handleImageRecognition = async () => {
-    if (uploadedImages.length === 0 && !photo) {
-      alert('请先上传图片或拍照');
-      return;
+    let imagesToRecognize: string[] = [];
+
+    // 处理上传的图片
+    if (uploadedImages.length > 0) {
+      const uploadPromises = uploadedImages.map(async (imageObj) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(imageObj.file);
+        });
+      });
+      imagesToRecognize = await Promise.all(uploadPromises);
     }
 
-    setIsRecognizing(true);
-    try {
-      let imagesToRecognize: string[] = [];
+    // 处理拍照的图片
+    if (photo) {
+      imagesToRecognize.push(photo);
+    }
 
-      // 处理上传的图片
-      if (uploadedImages.length > 0) {
-        const uploadPromises = uploadedImages.map(async (imageObj) => {
-          return new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target?.result as string);
-            reader.readAsDataURL(imageObj.file);
-          });
-        });
-        const uploadResults = await Promise.all(uploadPromises);
-        imagesToRecognize = [...imagesToRecognize, ...uploadResults];
-      }
-
-      // 处理拍照的图片
-      if (photo) {
-        imagesToRecognize.push(photo);
-      }
-
-      // 并行识别所有图片
-      const recognitionPromises = imagesToRecognize.map(async (imageBase64, index) => {
-        try {
-          const response = await fetch('/api/ai/image-recognition', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('sb-access-token') || ''}`
-            },
-            body: JSON.stringify({
-              imageBase64: imageBase64
-            })
-          });
-
-          const data = await response.json();
-
-          if (data.success && data.result) {
-            console.log(`第${index + 1}张图片识别成功`);
-            return { success: true, text: data.result, index };
-          } else {
-            console.warn(`第${index + 1}张图片识别失败:`, data.error);
-            return { success: false, error: data.error, index };
-          }
-        } catch (error) {
-          console.error(`第${index + 1}张图片识别错误:`, error);
-          return { success: false, error: (error as Error).message, index };
-        }
-      });
-
-      // 等待所有识别任务完成
-      const results = await Promise.all(recognitionPromises);
-
-      // 按原始顺序过滤成功的结果
-      const successfulResults = results
-        .filter(result => result.success)
-        .sort((a, b) => a.index - b.index)
-        .map(result => result.text);
-
-      if (successfulResults.length > 0) {
-        // 合并所有识别的文本，保持上传顺序
-        const combinedText = successfulResults.join('\n\n');
-        setText(prev => prev + (prev ? '\n\n' : '') + combinedText);
-
-        // 延迟清除图片状态，确保文本已经成功添加
-        setTimeout(() => {
-          clearImages();
-        }, 100);
-
-        // 显示成功信息
-        const failedCount = imagesToRecognize.length - successfulResults.length;
-        if (failedCount > 0) {
-          setTimeout(() => {
-            alert(`成功识别${successfulResults.length}张图片，${failedCount}张图片识别失败`);
-          }, 150);
-        } else {
-          setTimeout(() => {
-            alert(`成功识别所有${successfulResults.length}张图片！`);
-          }, 150);
-        }
-      } else {
-        alert('所有图片识别都失败了，请重试');
-      }
-    } catch (error) {
-      console.error('图片识别失败:', error);
-      alert('图片识别失败，请重试');
-    } finally {
-      setIsRecognizing(false);
+    if (imagesToRecognize.length > 0) {
+      recognizeText(imagesToRecognize);
+    } else {
+      alert('请先上传图片或拍照');
     }
   };
 
@@ -1556,9 +1487,38 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                         placeholder={currentTool.placeholder}
-                        className={`${activeItem === "cd-adaptation" ? "min-h-[350px] md:min-h-[450px]" : "min-h-[250px] md:min-h-[300px]"} text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500 resize-none transition-all duration-200`}
+                        className={`${activeItem === "cd-adaptation" ? "min-h-[450px] md:min-h-[550px]" : "min-h-[350px] md:min-h-[450px]"} text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500 resize-none transition-all duration-200`}
                         maxLength={maxChars}
                       />
+                      {/* OCR小按钮 */}
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-70 hover:opacity-100"
+                          onClick={() => imageInputRef.current?.click()}
+                          title="上传图片"
+                        >
+                          📁
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-70 hover:opacity-100"
+                          onClick={() => setIsCameraOpen(true)}
+                          title="拍照识别"
+                        >
+                          📷
+                        </Button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          ref={imageInputRef}
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                      </div>
                       <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-white px-2 py-1 rounded border">
                         {charCount}/{maxChars}
                       </div>
@@ -1581,176 +1541,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                       </div>
                     )}
 
-                    {/* 阅读理解深度分析的图片识别功能 */}
-                    {activeItem === "text-analysis" && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">
-                          图片文字识别 (最多3张)
-                        </label>
-
-                        {/* 图片上传区域 */}
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 md:p-4 bg-gray-50">
-                          <div className="flex flex-col items-center justify-center space-y-2 md:space-y-3">
-                            <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-full">
-                              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm text-gray-600 mb-2">点击上传图片、拖拽图片到此处或拍照</p>
-                              <p className="text-xs text-gray-500">支持 JPG、PNG、GIF 格式，每张图片不超过 10MB</p>
-                              <p className="text-xs text-purple-600 mt-1">📝 功能：识别图片中的英文文章内容</p>
-                            </div>
-
-                            {/* 操作按钮 */}
-                            <div className="flex gap-3">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={handleImageUpload}
-                                className="hidden"
-                                id="text-analysis-image-upload"
-                                ref={imageInputRef}
-                              />
-                              <label
-                                htmlFor="text-analysis-image-upload"
-                                className="cursor-pointer bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm font-medium"
-                              >
-                                选择图片
-                              </label>
-
-                              <button
-                                onClick={startCamera}
-                                disabled={isRecognizing}
-                                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                拍照
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* 已上传的图片预览 */}
-                          {(uploadedImages.length > 0 || photo) && (
-                            <div className="mt-4">
-                              <div className="grid grid-cols-3 gap-2">
-                                {uploadedImages.map((image, index) => (
-                                  <div key={index} className="relative group">
-                                    <img
-                                      src={image.preview}
-                                      alt={`Uploaded image ${index + 1}`}
-                                      className="w-full h-20 object-cover rounded-lg border border-gray-200"
-                                    />
-                                    <button
-                                      onClick={() => removeImage(index)}
-                                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors duration-200"
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                ))}
-                                {photo && (
-                                  <div className="relative group">
-                                    <img
-                                      src={photo}
-                                      alt="Taken photo"
-                                      className="w-full h-20 object-cover rounded-lg border border-gray-200"
-                                    />
-                                    <button
-                                      onClick={() => setPhoto(null)}
-                                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors duration-200"
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 识别按钮 */}
-                              <div className="mt-3 flex justify-between items-center">
-                                <div className="text-xs text-gray-500">
-                                  已选择 {uploadedImages.length + (photo ? 1 : 0)} 张图片
-                                </div>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={clearImages}
-                                    disabled={isRecognizing}
-                                    className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                  >
-                                    清除图片
-                                  </button>
-                                  <button
-                                    onClick={handleImageRecognition}
-                                    disabled={isRecognizing || (uploadedImages.length === 0 && !photo)}
-                                    className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                  >
-                                    {isRecognizing ? (
-                                      <>
-                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        识别中...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        识别文字
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* 摄像头界面 */}
-                        {isCameraOpen && (
-                          <div className="mt-4 p-4 bg-black rounded-lg">
-                            <div className="space-y-3">
-                              <div className="relative">
-                                <video
-                                  ref={videoRef}
-                                  autoPlay
-                                  playsInline
-                                  className="w-full rounded-lg"
-                                />
-                                <canvas ref={canvasRef} className="hidden" />
-                              </div>
-                              <div className="flex justify-center gap-3">
-                                <button
-                                  onClick={takePhoto}
-                                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  </svg>
-                                  拍照
-                                </button>
-                                <button
-                                  onClick={stopCamera}
-                                  className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                  关闭
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                                      </div>
 
   
                   {/* CD篇改编的图片识别功能 */}
@@ -2114,6 +1905,39 @@ The future of AI depends on our ability to balance innovation with responsibilit
                 兑换成功后点数将自动添加到您的账户
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* OCR overlay - 参考reading-generator的简洁实现 */}
+      {isCameraOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-4 space-y-4">
+            {photo ? (
+              <img src={photo} alt="photo" className="w-full" />
+            ) : (
+              <video ref={videoRef} autoPlay playsInline className="w-full h-48 object-cover" />
+            )}
+            <canvas ref={canvasRef} className="hidden" />
+            <div className="flex justify-between">
+              {!photo && <Button onClick={takePhoto} size="sm">拍照</Button>}
+              {photo && <Button onClick={() => recognizeText([photo])} size="sm" disabled={isRecognizing}>{isRecognizing ? '识别中' : 'OCR识别'}</Button>}
+              <Button variant="outline" size="sm" onClick={() => { setIsCameraOpen(false); stopCamera(); setPhoto(null); }}>关闭</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* OCR recognizing overlay */}
+      {isRecognizing && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
+          <div className="bg-white px-6 py-4 rounded-lg shadow-lg text-center space-y-3">
+            <div className="flex justify-center">
+              <svg className="animate-spin h-6 w-6 text-purple-600" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            </div>
+            <p className="text-sm text-gray-700">识图中，请稍等...</p>
           </div>
         </div>
       )}

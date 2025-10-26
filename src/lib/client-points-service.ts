@@ -32,13 +32,12 @@ export interface UserPoints {
   updated_at: string;
 }
 
-export class SupabasePointsService {
+export class ClientPointsService {
   /**
    * 获取用户当前点数
    */
   static async getUserPoints(userId: string): Promise<number> {
     try {
-      // 使用普通客户端
       const { data, error } = await supabase
         .from('user_points')
         .select('points')
@@ -64,70 +63,6 @@ export class SupabasePointsService {
   }
 
   /**
-   * 扣除用户点数
-   */
-  static async deductPoints(
-    userId: string, 
-    amount: number, 
-    description: string,
-    relatedId?: string,
-    metadata?: any
-  ): Promise<boolean> {
-    try {
-      // 使用Supabase的RPC函数来处理事务
-      const { data, error } = await supabase.rpc('deduct_user_points', {
-        p_user_id: userId,
-        p_amount: amount,
-        p_description: description,
-        p_related_id: relatedId,
-        p_metadata: metadata
-      });
-
-      if (error) {
-        console.error('扣除点数失败:', error);
-        return false;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('扣除点数异常:', error);
-      return false;
-    }
-  }
-
-  /**
-   * 增加用户点数
-   */
-  static async addPoints(
-    userId: string,
-    amount: number,
-    type: 'REDEEM' | 'BONUS' | 'PURCHASE' | 'MEMBERSHIP',
-    description: string,
-    relatedId?: string,
-    metadata?: any
-  ): Promise<boolean> {
-    try {
-      const { data, error } = await supabase.rpc('add_user_points', {
-        p_user_id: userId,
-        p_amount: amount,
-        p_type: type,
-        p_description: description,
-        p_related_id: relatedId
-      });
-
-      if (error) {
-        console.error('增加点数失败:', error);
-        return false;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('增加点数异常:', error);
-      return false;
-    }
-  }
-
-  /**
    * 获取用户点数交易记录
    */
   static async getPointTransactions(
@@ -143,19 +78,6 @@ export class SupabasePointsService {
       // 检查用户ID是否有效
       if (!userId || userId === 'undefined' || userId === 'null') {
         console.error('无效的用户ID:', userId);
-        return { transactions: [], total: 0 };
-      }
-
-      // 先测试简单的表访问
-      console.log('测试数据库连接...');
-      const { data: testData, error: testError } = await supabase
-        .from('point_transactions')
-        .select('count', { count: 'exact', head: true });
-
-      console.log('数据库连接测试结果:', { testData, testError });
-
-      if (testError) {
-        console.error('数据库连接失败:', testError);
         return { transactions: [], total: 0 };
       }
 
@@ -177,20 +99,26 @@ export class SupabasePointsService {
       });
 
       if (transactionsError) {
-        console.error('获取交易记录失败:', {
+        const errorInfo = {
           error: transactionsError,
-          message: transactionsError.message,
-          details: transactionsError.details,
-          hint: transactionsError.hint,
-          code: transactionsError.code,
-          toString: transactionsError.toString()
-        });
+          message: transactionsError.message || '未知错误',
+          details: transactionsError.details || null,
+          hint: transactionsError.hint || null,
+          code: transactionsError.code || null,
+          toString: transactionsError.toString?.() || '错误对象无toString方法',
+          errorType: typeof transactionsError,
+          keys: transactionsError ? Object.keys(transactionsError) : [],
+          jsonString: JSON.stringify(transactionsError),
+          isAuthError: 'code' in transactionsError && transactionsError.code === 'PGRST301',
+          isPermissionError: 'message' in transactionsError && transactionsError.message?.includes('permission denied'),
+          isEmptyObject: JSON.stringify(transactionsError) === '{}'
+        };
 
-        // 如果是权限问题，尝试不使用用户过滤的查询
-        if (transactionsError.code === 'PGRST301' ||
-            transactionsError.message?.includes('permission denied') ||
-            JSON.stringify(transactionsError) === '{}') {
-          console.log('检测到权限问题，尝试返回空结果');
+        console.error('获取交易记录失败:', errorInfo);
+
+        // 如果是权限问题，返回空结果
+        if (errorInfo.isAuthError || errorInfo.isPermissionError || errorInfo.isEmptyObject) {
+          console.log('检测到权限问题或空错误对象，返回空结果');
           return { transactions: [], total: 0 };
         }
 
@@ -211,12 +139,15 @@ export class SupabasePointsService {
           hint: countError.hint,
           code: countError.code
         });
-        return { transactions: transactions || [], total: 0 };
+        return {
+          transactions: transactions || [],
+          total: 0
+        };
       }
 
-      return { 
-        transactions: transactions || [], 
-        total: count || 0 
+      return {
+        transactions: transactions || [],
+        total: count || 0
       };
     } catch (error) {
       console.error('获取交易记录异常:', error);
@@ -343,9 +274,9 @@ export class SupabasePointsService {
       return { success: true, generationId: data.generation_id };
     } catch (error) {
       console.error('使用AI工具异常:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : '未知错误' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '未知错误'
       };
     }
   }
@@ -465,11 +396,3 @@ export class SupabasePointsService {
     }
   }
 }
-
-
-
-
-
-
-
-

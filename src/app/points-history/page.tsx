@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SupabasePointsService } from "@/lib/supabase-points-service";
 
 interface PointTransaction {
   id: string;
@@ -56,41 +55,89 @@ export default function PointsHistoryPage() {
 
   const loadTransactions = async () => {
     if (!currentUser) return;
-    
+
     setLoading(true);
     try {
-      // 使用Supabase服务获取交易记录
-      const result = await SupabasePointsService.getPointTransactions(currentUser.id, currentPage, 20);
+      console.log('开始加载交易记录 - 用户ID:', currentUser.id);
+
+      // 使用后端API获取交易记录
+      const response = await fetch(`/api/points/transactions?page=${currentPage}&limit=20`, {
+        credentials: 'include'
+      });
+
+      console.log('API响应状态:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API错误详情:', errorData);
+        
+        // 如果是401未认证错误，直接跳转到登录页
+        if (response.status === 401) {
+          setError('请先登录后再查看积分记录');
+          setTimeout(() => {
+            router.push('/auth/signin');
+          }, 2000);
+          return;
+        }
+        
+        throw new Error(errorData.error || '获取交易记录失败');
+      }
+
+      const result = await response.json();
+
+      console.log('API返回结果:', result);
+      
+      // 确保数据是数组
+      const transactions = result.transactions || [];
       
       // 应用过滤器
-      let filteredTransactions = result.transactions;
+      let filteredTransactions = transactions;
       
       if (filterType !== 'all') {
-        filteredTransactions = result.transactions.filter(t => t.type === filterType);
+        filteredTransactions = transactions.filter((t: any) => t.type === filterType);
       }
 
       if (searchTerm) {
-        filteredTransactions = filteredTransactions.filter(t => 
+        filteredTransactions = filteredTransactions.filter((t: any) => 
           t.description.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
 
       setTransactions(filteredTransactions as any);
       setTotalPages(Math.ceil(result.total / 20));
-    } catch (error) {
+      } catch (error) {
       console.error('加载交易记录失败:', error);
-      
+
+      // 添加详细的调试信息
+      console.log('调试信息:', {
+        currentUser: currentUser?.id,
+        currentPage,
+        filterType,
+        errorDetails: error,
+        errorType: typeof error,
+        errorMessage: (error as any)?.message,
+        errorString: JSON.stringify(error)
+      });
+
       // 检查是否是数据库表不存在的问题
-      if (error && typeof error === 'object' && 'message' in error) {
-        const errorMessage = (error as any).message;
-        if (errorMessage.includes('relation "point_transactions" does not exist')) {
-          setError('数据库表未创建。请参考 QUICK_FIX_POINT_TRANSACTIONS_ERROR.md 文件中的解决方案。');
-          setLoading(false);
-          return;
-        }
+      const errorMessage = (error as any).message;
+      if (errorMessage && errorMessage.includes('relation "point_transactions" does not exist')) {
+        setError('数据库表未创建。请参考 diagnose-and-fix-point-transactions.sql 文件中的解决方案。');
+        setLoading(false);
+        return;
       }
-      
-      // 如果Supabase服务失败，使用模拟数据
+
+      // 检查是否是权限问题
+      if (errorMessage && (errorMessage.includes('permission denied') ||
+                         errorMessage.includes('PGRST301') ||
+                         JSON.stringify(error) === '{}')) {
+        setError('权限不足或会话已过期。请重新登录后再试。');
+        setLoading(false);
+        return;
+      }
+
+      // 如果是网络或其他错误，使用模拟数据作为备用
+      console.log('使用模拟数据作为备用方案');
       const mockTransactions: PointTransaction[] = [
         {
           id: '1',
