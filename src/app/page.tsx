@@ -447,6 +447,15 @@ export default function Home() {
       
       const data = await response.json();
       
+      // 检查 HTTP 状态码
+      if (!response.ok) {
+        // API 返回错误状态码（401, 500等）
+        const errorMessage = data.error || '服务器错误，请稍后重试';
+        console.error('每日奖励API错误:', errorMessage);
+        alert(errorMessage);
+        return;
+      }
+      
       if (data.success) {
         console.log('每日奖励调试 - 前端收到:', {
           data,
@@ -473,7 +482,9 @@ export default function Home() {
           setDailyRewardClaimed(true);
           setShowDailyReward(false);
         }
-        alert(data.message);
+        // 确保有 message 才显示
+        const message = data.message || '领取奖励失败';
+        alert(message);
 
         // 如果是已领取状态，也要重新检查确保一致性
         if (data.alreadyClaimed) {
@@ -1133,78 +1144,84 @@ The future of AI depends on our ability to balance innovation with responsibilit
     <div className="min-h-screen transition-all duration-500 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50">
       {/* 顶部导航栏 */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-gradient-to-r from-white via-gray-50 to-white transition-all duration-300 backdrop-blur-sm shadow-sm">
-        <div className="flex h-16 items-center justify-between px-4 md:px-6">
+        <div className="flex h-16 items-center justify-between px-2 sm:px-4 md:px-6">
           {/* 左侧：Logo + 菜单按钮 */}
-          <div className="flex items-center gap-3 md:gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-105"
+              className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 hover:scale-105"
             >
-              <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
 
-            <LogoWithText size="normal" />
+            <div className="hidden sm:block">
+              <LogoWithText size="normal" />
+            </div>
+            {/* 移动端简化Logo */}
+            <div className="sm:hidden w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">AI</span>
+            </div>
           </div>
 
           {/* 右侧：点数兑换 + 点数记录 + 点数显示 + 用户按钮 */}
-        <div className="flex items-center gap-2 md:gap-3">
-          
-          {/* 每日奖励按钮 */}
+        <div className="flex items-center gap-1 md:gap-3">
+
+          {/* 每日奖励按钮 - 移动端使用图标模式 */}
           {currentUser && !dailyRewardClaimed && (
             <Button
               variant="default"
               size="sm"
               onClick={claimDailyReward}
               disabled={isClaimingReward}
-              className={`bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white border-0 hidden sm:inline-flex animate-pulse ${
+              className={`bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white border-0 animate-pulse ${
                 isClaimingReward ? 'opacity-50 cursor-not-allowed animate-none' : ''
               }`}
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="hidden sm:inline mr-2">{isClaimingReward ? '领取中...' : '每日奖励'}</span>
+              <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
               </svg>
-              {isClaimingReward ? '领取中...' : '每日奖励'}
             </Button>
           )}
 
-          {/* 点数兑换按钮 */}
+          {/* 点数兑换按钮 - 移动端使用图标模式 */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowRedeemModal(true)}
-            className="border-border text-foreground hover:bg-secondary hidden sm:inline-flex"
+            className="border-border text-foreground hover:bg-secondary"
           >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span className="hidden sm:inline mr-2">点数兑换</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            点数兑换
           </Button>
 
-            {/* 点数记录按钮 */}
+            {/* 点数记录按钮 - 移动端使用图标模式 */}
             <Button
               variant="outline"
               size="sm"
               onClick={() => router.push('/points-history')}
-              className="border-border text-foreground hover:bg-secondary hidden sm:inline-flex"
+              className="border-border text-foreground hover:bg-secondary"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="hidden sm:inline mr-2">点数记录</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
-              点数记录
             </Button>
 
   
-            {/* 点数显示 */}
-            <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-2 border border-border">
-              <div className="w-5 h-5 rounded-full bg-gradient-to-r from-primary to-blue-600 flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+            {/* 点数显示 - 移动端紧凑模式 */}
+            <div className="flex items-center gap-1 sm:gap-2 bg-secondary rounded-lg px-2 sm:px-3 py-2 border border-border">
+              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gradient-to-r from-primary to-blue-600 flex items-center justify-center">
+                <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd"/>
                 </svg>
               </div>
-              <span className="text-sm font-semibold text-foreground">{userPoints}</span>
+              <span className="text-xs sm:text-sm font-semibold text-foreground">{userPoints}</span>
             </div>
 
          {/* 用户认证区域 */}
@@ -1213,16 +1230,19 @@ The future of AI depends on our ability to balance innovation with responsibilit
          ) : currentUser ? (
               <UserMenu />
          ) : (
-           <div className="flex items-center gap-2">
-             <div className="text-xs text-muted-foreground mr-2">
+           <div className="flex items-center gap-1 sm:gap-2">
+             <span className="hidden sm:inline text-xs text-muted-foreground">
                请先登录使用AI功能
-             </div>
+             </span>
              <Button
                size="sm"
                onClick={() => router.push('/auth/signin')}
                className="evolink-button"
              >
-               登录
+               <span className="hidden sm:inline">登录</span>
+               <svg className="w-4 h-4 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+               </svg>
              </Button>
            </div>
          )}

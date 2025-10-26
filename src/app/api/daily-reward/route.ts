@@ -90,13 +90,22 @@ export async function POST(request: NextRequest) {
       .from('user_points') as any)
       .update({
         points: newPoints,
-        updated_at: new Date().toISOString()
+        last_updated: new Date().toISOString()
       })
-      .eq('user_id', user.id as any);
+      .eq('user_id', user.id);
 
     if (updateError) {
-      console.error('更新积分失败:', updateError);
-      return NextResponse.json({ error: '更新积分失败' }, { status: 500 });
+      console.error('更新积分失败:', {
+        error: updateError,
+        user_id: user.id,
+        newPoints,
+        currentPointsValue,
+        rewardPoints
+      });
+      return NextResponse.json({ 
+        error: '更新积分失败', 
+        details: updateError.message 
+      }, { status: 500 });
     }
 
     // 记录交易

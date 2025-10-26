@@ -29,7 +29,7 @@ export interface UserPoints {
   id: string;
   user_id: string;
   points: number;
-  updated_at: string;
+  last_updated: string;
 }
 
 export class SupabasePointsService {
