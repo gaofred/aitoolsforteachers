@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { useUser } from "@/lib/user-context";
 import { LogoWithText } from "@/components/Logo";
+import { EnglishMaxim } from "@/components/EnglishMaxim";
 
 import { SupabasePointsService } from "@/lib/supabase-points-service";
 import { DailyLoginRewardService } from "@/lib/daily-login-reward";
@@ -32,7 +33,8 @@ const navigationData = [
       { id: "text-generator", title: "阅读文本生成神器", cost: 4, route: "/tools/reading/reading-generator" },
       { id: "cd-adaptation", title: "CD篇改编", cost: 5, route: "/tools/reading/cd-adaptation" },
       { id: "cd-creator", title: "CD篇命题", active: true, cost: 7, route: "/tools/reading/cd-creator" },
-        { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true }
+        { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true },
+        { id: "reading-comprehension-analysis", title: "阅读理解解析", cost: 2, route: "/tools/reading/reading-comprehension-analysis" }
     ]
   },
   {
@@ -251,6 +253,19 @@ const toolConfig = {
     placeholder: "请输入提示词，例如：生成一组共4张连贯插画，核心为同一庭院一角的四季变迁...",
     buttonText: "开始生成连环画!",
     analysisText: "AI正在生成连环画中..."
+  },
+  "reading-comprehension-analysis": {
+    title: "阅读理解解析",
+    description: "输入英文阅读理解文章和题目，AI将为您详细分析每个问题的类型、解题思路、答案定位和技巧点拨，帮助提升阅读理解解题能力",
+    icon: (
+      <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+        <path d="M5 8a1 1 0 011-1h1V6a1 1 0 012 0v1h1a1 1 0 110 2H9v1a1 1 0 11-2 0V9H6a1 1 0 01-1-1z" />
+      </svg>
+    ),
+    placeholder: "请粘贴完整的阅读理解文章和题目（包含文章内容、题目和选项）...",
+    buttonText: "开始解析题目!",
+    analysisText: "AI正在解析中..."
   }
 };
 
@@ -1145,7 +1160,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
       {/* 顶部导航栏 */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-gradient-to-r from-white via-gray-50 to-white transition-all duration-300 backdrop-blur-sm shadow-sm">
         <div className="flex h-16 items-center justify-between px-2 sm:px-4 md:px-6">
-          {/* 左侧：Logo + 菜单按钮 */}
+          {/* 左侧：Logo + 菜单按钮 + 英语格言 */}
           <div className="flex items-center gap-2 md:gap-4">
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -1163,10 +1178,28 @@ The future of AI depends on our ability to balance innovation with responsibilit
             <div className="sm:hidden w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">AI</span>
             </div>
+
+            {/* 英语格言组件 - 放在Logo右边 */}
+            <div className="hidden lg:block ml-2">
+              <EnglishMaxim />
+            </div>
           </div>
 
-          {/* 右侧：点数兑换 + 点数记录 + 点数显示 + 用户按钮 */}
+          {/* 右侧：作者链接 + 点数兑换 + 点数记录 + 点数显示 + 用户按钮 */}
         <div className="flex items-center gap-1 md:gap-3">
+
+          {/* 作者链接 */}
+          <a
+            href="https://mp.weixin.qq.com/s/gOy3tjONqVQhfPpXupc8Dw"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-gray-600 hover:text-purple-600 transition-colors duration-200 hidden sm:inline-flex items-center gap-1"
+          >
+            <span>作者：英语教师佛瑞德</span>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
 
           {/* 每日奖励按钮 - 移动端使用图标模式 */}
           {currentUser && !dailyRewardClaimed && (
