@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="brain" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10B981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- 背景 -->
+  <rect x="10" y="10" width="160" height="160" rx="30" fill="url(#bg)" filter="url(#shadow)"/>
+
+  <!-- 主要图标区域 -->
+  <g transform="translate(45, 35)">
+    <!-- AI大脑 -->
+    <path d="M45 15 C35 15, 27.5 25, 27.5 37.5 C27.5 42.5, 30 47.5, 32.5 50 C30 52.5, 27.5 57.5, 27.5 62.5 C27.5 75, 35 85, 45 85 C52.5 85, 60 80, 62.5 75 C65 80, 72.5 85, 80 85 C90 85, 97.5 75, 97.5 62.5 C97.5 57.5, 95 52.5, 92.5 50 C95 47.5, 97.5 42.5, 97.5 37.5 C97.5 25, 90 15, 80 15 C72.5 15, 65 20, 62.5 25 C60 20, 52.5 15, 45 15 Z" fill="url(#brain)" opacity="0.9"/>
+
+    <!-- 神经网络线条 -->
+    <g stroke="white" stroke-width="2" fill="none" opacity="0.7">
+      <path d="M35 40 L45 52 L55 40 M35 65 L45 52 L55 65 M75 40 L65 52 L55 40 M75 65 L65 52 L55 65"/>
+      <circle cx="45" cy="52" r="3" fill="white" opacity="0.9"/>
+      <circle cx="65" cy="52" r="3" fill="white" opacity="0.9"/>
+    </g>
+
+    <!-- 书本 -->
+    <rect x="40" y="60" width="50" height="10" rx="2" fill="white" opacity="0.8"/>
+    <rect x="40" y="72" width="40" height="5" rx="1.5" fill="white" opacity="0.6"/>
+    <rect x="40" y="78" width="30" height="4" rx="1" fill="white" opacity="0.4"/>
+  </g>
+
+  <!-- 高光效果 -->
+  <ellipse cx="70" cy="45" rx="25" ry="20" fill="white" opacity="0.15"/>
+
+  <!-- 边框装饰 -->
+  <rect x="10" y="10" width="160" height="160" rx="30" fill="none" stroke="white" stroke-width="2" opacity="0.2"/>
+</svg>

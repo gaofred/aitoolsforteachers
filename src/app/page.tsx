@@ -1305,7 +1305,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                               {category.icon}
                             </span>
                             <div>
-                              <div className="font-medium text-foreground">{category.title}</div>
+                              <h3 className="font-medium text-foreground text-sm">{category.title}</h3>
                             </div>
                           </div>
                           <svg
@@ -1427,7 +1427,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                               {category.icon}
                             </span>
                             <div>
-                              <div className="font-medium text-foreground">{category.title}</div>
+                              <h3 className="font-medium text-foreground text-sm">{category.title}</h3>
                             </div>
                           </div>
                           <svg

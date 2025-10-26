@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="brain" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10B981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="14" height="14" rx="3" fill="url(#bg)"/>
+  <g transform="translate(4, 3)">
+    <path d="M4 1.5 C3 1.5, 2 2.5, 2 3.5 C2 4, 2.25 4.5, 2.5 4.75 C2.25 5, 2 5.5, 2 6 C2 7, 3 8, 4 8 C4.5 8, 5 7.75, 5.25 7.5 C5.5 7.75, 6 8, 6.5 8 C7.5 8, 8.5 7, 8.5 6 C8.5 5.5, 8.25 5, 8 4.75 C8.25 4.5, 8.5 4, 8.5 3.5 C8.5 2.5, 7.5 1.5, 6.5 1.5 C6 1.5, 5.5 1.75, 5.25 2 C5 1.75, 4.5 1.5, 4 1.5 Z" fill="url(#brain)" opacity="0.9"/>
+    <rect x="3.5" y="6" width="5" height="1" rx="0.25" fill="white" opacity="0.8"/>
+    <rect x="3.5" y="7" width="4" height="0.5" rx="0.25" fill="white" opacity="0.6"/>
+  </g>
+  <ellipse cx="5.5" cy="4" rx="2" ry="1.5" fill="white" opacity="0.2"/>
+</svg>
