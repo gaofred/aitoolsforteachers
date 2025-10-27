@@ -71,10 +71,17 @@ export function EmailRegisterForm() {
 
         // 获取用户信息
         try {
+          console.log('开始获取用户信息...')
           const userResponse = await fetch('/api/auth/user')
+          console.log('用户信息请求状态:', userResponse.status)
+
           if (userResponse.ok) {
             const userData = await userResponse.json()
+            console.log('用户信息获取成功:', userData)
+
             if (userData.id) {
+              console.log('开始处理邀请奖励:', { inviteCode: storedInviteCode, userId: userData.id })
+
               // 调用简化的邀请奖励处理
               const claimResponse = await fetch('/api/invite/simple-claim', {
                 method: 'POST',
@@ -101,6 +108,10 @@ export function EmailRegisterForm() {
                 console.error('邀请奖励处理失败:', claimResult.error)
               }
             }
+          } else {
+            console.error('获取用户信息失败:', userResponse.status)
+            const errorData = await userResponse.text()
+            console.error('错误详情:', errorData)
           }
         } catch (error) {
           console.error('处理邀请奖励时出错:', error)
