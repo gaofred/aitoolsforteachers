@@ -124,8 +124,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 注册成功后，自动登录用户
+    console.log('开始自动登录新用户...');
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (signInError) {
+      console.error('自动登录失败:', signInError);
+      return NextResponse.json({
+        error: "注册成功但自动登录失败，请手动登录",
+        details: signInError.message,
+        user: {
+          id: data.user?.id,
+          email: data.user?.email,
+          name: data.user?.user_metadata?.display_name
+        }
+      }, { status: 400 });
+    }
+
+    console.log('新用户自动登录成功！');
+
     return NextResponse.json({
-      message: "注册成功！",
+      message: "注册成功并已自动登录！",
       user: {
         id: data.user?.id,
         email: data.user?.email,
