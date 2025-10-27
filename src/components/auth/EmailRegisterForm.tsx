@@ -86,7 +86,10 @@ export function EmailRegisterForm() {
 
       setIsSuccess(true)
 
-      // 处理邀请奖励
+      // 立即刷新页面以获取新的登录状态（重要！）
+      console.log('注册成功，即将刷新页面以获取登录状态...')
+
+      // 如果有邀请码，等待一下再刷新，让邀请奖励处理有时间完成
       const storedInviteCode = localStorage.getItem('pending_invite_code')
       if (storedInviteCode) {
         console.log('注册成功，开始处理邀请奖励:', storedInviteCode)
@@ -122,7 +125,7 @@ export function EmailRegisterForm() {
                 localStorage.removeItem('pending_invite_code')
                 console.log('邀请奖励发放成功:', claimResult.data.pointsAwarded)
 
-                // 刷新页面以更新用户积分显示
+                // 刷新页面以更新用户积分显示和登录状态
                 setTimeout(() => {
                   window.location.reload()
                 }, 1000)
@@ -140,9 +143,9 @@ export function EmailRegisterForm() {
         }
       }
 
-      // 3秒后直接跳转到主页
+      // 3秒后刷新页面以获取登录状态
       setTimeout(() => {
-        router.push('/')
+        window.location.href = '/'
       }, 3000)
 
     } catch (error) {
