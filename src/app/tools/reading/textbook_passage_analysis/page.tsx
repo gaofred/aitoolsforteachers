@@ -759,7 +759,7 @@ export default function TextbookPassageAnalysisPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 21v-2a2 2 0 012-2h4a2 2 0 012 2v2" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17v-1" />
                           </svg>
-                          识别文字(消耗2点数)
+                          识别文字
                         </>
                       )}
                     </Button>
