@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { processInviteForNewUser } from '@/lib/invite-tracking-client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,10 +40,23 @@ export async function GET(request: NextRequest) {
               email_verified: data.user.email_confirmed_at ? new Date(data.user.email_confirmed_at).toISOString() : null,
             } as any)
 
-          if (createError) {
+          if (!createError) {
+            console.log('新用户创建成功:', data.user.id)
+
+            // 处理邀请奖励（异步执行，不阻塞登录流程）
+            processInviteForNewUser(data.user.id).catch((error) => {
+              console.error('处理邀请奖励失败:', error)
+            })
+          } else {
             console.error('创建用户失败:', createError)
             // 即使创建用户失败，也允许登录，因为触发器会自动创建
           }
+        } else {
+          // 用户已存在，检查是否需要处理邀请奖励
+          // 这里可以添加逻辑，如果用户刚注册不久且还没有处理过邀请奖励
+          processInviteForNewUser(data.user.id).catch((error) => {
+            console.error('处理邀请奖励失败:', error)
+          })
         }
 
         // 设置认证cookie

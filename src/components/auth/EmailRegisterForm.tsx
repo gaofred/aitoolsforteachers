@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { Loader2, Mail, User, Lock, CheckCircle } from 'lucide-react'
+import { Loader2, Mail, User, Lock, CheckCircle, Gift } from 'lucide-react'
 
 export function EmailRegisterForm() {
   const [email, setEmail] = useState('')
@@ -14,7 +14,28 @@ export function EmailRegisterForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // 检测URL中的邀请码
+  useEffect(() => {
+    const code = searchParams.get('invite_code')
+    if (code) {
+      setInviteCode(code)
+      console.log('检测到邀请码:', code)
+
+      // 将邀请码存储到localStorage，防止页面刷新丢失
+      localStorage.setItem('pending_invite_code', code)
+    } else {
+      // 检查localStorage中是否有待处理的邀请码
+      const storedCode = localStorage.getItem('pending_invite_code')
+      if (storedCode) {
+        setInviteCode(storedCode)
+        console.log('从localStorage恢复邀请码:', storedCode)
+      }
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,6 +87,23 @@ export function EmailRegisterForm() {
           <p className="text-gray-600 mb-4">
             欢迎 <span className="font-semibold text-purple-600">{email}</span> 加入英语AI教学工具
           </p>
+
+          {/* 如果有邀请码，显示邀请奖励信息 */}
+          {inviteCode && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Gift className="w-5 h-5 text-purple-600" />
+                <h3 className="font-semibold text-purple-900">邀请奖励已激活！</h3>
+              </div>
+              <p className="text-sm text-gray-700 mb-2">
+                您的朋友 <span className="font-semibold">邀请者</span> 将获得30点积分奖励
+              </p>
+              <p className="text-xs text-gray-600">
+                邀请码：{inviteCode}
+              </p>
+            </div>
+          )}
+
           <p className="text-sm text-gray-500 mb-6">
             您已获得25个初始积分，首次每日签到再获得20积分
           </p>
@@ -87,6 +125,22 @@ export function EmailRegisterForm() {
         <h2 className="text-xl font-bold text-gray-900">邮箱注册</h2>
         <p className="text-gray-600 text-sm mt-1">创建您的英语AI教学工具账户</p>
       </div>
+
+      {/* 邀请码提示 */}
+      {inviteCode && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Gift className="w-4 h-4 text-purple-600" />
+            <h3 className="font-semibold text-purple-900 text-sm">您正在通过邀请注册</h3>
+          </div>
+          <p className="text-xs text-gray-700 mb-2">
+            注册成功后，您的朋友将获得30点积分奖励
+          </p>
+          <div className="bg-white/60 rounded px-2 py-1">
+            <p className="text-xs font-mono text-purple-700">邀请码：{inviteCode}</p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">

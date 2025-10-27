@@ -16,6 +16,7 @@ import { EnglishMaxim } from "@/components/EnglishMaxim";
 
 import { SupabasePointsService } from "@/lib/supabase-points-service";
 import { DailyLoginRewardService } from "@/lib/daily-login-reward";
+import { processInviteForNewUser } from "@/lib/invite-tracking-client";
 
 // 导航数据结构
 const navigationData = [
@@ -79,6 +80,7 @@ const navigationData = [
       </svg>
     ),
     items: [
+      { id: "batch-assignment-polish", title: "批量润色学生作业 (开发中)", cost: 0, disabled: true, route: "/tools/writing/batch-assignment-polish" },
       { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
       { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
       { id: "continuation-writing", title: "读后续写范文", cost: 5, disabled: true },
@@ -150,6 +152,19 @@ const navigationData = [
       </svg>
     ),
     items: []
+  },
+  {
+    id: "invite",
+    title: "邀请有礼",
+    subtitle: "邀请朋友获得点数奖励",
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm2.5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm6.207.293a1 1 0 00-1.414 0l-6 6a1 1 0 101.414 1.414l6-6a1 1 0 000-1.414zM12.5 10a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" clipRule="evenodd"/>
+      </svg>
+    ),
+    items: [
+      { id: "invite-friends", title: "邀请朋友获得奖励", active: true, cost: 0, route: "/invite" }
+    ]
   },
   {
     id: "games",
@@ -397,6 +412,13 @@ export default function Home() {
         // 重新检查用户状态
         setTimeout(() => {
           checkCurrentUser();
+
+          // 检查并处理邀请奖励（仅对首次登录的用户）
+          if (currentUser) {
+            processInviteForNewUser(currentUser.id).catch((error) => {
+              console.error('页面加载时处理邀请奖励失败:', error);
+            });
+          }
         }, 1000);
       }
     }
