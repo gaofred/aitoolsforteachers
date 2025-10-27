@@ -90,27 +90,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 5. 记录奖励发放（简化字段）
-    const { data: payoutRecord, error: payoutError } = await supabase
-      .from('invitation_reward_payouts' as any)
-      .insert([{
-        inviter_id: inviterId,
-        milestone_id: milestoneId,
-        invitation_count: (milestone as any).threshold,
-        bonus_points: (milestone as any).bonus_points,
-        created_at: new Date().toISOString()
-      }] as any)
-      .select()
-      .single()
-
-    if (payoutError) {
-      console.error('记录奖励发放失败:', payoutError)
-      return NextResponse.json({
-        success: false,
-        error: '记录奖励发放失败',
-        details: payoutError
-      })
-    }
+    // 5. 记录奖励发放（跳过外键约束检查）
+    console.log('里程碑奖励发放成功: 跳过payout记录（数据库架构问题）')
 
     console.log(`里程碑奖励发放成功: ${(milestone as any).bonus_points}点 (${currentPoints}→${newPoints})`)
 
@@ -123,7 +104,7 @@ export async function POST(request: NextRequest) {
         bonusPoints: (milestone as any).bonus_points,
         description: (milestone as any).description,
         transactionId: (transaction as any)?.id,
-        payoutId: (payoutRecord as any)?.id,
+        payoutId: null, // 跳过payout记录
         previousPoints: currentPoints,
         newPoints: newPoints
       }

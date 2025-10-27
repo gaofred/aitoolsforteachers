@@ -34,7 +34,15 @@ export async function POST(request: NextRequest) {
 
     console.log('邀请码验证成功:', inviteData)
 
-    // 2. 检查是否已经使用过
+    // 2. 检查是否在邀请自己
+    if (userId === (inviteData as any).inviter_id) {
+      return NextResponse.json({
+        success: false,
+        error: '不能邀请自己'
+      })
+    }
+
+    // 3. 检查是否已经使用过
     const { data: existingTransaction, error: checkError } = await supabase
       .from('point_transactions' as any)
       .select('*')
