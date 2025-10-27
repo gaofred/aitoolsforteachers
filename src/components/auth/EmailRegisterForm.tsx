@@ -10,11 +10,13 @@ import { Loader2, Mail, User, Lock, CheckCircle, Gift } from 'lucide-react'
 export function EmailRegisterForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [name, setName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState('')
   const [inviteCode, setInviteCode] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -41,6 +43,26 @@ export function EmailRegisterForm() {
     e.preventDefault()
     setIsLoading(true)
     setError('')
+    setPasswordError('')
+
+    // 前端验证
+    if (!email || !password || !confirmPassword) {
+      setError('请填写所有必填字段')
+      setIsLoading(false)
+      return
+    }
+
+    if (password.length < 6) {
+      setPasswordError('密码至少需要6个字符')
+      setIsLoading(false)
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setPasswordError('两次输入的密码不一致')
+      setIsLoading(false)
+      return
+    }
 
     try {
       const response = await fetch('/api/auth/supabase-basic', {
@@ -245,13 +267,40 @@ export function EmailRegisterForm() {
             <Input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setPasswordError('') // 清除密码错误
+              }}
               placeholder="请输入密码 (至少6位)"
               className="pl-10 w-full"
               required
               minLength={6}
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            确认密码 <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value)
+                setPasswordError('') // 清除密码错误
+              }}
+              placeholder="请再次输入密码"
+              className={`pl-10 w-full ${passwordError ? 'border-red-500' : ''}`}
+              required
+              minLength={6}
+            />
+          </div>
+          {passwordError && (
+            <p className="mt-1 text-sm text-red-500">{passwordError}</p>
+          )}
         </div>
 
         <Button
