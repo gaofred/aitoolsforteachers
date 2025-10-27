@@ -1637,6 +1637,22 @@ The future of AI depends on our ability to balance innovation with responsibilit
                               <li>Fred老师原创提示词需要纯文本才能生成最佳分析效果</li>
                               <li>如果检测到题干选项，系统会自动提醒您修改</li>
                             </ul>
+                            <div className="mt-2 pt-2 border-t border-amber-200">
+                              <p className="text-amber-700 font-medium">
+                                <span className="text-amber-600">⚠️</span> 该功能只适用于全国卷、北京卷、天津卷、上海卷等风格的阅读题
+                              </p>
+                              <p className="text-amber-600 mt-1">
+                                不适合段落较多的课文文章，如需剖析课文，请访问
+                                <a
+                                  href="/tools/reading/textbook_passage_analysis"
+                                  className="text-blue-600 hover:text-blue-800 underline ml-1"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  课本文章分析
+                                </a>
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
