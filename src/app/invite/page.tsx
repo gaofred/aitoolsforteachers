@@ -89,8 +89,14 @@ const InvitePage = () => {
           setInvitations(data.data.invitations || []);
         }
 
-        // 生成或获取邀请码
-        if (!invitationCode) {
+        // 如果API返回了已有邀请码，直接使用
+        if (data.data.invitationCode && data.data.inviteUrl) {
+          console.log('使用已有邀请码:', data.data.invitationCode);
+          setInvitationCode(data.data.invitationCode);
+          setInviteUrl(data.data.inviteUrl);
+        } else if (!invitationCode) {
+          // 没有邀请码时才生成新的
+          console.log('没有找到已有邀请码，生成新的');
           await generateInvitationCode();
         }
       }

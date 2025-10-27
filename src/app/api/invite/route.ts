@@ -77,6 +77,24 @@ export async function GET(request: Request) {
     const invitationCode = searchParams.get('code');
 
     if (userId) {
+      // 首先获取用户已有的邀请码
+      const { data: existingCode, error: codeError } = await supabase
+        .from('invitation_codes')
+        .select('code, is_active')
+        .eq('inviter_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      let invitationCode = null;
+      let inviteUrl = null;
+
+      if (existingCode && !codeError) {
+        // 如果已有邀请码，使用现有的
+        invitationCode = existingCode.code;
+        inviteUrl = `https://aitoolsforteachers.net/invite/redirect?invite_code=${invitationCode}`;
+        console.log('用户已有邀请码:', invitationCode);
+      }
+
       // 获取用户的邀请统计信息
       const { data: stats, error: statsError } = await supabase
         .from('invitation_stats')
@@ -130,6 +148,8 @@ export async function GET(request: Request) {
       return NextResponse.json({
         success: true,
         data: {
+          invitationCode: invitationCode, // 返回已有的邀请码
+          inviteUrl: inviteUrl, // 返回邀请链接
           stats: stats || {
             total_invitations: 0,
             successful_invitations: 0,
