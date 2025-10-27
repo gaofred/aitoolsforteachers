@@ -92,6 +92,11 @@ export function EmailRegisterForm() {
                 // 清除待处理的邀请码
                 localStorage.removeItem('pending_invite_code')
                 console.log('邀请奖励发放成功:', claimResult.data.pointsAwarded)
+
+                // 刷新页面以更新用户积分显示
+                setTimeout(() => {
+                  window.location.reload()
+                }, 1000)
               } else {
                 console.error('邀请奖励处理失败:', claimResult.error)
               }
