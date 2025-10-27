@@ -11,18 +11,22 @@ export const createServerSupabaseClient = () => {
     throw new Error('缺少Supabase环境变量: NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY')
   }
 
-  // 注意：在Next.js 15中，cookies()需要await
-  // 但在createServerClient的回调中，我们无法使用async
-  // 所以我们需要在调用getAll时动态await
   return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      async getAll() {
-        const cookieStore = await cookies()
-        return cookieStore.getAll()
-      },
-      async setAll(cookiesToSet) {
+      getAll() {
+        // 在Next.js 15中，需要await cookies()
+        // 但这里无法使用async，所以使用同步方式
         try {
-          const cookieStore = await cookies()
+          const cookieStore = cookies()
+          return cookieStore.getAll()
+        } catch (error) {
+          console.log('Cookie获取错误:', error)
+          return []
+        }
+      },
+      setAll(cookiesToSet) {
+        try {
+          const cookieStore = cookies()
           cookiesToSet.forEach(({ name, value, options }) => {
             cookieStore.set(name, value, { ...options, path: '/' })
           })
