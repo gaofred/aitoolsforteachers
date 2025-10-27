@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { supabase } from '@/lib/supabase'
+import { processInviteForNewUserServer } from '@/lib/invite-tracking-server'
 import { z } from 'zod'
 
 const registerSchema = z.object({
   email: z.string().email("请输入有效的邮箱地址"),
   password: z.string().min(6, "密码至少需要6个字符"),
   name: z.string().min(1, "请输入姓名").optional(),
-  skipEmailVerification: z.boolean().optional().default(false)
+  skipEmailVerification: z.boolean().optional().default(false),
+  inviteCode: z.string().optional() // 邀请码参数
 })
 
 export async function POST(request: NextRequest) {
@@ -22,7 +24,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { email, password, name, skipEmailVerification } = validation.data
+    const { email, password, name, skipEmailVerification, inviteCode } = validation.data
 
     const supabase = createServerSupabaseClient()
 
@@ -117,6 +119,21 @@ export async function POST(request: NextRequest) {
         }
 
         console.log('用户业务数据记录创建完成');
+
+        // 处理邀请奖励（如果有邀请码）
+        if (inviteCode && data.user?.id) {
+          console.log('检测到邀请码，开始处理邀请奖励:', inviteCode);
+          
+          // 创建一个包含invite_code的请求URL用于processInviteForNewUserServer
+          const inviteRequestUrl = new URL('/api/auth/supabase-basic', process.env.NEXTAUTH_URL || 'http://localhost:3007');
+          inviteRequestUrl.searchParams.set('invite_code', inviteCode);
+          
+          const mockRequest = new Request(inviteRequestUrl.toString());
+          
+          await processInviteForNewUserServer(data.user.id, mockRequest).catch((error) => {
+            console.error('处理邀请奖励失败:', error);
+          });
+        }
 
       } catch (createError) {
         console.error('创建用户业务数据记录异常:', createError);

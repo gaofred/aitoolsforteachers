@@ -74,7 +74,8 @@ export function EmailRegisterForm() {
           email,
           password,
           name: name || undefined,
-          skipEmailVerification: true
+          skipEmailVerification: true,
+          inviteCode: inviteCode || undefined // 传递邀请码到服务端
         }),
       })
 
