@@ -12,7 +12,10 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    console.log('简化的邀请奖励处理:', { inviteCode, userId })
+    console.log('=== 邀请奖励处理开始 ===')
+    console.log('邀请码:', inviteCode)
+    console.log('被邀请用户ID:', userId)
+    console.log('请求时间:', new Date().toISOString())
     const supabase = createServerSupabaseClient()
 
     // 1. 验证邀请码
@@ -42,18 +45,19 @@ export async function POST(request: NextRequest) {
 
     console.log('邀请码验证成功:', inviteData)
 
-    // 3. 检查是否已经使用过这个邀请码
-    const { data: existingTransaction, error: checkError } = await supabase
-      .from('point_transactions' as any)
+    // 3. 检查被邀请者是否已经获得过邀请奖励
+    const { data: existingInvitation, error: invitationCheckError } = await supabase
+      .from('invitations' as any)
       .select('*')
-      .eq('description', `邀请奖励 - ${inviteCode}`)
-      .eq('user_id', userId)
+      .eq('invited_user_id', userId)
       .single()
 
-    if (!checkError && existingTransaction) {
+    if (!invitationCheckError && existingInvitation) {
+      console.log('用户已经通过邀请注册过:', existingInvitation)
       return NextResponse.json({
         success: false,
-        error: '您已经使用过此邀请码'
+        error: '您已经通过邀请注册过，无法重复获得邀请奖励',
+        existingInvitation
       })
     }
 
@@ -235,6 +239,12 @@ export async function POST(request: NextRequest) {
         ? `基础奖励和里程碑奖励发放成功！总计${totalPointsAwarded}点`
         : '基础奖励发放成功！'
     })
+
+    console.log('=== 邀请奖励处理成功 ===')
+    console.log('邀请者ID:', (inviteData as any).inviter_id)
+    console.log('被邀请者ID:', userId)
+    console.log('奖励积分:', totalPointsAwarded)
+    console.log('处理完成时间:', new Date().toISOString())
 
   } catch (error) {
     console.error('简化的邀请奖励处理失败:', error)
