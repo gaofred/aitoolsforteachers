@@ -1,21 +1,49 @@
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { EmailRegisterForm } from "@/components/auth/EmailRegisterForm"
-import { Loader2, User } from "lucide-react"
+import { getInviteCodeFromURL, autoSetupInviteTracking } from "@/lib/invite-tracking-client"
+import { Loader2, User, Gift } from "lucide-react"
 
 function SignUpContent() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isLoadingUser, setIsLoadingUser] = useState(true)
+  const [inviteInfo, setInviteInfo] = useState<any>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     checkCurrentUser()
-  }, [])
+    setupInviteTracking()
+  }, [searchParams])
+
+  const setupInviteTracking = async () => {
+    const inviteCode = autoSetupInviteTracking()
+
+    if (inviteCode) {
+      console.log('检测到邀请码，正在验证:', inviteCode)
+
+      // 尝试验证邀请码并获取邀请者信息
+      try {
+        const response = await fetch(`/api/invite?code=${inviteCode}`)
+        const data = await response.json()
+
+        if (data.success && data.data.inviterName) {
+          setInviteInfo({
+            code: inviteCode,
+            inviterName: data.data.inviterName,
+            inviterEmail: data.data.inviterEmail
+          })
+        }
+      } catch (error) {
+        console.error('验证邀请码失败:', error)
+      }
+    }
+  }
 
   const checkCurrentUser = async () => {
     try {
@@ -76,6 +104,23 @@ function SignUpContent() {
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">英语AI教学工具</h1>
           <p className="text-gray-600">创建您的账户</p>
+
+          {/* 邀请信息 */}
+          {inviteInfo && (
+            <Card className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+              <div className="flex items-center gap-3">
+                <Gift className="w-6 h-6 text-purple-600" />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-900">
+                    您被 <span className="font-bold text-purple-600">{inviteInfo.inviterName}</span> 邀请加入
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    注册后即可获得邀请奖励，每人可得30点数！
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* 邮箱注册表单 */}

@@ -1,19 +1,33 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { getInviteCodeFromURL } from '@/lib/invite-tracking-client'
 
 export function GoogleSignInButton() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true)
 
-      const response = await fetch('/api/auth/google', {
+      // 获取邀请码
+      const inviteCode = getInviteCodeFromURL()
+
+      // 构建Google登录URL，包含邀请码参数
+      const googleUrl = new URL('/api/auth/google', window.location.origin)
+      if (inviteCode) {
+        googleUrl.searchParams.set('invite_code', inviteCode)
+      }
+      if (searchParams.get('next')) {
+        googleUrl.searchParams.set('next', searchParams.get('next')!)
+      }
+
+      const response = await fetch(googleUrl.toString(), {
         method: 'GET',
         redirect: 'manual'
       })
