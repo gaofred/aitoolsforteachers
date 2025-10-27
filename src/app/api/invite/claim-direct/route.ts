@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
       .from('point_transactions')
       .insert({
         user_id: invite.inviter_id,
-        points_change: totalPoints,
+        amount: totalPoints,
         type: 'BONUS',
         description: `邀请奖励 - ${invite.code} (${invite.inviter?.name || '朋友'} 邒请新用户)`,
         created_at: new Date().toISOString()
