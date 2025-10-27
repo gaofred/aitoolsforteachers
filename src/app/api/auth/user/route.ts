@@ -1,23 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const accessToken = cookieStore.get('sb-access-token')?.value
-
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: '未认证' },
-        { status: 401 }
-      )
-    }
-
     const supabase = createServerSupabaseClient()
 
-    // 使用access token获取用户信息
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
+    // 直接使用Supabase的session获取用户信息
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
       console.error('认证错误:', authError)
