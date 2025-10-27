@@ -21,6 +21,7 @@ import {
   Home
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuthRedirect } from "@/lib/auth-redirect";
 
 interface InvitationStats {
   totalInvitations: number;
@@ -47,6 +48,7 @@ const InvitePage = () => {
   const searchParams = useSearchParams();
   const inviteCode = searchParams.get('invite_code');
   const router = useRouter();
+  const { redirectToLogin } = useAuthRedirect();
 
   // 使用邀请追踪Hook
   const inviteTracking = useInviteTracking();
@@ -148,7 +150,7 @@ const InvitePage = () => {
               请先登录后即可生成您的专属邀请码，开始邀请朋友获得点数奖励！
             </p>
             <Button
-              onClick={() => router.push('/auth/signin')}
+              onClick={() => redirectToLogin()}
               className="bg-gradient-to-r from-blue-600 to-purple-600"
             >
               立即登录

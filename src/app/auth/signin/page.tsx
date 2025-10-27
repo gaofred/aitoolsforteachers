@@ -78,8 +78,9 @@ function SignInPageContent() {
       const data = await response.json()
       console.log('登录成功:', data)
 
-      // 登录成功，重定向到主页并刷新用户状态
-      window.location.href = '/?signed_in=true'
+      // 登录成功，重定向到原始请求页面或主页
+      const redirectTo = searchParams.get('redirect') || '/'
+      window.location.href = redirectTo + (redirectTo.includes('?') ? '&' : '?') + 'signed_in=true'
 
     } catch (error) {
       console.error('登录异常:', error)
