@@ -65,6 +65,7 @@ const InvitePage = () => {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [hasCheckedExistingCode, setHasCheckedExistingCode] = useState(false);
 
   // 获取或生成邀请码
   useEffect(() => {
@@ -83,7 +84,7 @@ const InvitePage = () => {
       const data = await response.json();
 
       if (data.success) {
-        // 如果有统计数据，说明已有邀请码
+        // 始终设置统计数据和邀请记录
         if (data.data.stats) {
           setStats(data.data.stats);
           setInvitations(data.data.invitations || []);
@@ -94,16 +95,24 @@ const InvitePage = () => {
           console.log('使用已有邀请码:', data.data.invitationCode);
           setInvitationCode(data.data.invitationCode);
           setInviteUrl(data.data.inviteUrl);
+          setHasCheckedExistingCode(true); // 标记已检查过现有邀请码
         } else {
           // 没有邀请码时才生成新的
           console.log('没有找到已有邀请码，生成新的');
           await generateInvitationCode();
         }
+      } else {
+        console.error("获取邀请信息失败:", data.error);
+        // API失败时也尝试生成邀请码
+        await generateInvitationCode();
       }
     } catch (error) {
       console.error("获取邀请信息失败:", error);
+      // 网络错误时也尝试生成邀请码
+      await generateInvitationCode();
     } finally {
       setIsLoading(false);
+      setHasCheckedExistingCode(true); // 标记已检查过
     }
   };
 
@@ -128,6 +137,7 @@ const InvitePage = () => {
       if (data.success) {
         setInvitationCode(data.data.invitationCode);
         setInviteUrl(data.data.inviteUrl);
+        setHasCheckedExistingCode(true); // 标记已有邀请码
         console.log("邀请码生成成功:", data.data);
       } else {
         console.error("生成邀请码失败:", data.error);
@@ -246,7 +256,7 @@ const InvitePage = () => {
           inviterName={currentUser.name || undefined}
           stats={stats}
         />
-      ) : (
+      ) : hasCheckedExistingCode ? (
         <Card>
           <CardContent className="p-12 text-center">
             <Sparkles className="h-16 w-16 text-purple-500 mx-auto mb-4" />
@@ -273,6 +283,13 @@ const InvitePage = () => {
                 </>
               )}
             </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mx-auto mb-4"></div>
+            <p className="text-gray-600">正在检查您的邀请状态...</p>
           </CardContent>
         </Card>
       )}
