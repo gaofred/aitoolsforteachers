@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { Database } from '@/types/database'
 
@@ -11,28 +11,29 @@ export const createServerSupabaseClient = () => {
     throw new Error('缺少Supabase环境变量: NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY')
   }
 
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true
-    },
+  // 注意：在Next.js 15中，cookies()需要await
+  // 但在createServerClient的回调中，我们无法使用async
+  // 所以我们需要在调用getAll时动态await
+  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      getAll() {
-        return cookies().getAll()
+      async getAll() {
+        const cookieStore = await cookies()
+        return cookieStore.getAll()
       },
-      setAll(cookiesToSet) {
+      async setAll(cookiesToSet) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookies().set(name, value, options)
-          )
-        } catch {
-          // The `setAll` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
+          const cookieStore = await cookies()
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, { ...options, path: '/' })
+          })
+        } catch (error) {
+          // 在API Route中，cookies已经在response中设置
+          // 这里的错误可以忽略
+          console.log('Cookie已在Response中设置')
         }
       },
     },
-  } as any)
+  })
 }
 
 export const createServerComponentSupabaseClient = () => {

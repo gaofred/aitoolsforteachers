@@ -70,7 +70,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.user && data.session) {
-      // 设置认证cookie
+      console.log('登录成功，手动设置会话cookies')
+      
+      // 创建响应对象
       const response = NextResponse.json({
         message: "登录成功！",
         user: {
@@ -79,26 +81,30 @@ export async function POST(request: NextRequest) {
           emailConfirmed: data.user.email_confirmed_at != null
         }
       })
-
-      // 设置Supabase会话cookie
-      if (data.session.access_token) {
-        response.cookies.set('sb-access-token', data.session.access_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 60 * 24 * 7 // 7天
-        })
-      }
-
-      if (data.session.refresh_token) {
-        response.cookies.set('sb-refresh-token', data.session.refresh_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 60 * 24 * 30 // 30天
-        })
-      }
-
+      
+      // 手动设置Supabase认证cookies
+      // 使用从Supabase获取的信息来设置
+      const projectRef = 'beevwnzudplsrseehrgn' // 从环境变量中提取
+      const cookieValue = encodeURIComponent(JSON.stringify({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at,
+        expires_in: data.session.expires_in,
+        token_type: data.session.token_type,
+        user: data.user
+      }))
+      
+      // 设置主认证cookie
+      response.cookies.set(`sb-${projectRef}-auth-token`, cookieValue, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7 // 7天
+      })
+      
+      console.log('已设置认证cookie')
+      
       return response
     }
 

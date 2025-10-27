@@ -1,32 +1,18 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-
-    // 获取Supabase认证相关的cookies
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    const refreshToken = cookieStore.get('sb-refresh-token')?.value;
-
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: '未认证 - 请先登录' },
-        { status: 401 }
-      );
-    }
-
     const supabase = createServerSupabaseClient();
 
-    // 使用access token获取用户信息
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    // 使用Supabase标准认证方式
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       console.error('完形填空词汇整理积分退还认证错误:', authError);
       return NextResponse.json(
-        { error: '认证失败 - 请重新登录' },
+        { error: '未认证 - 请先登录' },
         { status: 401 }
       );
     }

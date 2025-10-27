@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { cookies } from 'next/headers'
 
 // 获取北京日期字符串（统一格式）
 function getBeijingDate(): string {
@@ -18,20 +17,12 @@ export async function POST(request: NextRequest) {
   try {
     console.log('每日奖励API POST - 收到请求')
 
-    const cookieStore = await cookies()
-    const accessToken = cookieStore.get('sb-access-token')?.value
-
-    if (!accessToken) {
-      console.log('每日奖励API POST - 无token')
-      return NextResponse.json({ error: '未认证' }, { status: 401 })
-    }
-
     const supabase = createServerSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       console.log('每日奖励API POST - 认证错误:', authError);
-      return NextResponse.json({ error: '无效的认证令牌' }, { status: 401 })
+      return NextResponse.json({ error: '未认证' }, { status: 401 })
     }
 
     console.log('每日奖励API POST - 用户ID:', user?.id);

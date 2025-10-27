@@ -1,34 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-
-    console.log('积分交易记录API - Cookie检查:', {
-      hasAccessToken: !!accessToken,
-      allCookies: cookieStore.getAll().map(c => ({ name: c.name, hasValue: !!c.value }))
-    });
-
-    if (!accessToken) {
-      console.log('积分交易记录API - 没有access token');
-      return NextResponse.json(
-        { error: '未认证' },
-        { status: 401 }
-      );
-    }
-
     const supabase = createServerSupabaseClient();
 
-    // 使用access token获取用户信息
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    // 使用Supabase标准认证方式
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       console.error('认证错误:', authError);
       return NextResponse.json(
-        { error: '无效的认证令牌' },
+        { error: '未认证' },
         { status: 401 }
       );
     }

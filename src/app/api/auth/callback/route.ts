@@ -11,12 +11,12 @@ export async function GET(request: NextRequest) {
     if (code) {
       const supabase = createServerSupabaseClient()
       
-      // 交换授权码获取会话
+      // 交换授权码获取会话 - Supabase会自动处理cookie设置
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
       
       if (error) {
         console.error('Google OAuth回调处理失败:', error)
-        return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/auth/signin?error=oauth_callback_failed`)
+        return NextResponse.redirect(new URL('/auth/signin?error=oauth_callback_failed', requestUrl.origin))
       }
 
       if (data.user) {
@@ -59,40 +59,25 @@ export async function GET(request: NextRequest) {
           })
         }
 
-        // 设置认证cookie
-        const response = NextResponse.redirect(`${process.env.NEXTAUTH_URL}${next}?signed_in=true`)
+        // 重定向到原始页面或首页，Supabase会自动处理cookie
+        // 使用URL对象确保正确的重定向
+        const redirectUrl = new URL(next, requestUrl.origin)
+        redirectUrl.searchParams.set('signed_in', 'true')
         
-        // 设置Supabase会话cookie
-        if (data.session?.access_token) {
-          response.cookies.set('sb-access-token', data.session.access_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 7 // 7天
-          })
-        }
-
-        if (data.session?.refresh_token) {
-          response.cookies.set('sb-refresh-token', data.session.refresh_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 30 // 30天
-          })
-        }
-
-        return response
+        return NextResponse.redirect(redirectUrl)
       }
     }
 
     // 如果没有代码或用户数据，重定向到登录页面
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/auth/signin?error=oauth_callback_failed`)
+    return NextResponse.redirect(new URL('/auth/signin?error=oauth_callback_failed', requestUrl.origin))
 
   } catch (error) {
     console.error('OAuth回调处理错误:', error)
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/auth/signin?error=callback_processing_failed`)
+    const requestUrl = new URL(request.url)
+    return NextResponse.redirect(new URL('/auth/signin?error=callback_processing_failed', requestUrl.origin))
   }
 }
+
 
 
 
