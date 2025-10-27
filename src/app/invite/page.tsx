@@ -159,45 +159,66 @@ const InvitePage = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
-      {/* 头部 */}
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+    <div className="container mx-auto px-4 py-6 sm:px-6 max-w-6xl">
+      {/* 头部 - 移动端优化 */}
+      <div className="text-center mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">
           邀请有礼
         </h1>
-        <p className="text-xl text-gray-600">
+        <p className="text-lg sm:text-xl text-gray-600">
           分享Fred老师AI工具，邀请朋友一起获得丰厚奖励！
         </p>
       </div>
 
-      {/* 活动亮点 */}
-      <div className="grid md:grid-cols-3 gap-6 mb-8">
-        <Card className="text-center">
-          <CardContent className="p-6">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Gift className="h-6 w-6 text-green-600" />
-            </div>
-            <h3 className="font-semibold mb-2">30点数/人</h3>
-            <p className="text-sm text-gray-600">每成功邀请一位新用户注册</p>
-          </CardContent>
-        </Card>
+      {/* 活动亮点 - 桌面端多级奖励优先 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        {/* 桌面端第一行：多级奖励 */}
+        <div className="lg:col-span-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Card className="text-center bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+              <CardContent className="p-6">
+                <div className="w-14 h-14 bg-purple-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Crown className="h-7 w-7 text-purple-700" />
+                </div>
+                <h3 className="font-bold text-lg mb-2 text-purple-800">10人里程碑</h3>
+                <p className="text-lg font-bold text-purple-700 mb-1">300点数 + 100点数</p>
+                <p className="text-xl font-bold text-purple-600 mb-2">总计400点数</p>
+                <p className="text-sm text-gray-700">成功邀请10位朋友</p>
+              </CardContent>
+            </Card>
 
-        <Card className="text-center">
-          <CardContent className="p-6">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Crown className="h-6 w-6 text-purple-600" />
-            </div>
-            <h3 className="font-semibold mb-2">额外300点数</h3>
-            <p className="text-sm text-gray-600">成功邀请10位朋友</p>
-          </CardContent>
-        </Card>
+            <Card className="text-center bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+              <CardContent className="p-6">
+                <div className="w-14 h-14 bg-amber-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="h-7 w-7 text-amber-700" />
+                </div>
+                <h3 className="font-bold text-lg mb-2 text-amber-800">20人里程碑</h3>
+                <p className="text-lg font-bold text-amber-700 mb-1">600点数 + 300点数</p>
+                <p className="text-xl font-bold text-amber-600 mb-2">总计900点数</p>
+                <p className="text-sm text-gray-700">成功邀请20位朋友</p>
+              </CardContent>
+            </Card>
 
-        <Card className="text-center">
+            <Card className="text-center bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <CardContent className="p-6">
+                <div className="w-14 h-14 bg-green-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Gift className="h-7 w-7 text-green-700" />
+                </div>
+                <h3 className="font-bold text-lg mb-2 text-green-800">基础奖励</h3>
+                <p className="text-2xl font-bold text-green-600 mb-2">30点数/人</p>
+                <p className="text-sm text-gray-700">每成功邀请一位新用户</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* 移动端额外展示 */}
+        <Card className="text-center sm:hidden">
           <CardContent className="p-6">
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <TrendingUp className="h-6 w-6 text-blue-600" />
+              <Users className="h-6 w-6 text-blue-600" />
             </div>
-            <h3 className="font-semibold mb-2">无上限邀请</h3>
+            <h3 className="font-semibold mb-2">多级奖励</h3>
             <p className="text-sm text-gray-600">邀请越多，奖励越丰厚</p>
           </CardContent>
         </Card>

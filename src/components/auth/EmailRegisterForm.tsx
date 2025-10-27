@@ -64,6 +64,44 @@ export function EmailRegisterForm() {
 
       setIsSuccess(true)
 
+      // 处理邀请奖励
+      const storedInviteCode = localStorage.getItem('pending_invite_code')
+      if (storedInviteCode) {
+        console.log('注册成功，开始处理邀请奖励:', storedInviteCode)
+
+        // 获取用户信息
+        try {
+          const userResponse = await fetch('/api/auth/user')
+          if (userResponse.ok) {
+            const userData = await userResponse.json()
+            if (userData.id) {
+              // 调用邀请奖励处理
+              const claimResponse = await fetch('/api/invite/claim-direct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  inviteCode: storedInviteCode,
+                  userId: userData.id
+                })
+              })
+
+              const claimResult = await claimResponse.json()
+              console.log('邀请奖励处理结果:', claimResult)
+
+              if (claimResult.success) {
+                // 清除待处理的邀请码
+                localStorage.removeItem('pending_invite_code')
+                console.log('邀请奖励发放成功:', claimResult.data.pointsAwarded)
+              } else {
+                console.error('邀请奖励处理失败:', claimResult.error)
+              }
+            }
+          }
+        } catch (error) {
+          console.error('处理邀请奖励时出错:', error)
+        }
+      }
+
       // 3秒后直接跳转到主页
       setTimeout(() => {
         router.push('/')

@@ -38,7 +38,7 @@ const nextConfig = {
       },
     ],
   },
-  // 添加CSP配置来解决白屏问题
+  // 简化CSP配置以避免冲突
   async headers() {
     return [
       {
@@ -46,7 +46,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: data: blob: chrome-extension:; script-src-elem 'self' 'unsafe-inline' https: http: data: blob: chrome-extension:; style-src 'self' 'unsafe-inline' https: http: data: blob:; img-src 'self' data: https: http: blob:; font-src 'self' data: https: http: blob:; connect-src 'self' https: http: ws: wss:; frame-src 'self' https: http:; object-src 'none'; base-uri 'self'; form-action 'self';"
+            value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: chrome-extension:; style-src 'self' 'unsafe-inline' data: blob:; img-src 'self' data: https: http: blob:; font-src 'self' data: https: blob:; connect-src 'self' https: http: ws: wss:; frame-src 'self' https:; object-src 'none';"
           }
         ]
       }

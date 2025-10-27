@@ -93,7 +93,7 @@ const QRCodeGenerator = ({
 
   // 分享功能
   const shareInvite = async () => {
-    const shareText = `🎉 Fred老师AI网站优惠活动！\n每邀请一位新朋友，可获得30点数！\n邀请10位，获得300点数！\n\n我的邀请链接：${inviteUrl}`;
+    const shareText = `🎉 Fred老师AI网站优惠活动！\n每邀请一位新朋友，可获得30点数！\n邀请10位获得100点数，20位获得300点数！\n\n我的邀请链接：${inviteUrl}`;
 
     try {
       // 检查是否支持Web Share API（移动设备）
@@ -151,13 +151,16 @@ const QRCodeGenerator = ({
               每邀请一位新朋友，可获得<span className="font-bold text-purple-600">30点数</span>！
             </p>
             <p className="text-md text-gray-600">
-              邀请<span className="font-bold text-blue-600">10位</span>，获得<span className="font-bold text-purple-600">300点数</span>！
+              邀请<span className="font-bold text-blue-600">10位</span>：300点数+100点数=<span className="font-bold text-purple-600">400点数</span>！
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              邀请<span className="font-bold text-amber-600">20位</span>：600点数+300点数=<span className="font-bold text-purple-600">900点数</span>！
             </p>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {/* 左侧：二维码 */}
         <Card>
           <CardHeader>
@@ -170,7 +173,7 @@ const QRCodeGenerator = ({
             {/* 二维码展示 */}
             <div className="flex justify-center">
               {isGenerating ? (
-                <div className="w-64 h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+                <div className="w-56 h-56 sm:w-64 sm:h-64 bg-gray-100 rounded-lg flex items-center justify-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
               ) : qrCodeDataUrl ? (
@@ -178,7 +181,7 @@ const QRCodeGenerator = ({
                   <img
                     src={qrCodeDataUrl}
                     alt="邀请二维码"
-                    className="w-64 h-64 rounded-lg shadow-lg group-hover:shadow-xl transition-shadow"
+                    className="w-56 h-56 sm:w-64 sm:h-64 rounded-lg shadow-lg group-hover:shadow-xl transition-shadow"
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all flex items-center justify-center">
                     <Button
@@ -200,18 +203,19 @@ const QRCodeGenerator = ({
 
             {/* 邀请码显示 */}
             <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">邀请码：</div>
-              <div className="font-mono font-bold text-blue-600 text-center">
+              <div className="text-xs sm:text-sm text-gray-600 mb-1">邀请码：</div>
+              <div className="font-mono text-xs sm:text-sm font-bold text-blue-600 text-center break-all">
                 {invitationCode}
               </div>
             </div>
 
             {/* 操作按钮 */}
-            <div className="space-y-2">
+            <div className="space-y-2 sm:space-y-3">
               <Button
                 onClick={copyInviteLink}
                 className="w-full"
                 variant="outline"
+                size="sm"
               >
                 {copied ? (
                   <>
@@ -258,18 +262,18 @@ const QRCodeGenerator = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-blue-600">
                     {stats.successfulInvitations}
                   </div>
-                  <div className="text-sm text-gray-600">成功邀请</div>
+                  <div className="text-xs sm:text-sm text-gray-600">成功邀请</div>
                 </div>
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">
+                <div className="bg-purple-50 p-3 sm:p-4 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-purple-600">
                     {stats.totalRewardsEarned}
                   </div>
-                  <div className="text-sm text-gray-600">获得点数</div>
+                  <div className="text-xs sm:text-sm text-gray-600">获得点数</div>
                 </div>
               </div>
 
@@ -289,7 +293,17 @@ const QRCodeGenerator = ({
                 </div>
                 {stats.successfulInvitations < 10 && (
                   <div className="text-xs text-gray-600">
-                    再邀请 {10 - stats.successfulInvitations} 位朋友，即可获得300点数奖励！
+                    再邀请 {10 - stats.successfulInvitations} 位朋友，即可获得100点数奖励！
+                  </div>
+                )}
+                {stats.successfulInvitations >= 10 && stats.successfulInvitations < 20 && (
+                  <div className="text-xs text-amber-600">
+                    再邀请 {20 - stats.successfulInvitations} 位朋友，即可获得300点数奖励！
+                  </div>
+                )}
+                {stats.successfulInvitations >= 20 && (
+                  <div className="text-xs text-green-600 font-semibold">
+                    🎉 恭喜！您已达成所有里程碑奖励！
                   </div>
                 )}
               </div>
@@ -314,7 +328,13 @@ const QRCodeGenerator = ({
               <div className="flex items-start gap-3">
                 <Badge className="bg-purple-100 text-purple-800 mt-1">里程碑奖励</Badge>
                 <div className="text-sm text-gray-700">
-                  邀请满10位朋友，额外获得300点数
+                  邀请满10位朋友：基础300点数+额外100点数=总计400点数
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Badge className="bg-amber-100 text-amber-800 mt-1">高级里程碑</Badge>
+                <div className="text-sm text-gray-700">
+                  邀请满20位朋友：基础600点数+额外300点数=总计900点数
                 </div>
               </div>
               <div className="flex items-start gap-3">

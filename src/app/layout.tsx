@@ -102,10 +102,11 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className={`${inter.variable} ${jetBrainsMono.variable}`}>
       <head>
-        <Script
+        {/* 暂时移除same-runtime脚本以解决加载问题 */}
+        {/* <Script
           crossOrigin="anonymous"
           src="//unpkg.com/same-runtime/dist/index.global.js"
-        />
+        /> */}
 
         {/* 结构化数据 - JSON-LD */}
         <script

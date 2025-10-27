@@ -121,8 +121,9 @@ export async function POST(request: NextRequest) {
     // 6. 计算奖励
     let basePoints = 30
     let bonusPoints = 0
+    let milestoneRewards: Array<{threshold: number, points: number, description: string}> = []
 
-    // 检查里程碑奖励
+    // 获取当前成功邀请人数
     const { data: successfulInvites, error: countError } = await supabase
       .from('invitations')
       .select('id')
@@ -133,15 +134,36 @@ export async function POST(request: NextRequest) {
       const inviteCount = successfulInvites.length
       console.log('邀请者成功邀请次数:', inviteCount)
 
-      // 如果刚好达到10次，给予300点额外奖励
-      if (inviteCount === 10) {
-        bonusPoints = 300
-        console.log('🎉 达到里程碑奖励！额外获得300点')
+      // 获取里程碑奖励配置
+      const { data: milestones, error: milestoneError } = await supabase
+        .from('invitation_milestones')
+        .select('*')
+        .eq('is_active', true)
+        .order('threshold')
+
+      if (!milestoneError && milestones) {
+        for (const milestone of milestones as any[]) {
+          if (inviteCount === milestone.threshold) {
+            // 如果刚好达到里程碑，给予奖励
+            bonusPoints += milestone.bonus_points
+            milestoneRewards.push({
+              threshold: milestone.threshold,
+              points: milestone.bonus_points,
+              description: milestone.description || `达成${milestone.threshold}人里程碑`
+            })
+            console.log(`🎉 达到${milestone.threshold}人里程碑奖励！额外获得${milestone.bonus_points}点`)
+          }
+        }
       }
     }
 
     const totalPoints = basePoints + bonusPoints
-    console.log('应获得积分:', { basePoints, bonusPoints, totalPoints })
+    console.log('应获得积分:', {
+      basePoints,
+      bonusPoints,
+      totalPoints,
+      milestoneRewards: milestoneRewards.length > 0 ? milestoneRewards : '无里程碑奖励'
+    })
 
     // 7. 发放积分奖励
     const { data: transaction, error: transactionError } = await supabase
@@ -201,7 +223,7 @@ export async function POST(request: NextRequest) {
         reward_type: 'points',
         points_awarded: totalPoints,
         bonus_applied: bonusPoints > 0,
-        payout_description: `基础奖励: ${basePoints}点${bonusPoints > 0 ? `, 里程碑奖励: ${bonusPoints}点` : ''}`,
+        payout_description: `基础奖励: ${basePoints}点${bonusPoints > 0 ? `, 里程碑奖励: ${bonusPoints}点 (${milestoneRewards.map(m => m.description).join(', ')})` : ''}`,
         transaction_id: (transaction as any)?.id,
         created_at: new Date().toISOString()
       })

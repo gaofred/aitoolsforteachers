@@ -45,14 +45,28 @@ CREATE TABLE invitation_rewards (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     reward_type TEXT NOT NULL DEFAULT 'points',
     points_per_invitation INTEGER DEFAULT 30,
-    bonus_points_threshold INTEGER DEFAULT 10,
-    bonus_points_amount INTEGER DEFAULT 300,
     max_rewards_per_user INTEGER DEFAULT 50,
     max_daily_registrations_per_ip INTEGER DEFAULT 3,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 3.1. 里程碑奖励配置表
+-- 支持多个里程碑奖励
+CREATE TABLE invitation_milestones (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    threshold INTEGER NOT NULL, -- 里程碑人数
+    bonus_points INTEGER NOT NULL, -- 奖励点数
+    description TEXT, -- 里程碑描述
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 插入默认里程碑奖励
+INSERT INTO invitation_milestones (threshold, bonus_points, description, is_active) VALUES
+    (10, 100, '成功邀请10位朋友', true),
+    (20, 300, '成功邀请20位朋友', true);
 
 -- 4. 邀请奖励发放记录表
 -- 记录所有奖励发放详情
@@ -422,6 +436,39 @@ SELECT * FROM invitation_stats WHERE inviter_id = 'user_id';
 
 查询用户邀请记录：
 SELECT * FROM invitations WHERE inviter_id = 'user_id' ORDER BY created_at DESC;
+
+-- ========================================
+-- 里程碑奖励计算函数
+-- ========================================
+
+-- 计算里程碑奖励的函数
+CREATE OR REPLACE FUNCTION calculate_milestone_reward(p_inviter_id UUID)
+RETURNS TABLE(
+    threshold INTEGER,
+    bonus_points INTEGER,
+    description TEXT,
+    is_achieved BOOLEAN
+) AS $$
+DECLARE
+    current_invite_count INTEGER;
+BEGIN
+    -- 获取当前成功邀请人数
+    SELECT COUNT(*) INTO current_invite_count
+    FROM invitations
+    WHERE inviter_id = p_inviter_id AND status = 'completed';
+
+    -- 返回所有里程碑及其达成状态
+    RETURN QUERY
+    SELECT
+        m.threshold,
+        m.bonus_points,
+        m.description,
+        (current_invite_count >= m.threshold) as is_achieved
+    FROM invitation_milestones m
+    WHERE m.is_active = true
+    ORDER BY m.threshold;
+END;
+$$ LANGUAGE plpgsql;
 
 查询用户奖励记录：
 SELECT * FROM invitation_reward_payouts WHERE inviter_id = 'user_id' ORDER BY created_at DESC;
