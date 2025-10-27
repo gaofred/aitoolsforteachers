@@ -83,7 +83,7 @@ export async function GET(request: Request) {
         .select('code, is_active')
         .eq('inviter_id', userId)
         .eq('is_active', true)
-        .single();
+        .maybeSingle(); // 使用maybeSingle()以避免没有记录时报错
 
       let invitationCode = null;
       let inviteUrl = null;
@@ -93,6 +93,8 @@ export async function GET(request: Request) {
         invitationCode = existingCode.code;
         inviteUrl = `https://aitoolsforteachers.net/invite/redirect?invite_code=${invitationCode}`;
         console.log('用户已有邀请码:', invitationCode);
+      } else {
+        console.log('用户没有已有邀请码，等待前端生成');
       }
 
       // 获取用户的邀请统计信息

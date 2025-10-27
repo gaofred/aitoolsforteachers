@@ -94,7 +94,7 @@ const InvitePage = () => {
           console.log('使用已有邀请码:', data.data.invitationCode);
           setInvitationCode(data.data.invitationCode);
           setInviteUrl(data.data.inviteUrl);
-        } else if (!invitationCode) {
+        } else {
           // 没有邀请码时才生成新的
           console.log('没有找到已有邀请码，生成新的');
           await generateInvitationCode();
