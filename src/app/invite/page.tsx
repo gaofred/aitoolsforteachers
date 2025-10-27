@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Crown,
   Sparkles,
-  PartyPopper
+  PartyPopper,
+  Home
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -160,68 +161,66 @@ const InvitePage = () => {
 
   return (
     <div className="container mx-auto px-4 py-6 sm:px-6 max-w-6xl">
+      {/* 返回主页按钮 */}
+      <div className="mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push('/')}
+          className="flex items-center gap-2 hover:bg-gray-50"
+        >
+          <Home className="w-4 h-4" />
+          <span>返回主页</span>
+        </Button>
+      </div>
+
       {/* 头部 - 移动端优化 */}
-      <div className="text-center mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">
-          邀请有礼
+      <div className="text-center mb-4 sm:mb-6 lg:mb-8">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 sm:mb-3 lg:mb-4">
+          Fred老师AI辅助英语教学网站限时优惠活动！
         </h1>
-        <p className="text-lg sm:text-xl text-gray-600">
+        <p className="text-sm sm:text-base lg:text-lg text-gray-600">
           分享Fred老师AI工具，邀请朋友一起获得丰厚奖励！
         </p>
       </div>
 
-      {/* 活动亮点 - 桌面端多级奖励优先 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* 桌面端第一行：多级奖励 */}
-        <div className="lg:col-span-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card className="text-center bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-              <CardContent className="p-6">
-                <div className="w-14 h-14 bg-purple-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Crown className="h-7 w-7 text-purple-700" />
+      {/* 活动亮点 - 移动端优先展示 */}
+      <div className="mb-4 sm:mb-6 lg:mb-8">
+        {/* 桌面端一行三列，更紧凑的布局 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+            <Card className="text-center bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-shadow">
+              <CardContent className="p-2 sm:p-3 lg:p-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-12 lg:h-12 bg-purple-200 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <Crown className="h-5 w-5 sm:h-6 sm:w-6 lg:h-6 lg:w-6 text-purple-700" />
                 </div>
-                <h3 className="font-bold text-lg mb-2 text-purple-800">10人里程碑</h3>
-                <p className="text-lg font-bold text-purple-700 mb-1">300点数 + 100点数</p>
-                <p className="text-xl font-bold text-purple-600 mb-2">总计400点数</p>
-                <p className="text-sm text-gray-700">成功邀请10位朋友</p>
+                <h3 className="font-bold text-sm sm:text-base lg:text-base mb-1 text-purple-800">10人里程碑</h3>
+                <p className="text-sm sm:text-base lg:text-base font-bold text-purple-700 mb-1">300+50=350点数</p>
+                <p className="text-xs sm:text-sm text-gray-700">成功邀请10位朋友</p>
               </CardContent>
             </Card>
 
-            <Card className="text-center bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
-              <CardContent className="p-6">
-                <div className="w-14 h-14 bg-amber-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <TrendingUp className="h-7 w-7 text-amber-700" />
+            <Card className="text-center bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 hover:shadow-lg transition-shadow">
+              <CardContent className="p-2 sm:p-3 lg:p-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-12 lg:h-12 bg-amber-200 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 lg:h-6 lg:w-6 text-amber-700" />
                 </div>
-                <h3 className="font-bold text-lg mb-2 text-amber-800">20人里程碑</h3>
-                <p className="text-lg font-bold text-amber-700 mb-1">600点数 + 300点数</p>
-                <p className="text-xl font-bold text-amber-600 mb-2">总计900点数</p>
-                <p className="text-sm text-gray-700">成功邀请20位朋友</p>
+                <h3 className="font-bold text-sm sm:text-base lg:text-base mb-1 text-amber-800">20人里程碑</h3>
+                <p className="text-sm sm:text-base lg:text-base font-bold text-amber-700 mb-1">600+100=700点数</p>
+                <p className="text-xs sm:text-sm text-gray-700">成功邀请20位朋友</p>
               </CardContent>
             </Card>
 
-            <Card className="text-center bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-              <CardContent className="p-6">
-                <div className="w-14 h-14 bg-green-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Gift className="h-7 w-7 text-green-700" />
+            <Card className="text-center bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-shadow">
+              <CardContent className="p-2 sm:p-3 lg:p-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-12 lg:h-12 bg-green-200 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <Gift className="h-5 w-5 sm:h-6 sm:w-6 lg:h-6 lg:w-6 text-green-700" />
                 </div>
-                <h3 className="font-bold text-lg mb-2 text-green-800">基础奖励</h3>
-                <p className="text-2xl font-bold text-green-600 mb-2">30点数/人</p>
-                <p className="text-sm text-gray-700">每成功邀请一位新用户</p>
+                <h3 className="font-bold text-sm sm:text-base lg:text-base mb-1 text-green-800">基础奖励</h3>
+                <p className="text-base sm:text-lg lg:text-lg font-bold text-green-600 mb-1">30点数/人</p>
+                <p className="text-xs sm:text-sm text-gray-700">每邀请一位新用户</p>
               </CardContent>
             </Card>
           </div>
-        </div>
-
-        {/* 移动端额外展示 */}
-        <Card className="text-center sm:hidden">
-          <CardContent className="p-6">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="h-6 w-6 text-blue-600" />
-            </div>
-            <h3 className="font-semibold mb-2">多级奖励</h3>
-            <p className="text-sm text-gray-600">邀请越多，奖励越丰厚</p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* 主要内容 */}

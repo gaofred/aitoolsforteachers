@@ -60,16 +60,18 @@ export function EnglishMaxim() {
 
   if (loading) {
     return (
-      <div className="hidden lg:block text-sm text-gray-600 animate-pulse">
-        <span>加载格言中...</span>
+      <div className="text-sm text-gray-600 animate-pulse">
+        <span className="hidden lg:inline">加载格言中...</span>
+        <span className="lg:hidden">格言...</span>
       </div>
     );
   }
 
   if (error && !maxim) {
     return (
-      <div className="hidden lg:block text-sm text-gray-500 italic">
-        格言加载失败
+      <div className="text-sm text-gray-500 italic">
+        <span className="hidden lg:inline">格言加载失败</span>
+        <span className="lg:hidden">格言...</span>
       </div>
     );
   }
@@ -79,8 +81,9 @@ export function EnglishMaxim() {
   }
 
   return (
-    <div className="hidden lg:block text-sm text-gray-600 group cursor-pointer" onClick={handleRefresh}>
-      <div className="flex items-center gap-2 transition-all duration-200 hover:text-purple-600">
+    <div className="text-sm text-gray-600 group cursor-pointer" onClick={handleRefresh}>
+      {/* 桌面端完整显示 */}
+      <div className="hidden lg:flex items-center gap-2 transition-all duration-200 hover:text-purple-600">
         <svg
           className="w-4 h-4 text-gray-400 group-hover:text-purple-600 transition-colors duration-200 flex-shrink-0"
           fill="none"
@@ -100,6 +103,31 @@ export function EnglishMaxim() {
           </div>
           <div className="text-xs text-gray-500 group-hover:text-purple-500 transition-colors duration-200 mt-1">
             {maxim.zh}
+          </div>
+        </div>
+      </div>
+
+      {/* 移动端简化显示 */}
+      <div className="lg:hidden flex items-center gap-1" onClick={(e) => {
+        e.stopPropagation();
+        handleRefresh();
+      }}>
+        <svg
+          className="w-3 h-3 text-gray-400 group-hover:text-purple-600 transition-colors duration-200 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+        <div className="max-w-[120px] sm:max-w-[200px]">
+          <div className="italic text-gray-600 text-xs leading-tight line-clamp-1">
+            {maxim.en.length > 30 ? maxim.en.substring(0, 30) + '...' : maxim.en}
           </div>
         </div>
       </div>

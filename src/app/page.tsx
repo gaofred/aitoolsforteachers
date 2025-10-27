@@ -13,6 +13,7 @@ import { UserMenu } from "@/components/auth/UserMenu";
 import { useUser } from "@/lib/user-context";
 import { LogoWithText } from "@/components/Logo";
 import { EnglishMaxim } from "@/components/EnglishMaxim";
+import { Gift } from "lucide-react";
 
 import { SupabasePointsService } from "@/lib/supabase-points-service";
 import { DailyLoginRewardService } from "@/lib/daily-login-reward";
@@ -1202,7 +1203,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
             </div>
 
             {/* 英语格言组件 - 放在Logo右边 */}
-            <div className="hidden lg:block ml-2">
+            <div className="ml-2 lg:max-w-2xl flex-1">
               <EnglishMaxim />
             </div>
           </div>
@@ -1222,6 +1223,17 @@ The future of AI depends on our ability to balance innovation with responsibilit
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
+
+          {/* 邀请有礼按钮 - 移动端使用图标模式 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/invite')}
+            className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+          >
+            <Gift className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">邀请有礼</span>
+          </Button>
 
           {/* 每日奖励按钮 - 移动端使用图标模式 */}
           {currentUser && !dailyRewardClaimed && (
@@ -2029,6 +2041,17 @@ The future of AI depends on our ability to balance innovation with responsibilit
           </div>
         </div>
       )}
+
+      {/* 移动端浮动邀请按钮 */}
+      <div className="fixed bottom-6 right-6 md:hidden z-40">
+        <button
+          onClick={() => router.push('/invite')}
+          className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center gap-2"
+        >
+          <Gift className="w-5 h-5" />
+          <span className="text-sm font-medium">邀请有礼</span>
+        </button>
+      </div>
 
       <style>{`
         @keyframes fade-in {

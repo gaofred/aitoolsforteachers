@@ -81,8 +81,8 @@ export async function processInviteForNewUserServer(
       return { success: false, error: '您已经使用过此邀请码' };
     }
 
-    // 直接调用邀请奖励处理API
-    const claimResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/invite/claim-direct`, {
+    // 直接调用简化的邀请奖励处理API
+    const claimResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/invite/simple-claim`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

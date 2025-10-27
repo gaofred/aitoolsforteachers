@@ -91,8 +91,8 @@ export async function claimInviteReward(
 
     console.log('开始处理邀请奖励:', { userId, inviteCode: codeToUse });
 
-    // 使用直接API而不是数据库函数
-    const response = await fetch('/api/invite/claim-direct', {
+    // 使用简化的API而不是数据库函数
+    const response = await fetch('/api/invite/simple-claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

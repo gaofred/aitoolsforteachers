@@ -75,8 +75,8 @@ export function EmailRegisterForm() {
           if (userResponse.ok) {
             const userData = await userResponse.json()
             if (userData.id) {
-              // 调用邀请奖励处理
-              const claimResponse = await fetch('/api/invite/claim-direct', {
+              // 调用简化的邀请奖励处理
+              const claimResponse = await fetch('/api/invite/simple-claim', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

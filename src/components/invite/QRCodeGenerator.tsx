@@ -13,7 +13,8 @@ import {
   Users,
   Gift,
   CheckCircle,
-  Link as LinkIcon
+  Link as LinkIcon,
+  MessageCircle
 } from "lucide-react";
 
 interface QRCodeGeneratorProps {
@@ -93,14 +94,14 @@ const QRCodeGenerator = ({
 
   // 分享功能
   const shareInvite = async () => {
-    const shareText = `🎉 Fred老师AI网站优惠活动！\n每邀请一位新朋友，可获得30点数！\n邀请10位获得100点数，20位获得300点数！\n\n我的邀请链接：${inviteUrl}`;
+    const shareText = `🎉 Fred老师AI辅助英语教学网站限时优惠活动！\n每邀请一位新朋友，可获得30点数！\n邀请10位获得100点数，20位获得300点数！\n\n我的邀请链接：${inviteUrl}`;
 
     try {
       // 检查是否支持Web Share API（移动设备）
       if (typeof navigator !== 'undefined' && navigator.share && /mobile/i.test(navigator.userAgent)) {
         await navigator.share({
-          title: "Fred老师AI网站邀请",
-          text: "Fred老师AI网站优惠活动！快来体验专业的英语教学AI工具！",
+          title: "Fred老师AI辅助英语教学网站邀请",
+          text: "Fred老师AI辅助英语教学网站限时优惠活动！快来体验专业的英语教学AI工具！",
           url: inviteUrl,
         });
       } else {
@@ -139,22 +140,19 @@ const QRCodeGenerator = ({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* 头部说明 */}
+    <div className="w-full max-w-3xl mx-auto space-y-6 bg-gray-50 min-h-screen p-4 sm:p-6 lg:p-8 -m-4 sm:-m-6 lg:-m-8">
+      {/* 活动说明卡片 */}
       <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
         <CardContent className="p-6">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Fred老师AI网站优惠活动！
-            </h2>
             <p className="text-lg text-gray-700">
               每邀请一位新朋友，可获得<span className="font-bold text-purple-600">30点数</span>！
             </p>
             <p className="text-md text-gray-600">
-              邀请<span className="font-bold text-blue-600">10位</span>：300点数+100点数=<span className="font-bold text-purple-600">400点数</span>！
+              邀请<span className="font-bold text-blue-600">10位</span>：300点数+50点数=<span className="font-bold text-purple-600">350点数</span>！
             </p>
             <p className="text-sm text-gray-500 mt-1">
-              邀请<span className="font-bold text-amber-600">20位</span>：600点数+300点数=<span className="font-bold text-purple-600">900点数</span>！
+              邀请<span className="font-bold text-amber-600">20位</span>：600点数+100点数=<span className="font-bold text-purple-600">700点数</span>！
             </p>
           </div>
         </CardContent>
@@ -173,7 +171,7 @@ const QRCodeGenerator = ({
             {/* 二维码展示 */}
             <div className="flex justify-center">
               {isGenerating ? (
-                <div className="w-56 h-56 sm:w-64 sm:h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+                <div className="w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64 bg-gray-100 rounded-lg flex items-center justify-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
               ) : qrCodeDataUrl ? (
@@ -181,7 +179,7 @@ const QRCodeGenerator = ({
                   <img
                     src={qrCodeDataUrl}
                     alt="邀请二维码"
-                    className="w-56 h-56 sm:w-64 sm:h-64 rounded-lg shadow-lg group-hover:shadow-xl transition-shadow"
+                    className="w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64 rounded-lg shadow-lg group-hover:shadow-xl transition-shadow"
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all flex items-center justify-center">
                     <Button
@@ -195,7 +193,7 @@ const QRCodeGenerator = ({
                   </div>
                 </div>
               ) : (
-                <div className="w-64 h-64 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">
+                <div className="w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">
                   二维码生成失败
                 </div>
               )}
@@ -210,7 +208,7 @@ const QRCodeGenerator = ({
             </div>
 
             {/* 操作按钮 */}
-            <div className="space-y-2 sm:space-y-3">
+            <div className="space-y-2">
               <Button
                 onClick={copyInviteLink}
                 className="w-full"
@@ -248,10 +246,64 @@ const QRCodeGenerator = ({
                 )}
               </Button>
             </div>
+
+            {/* 朋友圈分享文案 */}
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-3 h-3 text-blue-600" />
+                  <h4 className="font-semibold text-xs text-gray-700">朋友圈分享文案</h4>
+                </div>
+                <Button
+                  onClick={() => {
+                    const shareText = `最近发现一个很实用的AI教学助手网站，是Fred老师开发的。他有十多年一线英语教学经验，之前还是程序员，所以做的工具特别懂我们老师的需要。
+
+网站里有几个功能我觉得很实用：
+• 阅读理解分析工具（特别是B/C/D篇的深度解析）
+• 语法练习自动生成
+• 写作指导和范文参考
+• 词汇学习辅助工具
+
+推荐给大家试试：${inviteUrl}`;
+
+                    navigator.clipboard.writeText(shareText);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                >
+                  {copied ? (
+                    <>
+                      <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
+                      已复制
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3 mr-1" />
+                      复制
+                    </>
+                  )}
+                </Button>
+              </div>
+              <div className="bg-white p-2 rounded border border-gray-200">
+                <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
+最近发现一个很实用的AI教学助手网站，是Fred老师开发的。他有十多年一线英语教学经验，之前还是程序员，所以做的工具特别懂我们老师的需要。
+
+网站里有几个功能我觉得很实用：
+• 阅读理解分析工具（特别是B/C/D篇的深度解析）
+• 语法练习自动生成
+• 写作指导和范文参考
+• 词汇学习辅助工具
+
+推荐给大家试试：[邀请链接]</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* 右侧：邀请统计和说明 */}
+        {/* 右侧：邀请统计和奖励规则 */}
         <div className="space-y-6">
           {/* 邀请统计 */}
           <Card>
@@ -328,13 +380,13 @@ const QRCodeGenerator = ({
               <div className="flex items-start gap-3">
                 <Badge className="bg-purple-100 text-purple-800 mt-1">里程碑奖励</Badge>
                 <div className="text-sm text-gray-700">
-                  邀请满10位朋友：基础300点数+额外100点数=总计400点数
+                  邀请满10位朋友：基础300点数+额外50点数=总计350点数
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Badge className="bg-amber-100 text-amber-800 mt-1">高级里程碑</Badge>
                 <div className="text-sm text-gray-700">
-                  邀请满20位朋友：基础600点数+额外300点数=总计900点数
+                  邀请满20位朋友：基础600点数+额外100点数=总计700点数
                 </div>
               </div>
               <div className="flex items-start gap-3">
