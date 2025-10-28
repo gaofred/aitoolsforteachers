@@ -46,7 +46,7 @@ async function checkIPRegistrationLimit(ip: string): Promise<{ allowed: boolean;
 
     if (!ipError && ipRecord) {
       // 如果今天已有记录，检查次数
-      const maxAttemptsPerDay = 5 // 每个IP每天最多注册5个账户
+      const maxAttemptsPerDay = 3 // 每个IP每天最多注册3个账户
 
       if (ipRecord.count >= maxAttemptsPerDay) {
         return {

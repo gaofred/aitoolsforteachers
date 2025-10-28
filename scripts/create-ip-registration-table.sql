@@ -1,5 +1,6 @@
 -- 创建IP注册记录表
 -- 用于跟踪每个IP地址的注册次数，防止滥用
+-- 每个IP地址每天最多可以注册3个账户
 
 CREATE TABLE IF NOT EXISTS ip_registration_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
