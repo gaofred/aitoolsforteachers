@@ -289,6 +289,16 @@ ${result.replace(/<[^>]*>/g, '')}`;
                     <p className="text-sm text-gray-600 leading-relaxed">
                       输入一篇B篇、C篇或D篇阅读文章，AI将为您整理出重点词汇、核心短语和固定搭配，并配上英文例句和对应句子翻译，帮助学生高效掌握阅读材料中的核心词汇。
                     </p>
+                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-red-600 text-lg">⚠️</span>
+                        <div className="text-sm text-red-700">
+                          <p className="font-semibold">
+                            <span className="text-red-600">重要注意：</span>要带上对应的题目和选项，否则AI可能会报错。
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2 mt-3">
                       <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
                         消耗 {toolCost} 点数
