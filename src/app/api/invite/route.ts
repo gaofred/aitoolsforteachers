@@ -117,7 +117,7 @@ export async function GET(request: Request) {
         .from('invitations')
         .select(`
           *,
-          invited_user:users(name, email, created_at)
+          invited_user:invited_user_id(name, email, created_at)
         `)
         .eq('inviter_id', userId)
         .order('created_at', { ascending: false })
@@ -170,7 +170,7 @@ export async function GET(request: Request) {
         .from('invitation_codes')
         .select(`
           *,
-          inviter:users(name, email)
+          inviter:inviter_id(name, email)
         `)
         .eq('code', invitationCode)
         .eq('is_active', true)

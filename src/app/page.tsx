@@ -22,6 +22,19 @@ import { processInviteForNewUser } from "@/lib/invite-tracking-client";
 // 导航数据结构
 const navigationData = [
   {
+    id: "invite",
+    title: "邀请有礼",
+    subtitle: "邀请朋友获得点数奖励",
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm2.5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm6.207.293a1 1 0 00-1.414 0l-6 6a1 1 0 101.414 1.414l6-6a1 1 0 000-1.414zM12.5 10a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" clipRule="evenodd"/>
+      </svg>
+    ),
+    items: [
+      { id: "invite-friends", title: "限时活动！邀请好友获海量网站点数", active: true, cost: 0, route: "/invite" }
+    ]
+  },
+  {
     id: "reading",
     title: "阅读教学工具",
     subtitle: "阅读理解与文本分析",
@@ -155,19 +168,6 @@ const navigationData = [
       </svg>
     ),
     items: []
-  },
-  {
-    id: "invite",
-    title: "邀请有礼",
-    subtitle: "邀请朋友获得点数奖励",
-    icon: (
-      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm2.5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm6.207.293a1 1 0 00-1.414 0l-6 6a1 1 0 101.414 1.414l6-6a1 1 0 000-1.414zM12.5 10a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" clipRule="evenodd"/>
-      </svg>
-    ),
-    items: [
-      { id: "invite-friends", title: "邀请朋友获得奖励", active: true, cost: 0, route: "/invite" }
-    ]
   },
   {
     id: "games",
