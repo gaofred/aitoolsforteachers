@@ -281,31 +281,40 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // 检查结果是否可能被截断
-    const lastSentenceEnd = vocabularyResult.lastIndexOf('。');
-    const lastPeriodEnd = vocabularyResult.lastIndexOf('.');
-    const lastQuestionEnd = vocabularyResult.lastIndexOf('?');
-    const lastExclamationEnd = vocabularyResult.lastIndexOf('!');
-    const lastSentenceEndIndex = Math.max(lastSentenceEnd, lastPeriodEnd, lastQuestionEnd, lastExclamationEnd);
-
-    if (lastSentenceEndIndex > 0 && lastSentenceEndIndex < vocabularyResult.length - 10) {
-      // 如果最后一个句子结束后还有很多字符但没有标点，可能被截断了
-      const remainingText = vocabularyResult.substring(lastSentenceEndIndex + 1).trim();
-      if (remainingText.length > 5) {
-        console.warn('检测结果可能被截断，最后一部分:', remainingText.substring(0, 50));
-        console.log('完整结果长度:', vocabularyResult.length, '最后句子位置:', lastSentenceEndIndex);
-
-        // 尝试截断到完整的句子
-        vocabularyResult = vocabularyResult.substring(0, lastSentenceEndIndex + 1);
-        console.log('截断后结果长度:', vocabularyResult.length);
-      }
-    }
-
+    // 检查结果格式和完整性
     console.log('最终结果信息:', {
       length: vocabularyResult.length,
-      last50Chars: vocabularyResult.substring(-50),
-      hasIncomplete: vocabularyResult.match(/[.,?!]\s*[^\s]*$/) === null
+      first100Chars: vocabularyResult.substring(0, 100),
+      last100Chars: vocabularyResult.substring(-100),
+      hasMarkdown: vocabularyResult.includes('#') || vocabularyResult.includes('##')
     });
+
+    // 如果结果以Markdown格式结尾，说明可能是完整的工作流输出
+    const trimmedResult = vocabularyResult.trim();
+    if (trimmedResult.endsWith('#') || trimmedResult.endsWith('##')) {
+      console.warn('检测结果以Markdown标记结尾，可能是完整的格式化输出');
+    }
+
+    // 只在确实检测到明显的不完整时才进行截断
+    const lastSentenceEnd = trimmedResult.lastIndexOf('。');
+    const lastPeriodEnd = trimmedResult.lastIndexOf('.');
+    const lastQuestionEnd = trimmedResult.lastIndexOf('?');
+    const lastExclamationEnd = trimmedResult.lastIndexOf('!');
+    const lastSentenceEndIndex = Math.max(lastSentenceEnd, lastPeriodEnd, lastQuestionEnd, lastExclamationEnd);
+
+    // 只有在最后一个句子结束后还有大量文字且明显不完整时才截断
+    if (lastSentenceEndIndex > 0 && lastSentenceEndIndex < trimmedResult.length - 20) {
+      const remainingText = trimmedResult.substring(lastSentenceEndIndex + 1).trim();
+      // 检查剩余部分是否包含完整词汇条目的特征（包含音标、词性等）
+      const isCompleteVocabulary = remainingText.includes('/') || remainingText.includes('n.') || remainingText.includes('v.') || remainingText.includes('adj.');
+
+      if (!isCompleteVocabulary && remainingText.length > 10) {
+        console.warn('检测到可能的不完整内容，进行截断处理');
+        console.log('截断前长度:', trimmedResult.length, '截断部分:', remainingText.substring(0, 50));
+        vocabularyResult = trimmedResult.substring(0, lastSentenceEndIndex + 1);
+        console.log('截断后长度:', vocabularyResult.length);
+      }
+    }
 
     // 扣除用户点数
     const { error: deductError } = await (supabase as any).rpc('add_user_points', {
