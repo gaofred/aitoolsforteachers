@@ -4,6 +4,87 @@ import { supabase } from '@/lib/supabase'
 import { processInviteForNewUserServer } from '@/lib/invite-tracking-server'
 import { z } from 'zod'
 
+// 获取客户端IP地址的函数
+function getClientIP(request: NextRequest): string {
+  // 尝试从各种头部获取真实IP
+  const forwarded = request.headers.get('x-forwarded-for')
+  const realIP = request.headers.get('x-real-ip')
+  const clientIP = request.headers.get('x-client-ip')
+  const cfConnectingIP = request.headers.get('cf-connecting-ip') // Cloudflare
+
+  let ip = 'unknown'
+
+  if (cfConnectingIP) {
+    ip = cfConnectingIP
+  } else if (forwarded) {
+    // x-forwarded-for可能包含多个IP，取第一个
+    ip = forwarded.split(',')[0].trim()
+  } else if (realIP) {
+    ip = realIP
+  } else if (clientIP) {
+    ip = clientIP
+  }
+
+  return ip
+}
+
+// 检查IP注册次数限制
+async function checkIPRegistrationLimit(ip: string): Promise<{ allowed: boolean; message?: string }> {
+  const supabase = createServerSupabaseClient()
+
+  try {
+    // 检查该IP今天是否已有注册记录
+    const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD格式
+
+    // 先检查IP注册限制表
+    const { data: ipRecord, error: ipError } = await supabase
+      .from('ip_registration_logs')
+      .select('count, last_attempt_date')
+      .eq('ip_address', ip)
+      .eq('attempt_date', today)
+      .single()
+
+    if (!ipError && ipRecord) {
+      // 如果今天已有记录，检查次数
+      const maxAttemptsPerDay = 5 // 每个IP每天最多注册5个账户
+
+      if (ipRecord.count >= maxAttemptsPerDay) {
+        return {
+          allowed: false,
+          message: `该IP地址今日注册次数已达上限（${maxAttemptsPerDay}次），请明天再试或使用其他网络`
+        }
+      }
+
+      // 增加计数
+      await supabase
+        .from('ip_registration_logs')
+        .update({
+          count: ipRecord.count + 1,
+          last_attempt_date: new Date().toISOString()
+        })
+        .eq('ip_address', ip)
+        .eq('attempt_date', today)
+    } else {
+      // 创建新记录
+      await supabase
+        .from('ip_registration_logs')
+        .insert({
+          ip_address: ip,
+          attempt_date: today,
+          count: 1,
+          last_attempt_date: new Date().toISOString()
+        })
+    }
+
+    return { allowed: true }
+
+  } catch (error) {
+    console.error('检查IP注册限制时出错:', error)
+    // 如果检查失败，为了不影响正常用户，允许注册
+    return { allowed: true }
+  }
+}
+
 const registerSchema = z.object({
   email: z.string().email("请输入有效的邮箱地址"),
   password: z.string().min(6, "密码至少需要6个字符"),
@@ -25,6 +106,22 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password, name, skipEmailVerification, inviteCode } = validation.data
+
+    // 获取客户端IP地址
+    const clientIP = getClientIP(request)
+    console.log('注册请求IP地址:', clientIP)
+
+    // 检查该IP今天的注册次数限制
+    const ipCheckResult = await checkIPRegistrationLimit(clientIP)
+    if (!ipCheckResult.allowed) {
+      return NextResponse.json(
+        {
+          error: ipCheckResult.message || "该IP地址今日注册次数已达上限",
+          code: "IP_LIMIT_EXCEEDED"
+        },
+        { status: 429 }
+      )
+    }
 
     const supabase = createServerSupabaseClient()
 
