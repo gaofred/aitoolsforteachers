@@ -122,11 +122,19 @@ export async function POST(request: NextRequest) {
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let chunkCount = 0;
+    const maxChunks = 10000; // 防止无限循环
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+
+        chunkCount++;
+        if (chunkCount > maxChunks) {
+          console.warn('达到最大数据块数量限制，停止读取');
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -139,20 +147,20 @@ export async function POST(request: NextRequest) {
 
             try {
               const data = JSON.parse(dataStr);
-              console.log('Coze响应数据:', JSON.stringify(data, null, 2));
+              console.log(`Coze响应数据 #${chunkCount}:`, JSON.stringify(data, null, 2));
               console.log('数据结构分析:', {
                 hasContent: 'content' in data,
                 contentType: typeof data.content,
-                contentValue: data.content,
+                contentLength: data.content ? data.content.length : 0,
                 hasOutput: 'output' in data,
                 outputType: typeof data.output,
-                outputValue: data.output,
+                outputLength: data.output ? data.output.length : 0,
                 hasResult: 'result' in data,
                 resultType: typeof data.result,
-                resultValue: data.result,
+                resultLength: data.result ? data.result.length : 0,
                 hasMessage: 'message' in data,
                 messageType: typeof data.message,
-                messageValue: data.message,
+                messageLength: data.message ? data.message.length : 0,
                 hasData: 'data' in data,
                 dataValue: data.data
               });
@@ -213,6 +221,24 @@ export async function POST(request: NextRequest) {
                 console.log('从data直接获取结果:', vocabularyResult.substring(0, 100));
                 break;
               }
+              // 新增：检查所有字符串字段，选择最长的作为结果
+              else {
+                let longestText = '';
+                let longestField = '';
+                for (const [key, value] of Object.entries(data)) {
+                  if (typeof value === 'string' && value.trim() && value.trim() !== '{}' && value.trim() !== 'null') {
+                    if (value.length > longestText.length && value.length > 50) { // 至少50个字符
+                      longestText = value;
+                      longestField = key;
+                    }
+                  }
+                }
+                if (longestText) {
+                  vocabularyResult = longestText;
+                  console.log(`从字段"${longestField}"获取最长结果:`, vocabularyResult.substring(0, 100));
+                  break;
+                }
+              }
             } catch (parseError) {
               console.error('解析Coze响应数据失败:', parseError, '原始数据:', dataStr);
               // 如果JSON解析失败，尝试直接使用原始数据
@@ -254,6 +280,32 @@ export async function POST(request: NextRequest) {
         error: "词汇整理失败：工作流返回空结果，请检查工作流配置"
       }, { status: 500 });
     }
+
+    // 检查结果是否可能被截断
+    const lastSentenceEnd = vocabularyResult.lastIndexOf('。');
+    const lastPeriodEnd = vocabularyResult.lastIndexOf('.');
+    const lastQuestionEnd = vocabularyResult.lastIndexOf('?');
+    const lastExclamationEnd = vocabularyResult.lastIndexOf('!');
+    const lastSentenceEndIndex = Math.max(lastSentenceEnd, lastPeriodEnd, lastQuestionEnd, lastExclamationEnd);
+
+    if (lastSentenceEndIndex > 0 && lastSentenceEndIndex < vocabularyResult.length - 10) {
+      // 如果最后一个句子结束后还有很多字符但没有标点，可能被截断了
+      const remainingText = vocabularyResult.substring(lastSentenceEndIndex + 1).trim();
+      if (remainingText.length > 5) {
+        console.warn('检测结果可能被截断，最后一部分:', remainingText.substring(0, 50));
+        console.log('完整结果长度:', vocabularyResult.length, '最后句子位置:', lastSentenceEndIndex);
+
+        // 尝试截断到完整的句子
+        vocabularyResult = vocabularyResult.substring(0, lastSentenceEndIndex + 1);
+        console.log('截断后结果长度:', vocabularyResult.length);
+      }
+    }
+
+    console.log('最终结果信息:', {
+      length: vocabularyResult.length,
+      last50Chars: vocabularyResult.substring(-50),
+      hasIncomplete: vocabularyResult.match(/[.,?!]\s*[^\s]*$/) === null
+    });
 
     // 扣除用户点数
     const { error: deductError } = await (supabase as any).rpc('add_user_points', {
