@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     console.log('📝 输入文本长度:', text.length);
 
     const requestBody = {
-      model: 'glm-4.5-air',
+      model: 'glm-4.5-x',
       messages: [
         {
           role: 'system',
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         }
       ],
       temperature: 0.3,
-      max_tokens: 4000,
+      max_tokens: 8000,
       stream: false
     };
 

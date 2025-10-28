@@ -50,7 +50,8 @@ const navigationData = [
       { id: "cd-adaptation", title: "CD篇改编", cost: 5, route: "/tools/reading/cd-adaptation" },
       { id: "cd-creator", title: "CD篇命题", active: true, cost: 4, route: "/tools/reading/cd-creator" },
         { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true },
-        { id: "reading-comprehension-analysis", title: "阅读理解解析", cost: 2, route: "/tools/reading/reading-comprehension-analysis" }
+        { id: "reading-comprehension-analysis", title: "阅读理解解析", cost: 2, route: "/tools/reading/reading-comprehension-analysis" },
+        { id: "cloze-test-analysis", title: "完形填空解析", cost: 3, route: "/tools/reading/cloze-test-analysis" }
     ]
   },
   {

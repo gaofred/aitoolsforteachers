@@ -24,6 +24,8 @@ export async function GET() {
         code,
         type,
         value,
+        membership_type,
+        membership_days,
         description,
         created_at,
         used_at,
@@ -62,17 +64,35 @@ export async function POST(request: NextRequest) {
     console.log('开始创建兑换码...');
     const requestData = await request.json();
 
-    // 兼容前端发送的字段名
-    const points = requestData.points || requestData.value;
+    // 支持多种类型的兑换码
+    const type = requestData.type || 'POINTS'; // POINTS, MEMBERSHIP_DAYS, MEMBERSHIP
+    const value = requestData.value || requestData.points;
     const description = requestData.description;
     const expires_at = requestData.expires_at;
     const count = requestData.count || 1;
+    const membership_type = requestData.membership_type; // PREMIUM, PRO
+    const membership_days = requestData.membership_days || 30;
 
-    console.log('请求参数:', { points, description, expires_at, count });
+    console.log('请求参数:', { type, value, description, expires_at, count, membership_type, membership_days });
 
-    if (!points || !description) {
+    // 参数验证
+    if (!description) {
       return NextResponse.json(
-        { error: '缺少必要参数: points/value 和 description' },
+        { error: '缺少必要参数: description' },
+        { status: 400 }
+      );
+    }
+
+    if (type === 'POINTS' && !value) {
+      return NextResponse.json(
+        { error: '点数兑换码需要提供 value 或 points 参数' },
+        { status: 400 }
+      );
+    }
+
+    if ((type === 'MEMBERSHIP_DAYS' || type === 'MEMBERSHIP') && !membership_type) {
+      return NextResponse.json(
+        { error: '会员兑换码需要提供 membership_type 参数' },
         { status: 400 }
       );
     }
@@ -113,15 +133,25 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      codes.push({
+      const codeData: any = {
         code,
-        type: 'POINTS', // 兑换码类型：POINTS 或 MEMBERSHIP_DAYS
-        value: points, // 注意：数据库字段是 value，不是 points
+        type,
         description,
         expires_at: expires_at || null,
         is_used: false,
         created_at: new Date().toISOString()
-      });
+      };
+
+      // 根据类型添加特定字段
+      if (type === 'POINTS') {
+        codeData.value = value;
+      } else if (type === 'MEMBERSHIP_DAYS' || type === 'MEMBERSHIP') {
+        codeData.membership_type = membership_type;
+        codeData.membership_days = membership_days;
+        codeData.value = 0; // 会员兑换码value为0
+      }
+
+      codes.push(codeData);
     }
 
     console.log(`准备插入 ${codes.length} 个兑换码`);
