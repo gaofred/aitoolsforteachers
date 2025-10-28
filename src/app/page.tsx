@@ -13,7 +13,7 @@ import { UserMenu } from "@/components/auth/UserMenu";
 import { useUser } from "@/lib/user-context";
 import { LogoWithText } from "@/components/Logo";
 import { EnglishMaxim } from "@/components/EnglishMaxim";
-import { Gift } from "lucide-react";
+import { Gift, Crown, Diamond, Sparkles } from "lucide-react";
 
 import { SupabasePointsService } from "@/lib/supabase-points-service";
 import { DailyLoginRewardService } from "@/lib/daily-login-reward";
@@ -328,6 +328,33 @@ export default function Home() {
     // 清除任何可能缓存的analysisResult
     setAnalysisResult(null);
   }, []);
+
+  // VIP徽章显示函数
+  const getVipBadge = (isMember: boolean, membershipType?: string) => {
+    if (!isMember || !membershipType || membershipType === 'FREE') {
+      return null;
+    }
+
+    switch (membershipType) {
+      case 'PRO':
+        return (
+          <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full shadow-sm">
+            <Diamond className="h-3 w-3 text-white" />
+            <Sparkles className="h-3 w-3 text-yellow-300" />
+            <span className="text-white text-xs font-bold">VIP</span>
+          </div>
+        );
+      case 'PREMIUM':
+        return (
+          <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full shadow-sm">
+            <Crown className="h-3 w-3 text-white" />
+            <span className="text-white text-xs font-bold">VIP</span>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   // 摄像头功能函数 - 参考reading-generator的简洁实现
   const startCamera = async () => {
@@ -1293,6 +1320,12 @@ The future of AI depends on our ability to balance innovation with responsibilit
               </div>
               <span className="text-xs sm:text-sm font-semibold text-foreground">{userPoints}</span>
             </div>
+
+            {/* VIP徽章 */}
+            {currentUser && getVipBadge(
+              currentUser.user_points?.is_member || false,
+              currentUser.memberships?.membership_type || 'FREE'
+            )}
 
          {/* 用户认证区域 */}
          {isLoadingUser ? (

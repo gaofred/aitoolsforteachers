@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { User, LogOut, Star, Gift, Users, Crown, Calendar } from 'lucide-react'
+import { User, LogOut, Star, Gift, Users, Crown, Calendar, Sparkles, Diamond } from 'lucide-react'
 
 interface UserProfile {
   id: string
@@ -77,26 +77,35 @@ export function UserMenu() {
 
   const getMembershipBadge = (isMember: boolean, membershipType: string, expiresAt?: string) => {
     if (!isMember) {
-      return <span className="text-gray-600 text-xs">FREE</span>
+      return (
+        <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full">
+          <span className="text-gray-600 text-xs font-medium">普通用户</span>
+        </div>
+      )
     }
 
     switch (membershipType) {
       case 'PRO':
         return (
-          <div className="flex items-center gap-1">
-            <Crown className="h-3 w-3 text-purple-600" />
-            <span className="text-purple-600 text-xs font-semibold">PRO</span>
+          <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full shadow-sm">
+            <Diamond className="h-3 w-3 text-white" />
+            <Sparkles className="h-3 w-3 text-yellow-300" />
+            <span className="text-white text-xs font-bold">VIP PRO</span>
           </div>
         )
       case 'PREMIUM':
         return (
-          <div className="flex items-center gap-1">
-            <Crown className="h-3 w-3 text-blue-600" />
-            <span className="text-blue-600 text-xs font-semibold">PREMIUM</span>
+          <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full shadow-sm">
+            <Crown className="h-3 w-3 text-white" />
+            <span className="text-white text-xs font-bold">VIP PREMIUM</span>
           </div>
         )
       default:
-        return <span className="text-gray-600 text-xs">FREE</span>
+        return (
+          <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full">
+            <span className="text-gray-600 text-xs font-medium">普通用户</span>
+          </div>
+        )
     }
   }
 
@@ -133,20 +142,31 @@ export function UserMenu() {
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
-            <div className="flex flex-col space-y-1">
-              <div className="flex items-center gap-2">
-                <Star className="h-3 w-3 text-yellow-500" />
-                <span className="text-xs">{user.user_points?.points || 0} 积分</span>
+            <div className="flex flex-col space-y-2">
+              {/* 点数显示 */}
+              <div className="flex items-center gap-2 px-2 py-1 bg-yellow-50 rounded-lg border border-yellow-200">
+                <Star className="h-4 w-4 text-yellow-500" />
+                <span className="text-sm font-medium text-yellow-700">
+                  {user.user_points?.points || 0} 积分
+                </span>
+              </div>
+
+              {/* 会员徽章 */}
+              <div className="flex items-center justify-center">
                 {getMembershipBadge(
                   user.user_points?.is_member || false,
                   user.memberships?.membership_type || 'FREE',
                   user.user_points?.membership_expires_at
                 )}
               </div>
+
+              {/* 会员到期时间 */}
               {user.user_points?.is_member && user.user_points?.membership_expires_at && (
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <Calendar className="h-3 w-3" />
-                  <span>{getDaysRemaining(user.user_points.membership_expires_at)}</span>
+                <div className="flex items-center justify-center gap-1 px-2 py-1 bg-purple-50 rounded-lg border border-purple-200">
+                  <Calendar className="h-3 w-3 text-purple-500" />
+                  <span className="text-xs text-purple-700 font-medium">
+                    {getDaysRemaining(user.user_points.membership_expires_at)}
+                  </span>
                 </div>
               )}
             </div>
