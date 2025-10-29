@@ -100,7 +100,7 @@ const navigationData = [
       { id: "batch-assignment-polish", title: "批量润色学生作业 (开发中)", cost: 0, disabled: true, route: "/tools/writing/batch-assignment-polish" },
       { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
       { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
-      { id: "continuation-writing", title: "读后续写范文", cost: 5, disabled: true },
+      { id: "continuation-writing", title: "读后续写范文", cost: 6, route: "/tools/writing/continuation_writing_model_essay" },
       { id: "continuation-lesson", title: "读后续写学案", cost: 7, disabled: true }
     ]
   },
@@ -795,7 +795,7 @@ export default function Home() {
     if (canAnalyze && !isAnalyzing && hasEnoughPoints) {
       // 检测是否包含题干和选项
       if (activeItem === "text-analysis" && detectQuizOptions(text)) {
-        alert('⚠️ 检测到您输入的内容包含题干和ABCD选项。\n\n请删除题干和选项，只输入英文文章原文。\n\nFred老师原创提示词需要纯文本才能生成高质量的深度分析内容。');
+        alert('\u26a0\ufe0f 检测到您输入的内容包含题干和ABCD选项。\n\n请删除题干和选项，只输入英文文章原文。\n\nFred老师原创提示词需要纯文本才能生成高质量的深度分析内容。');
         return;
       }
 
@@ -916,11 +916,11 @@ ${imagesHtml}
             await refreshUser();
 
             // 显示成功消息
-            alert(`✅ 连环画生成完成！
+            alert(`\u2705 连环画生成完成！
 成功生成 ${data.images?.length || 0} 张图片，消耗 ${data.pointsCost} 个点数，请刷新查看最新点数。
-💡 提示：点击每张图片下方的"下载图片"按钮可以单独下载图片。`);
+\u26a1 提示：点击每张图片下方的"下载图片"按钮可以单独下载图片。`);
           } else {
-            console.error('❌ 连环画生成失败:', data.error);
+            console.error('\u274c 连环画生成失败:', data.error);
             alert(data.error || '连环画生成失败，请稍后重试');
             await refreshUser();
           }
@@ -1359,9 +1359,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
           sidebarCollapsed ? 'w-16' : 'w-64'
         } transition-all duration-300 border-r border-gray-200 bg-gradient-to-b from-white via-gray-50 to-gray-100 flex flex-col h-[calc(100vh-4rem)] sticky top-16 hidden md:flex z-40 flex-shrink-0`}>
           {!sidebarCollapsed && (
-            <>
-              {/* 分类导航 */}
-              <div className="flex-1 overflow-hidden p-4 h-full max-h-[calc(100vh-200px)]">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 h-full max-h-[calc(100vh-200px)] sidebar-scrollbar">
                 <nav className="space-y-1">
                   {navigationData.map((category) => (
                     <div key={category.id} className="mb-1">
@@ -1423,23 +1421,6 @@ The future of AI depends on our ability to balance innovation with responsibilit
                   ))}
                 </nav>
               </div>
-
-              {/* 底部升级订阅区域 */}
-              <div className="p-3 border-t border-border">
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-3 border border-amber-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">⭐</span>
-                      <div className="evolink-heading text-foreground text-xs">专业版</div>
-                    </div>
-                    <Button size="sm" className="evolink-button text-xs px-3 h-8">
-                      升级
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">解锁全部功能</p>
-                </div>
-              </div>
-            </>
           )}
 
           {/* 折叠状态 */}
@@ -1455,16 +1436,6 @@ The future of AI depends on our ability to balance innovation with responsibilit
                   {category.icon}
                 </button>
               ))}
-              
-              {/* 折叠状态下的功能按钮 */}
-              <div className="border-t border-border w-full pt-3">
-                <button
-                  className="p-2 rounded-lg hover:bg-amber-50 text-amber-600 transition-all duration-200 hover:scale-105 w-full"
-                  title="升级专业版"
-                >
-                  ⭐
-                </button>
-              </div>
             </div>
           )}
         </aside>
@@ -1472,20 +1443,21 @@ The future of AI depends on our ability to balance innovation with responsibilit
         {/* 移动端侧边栏覆盖层 */}
         {!sidebarCollapsed && (
           <div className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarCollapsed(true)}>
-            <aside className="w-64 bg-white h-full shadow-xl transform transition-transform duration-300">
+            <aside className="w-64 bg-white h-full shadow-xl transform transition-transform duration-300 flex flex-col">
               {/* 移动端侧边栏内容与桌面端相同 */}
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-semibold text-gray-900">功能导航</h2>
-                  <button onClick={() => setSidebarCollapsed(true)} className="p-2 rounded-lg hover:bg-gray-100">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                {/* 导航内容 */}
-                <nav className="space-y-1">
-                  {navigationData.map((category) => (
+              <div className="flex-1 overflow-y-auto overflow-x-hidden mobile-scrollbar">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="font-semibold text-gray-900">功能导航</h2>
+                    <button onClick={() => setSidebarCollapsed(true)} className="p-2 rounded-lg hover:bg-gray-100">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  {/* 导航内容 */}
+                  <nav className="space-y-1">
+                    {navigationData.map((category) => (
                     <div key={category.id} className="mb-1">
                       <button
                         onClick={() => toggleCategory(category.id)}
@@ -1518,36 +1490,37 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         {category.items.map((item) => {
                           const isAvailable = !(item as any).disabled;
                           return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              if (isAvailable) {
-                                handleItemClick(category.id, item.id);
-                                setSidebarCollapsed(true);
-                              }
-                            }}
-                            disabled={!isAvailable}
-                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                              isAvailable
-                                ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
-                                : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
-                            }`}
-                          >
-                            <span>{item.title}</span>
-                            <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                              isAvailable
-                                ? 'bg-purple-200 text-purple-700'
-                                : 'bg-gray-300 text-gray-500'
-                            }`}>
-                              {isAvailable ? `${item.cost}点` : '敬请期待'}
-                            </span>
-                          </button>
-                        );
-                      })}
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                if (isAvailable) {
+                                  handleItemClick(category.id, item.id);
+                                  setSidebarCollapsed(true);
+                                }
+                              }}
+                              disabled={!isAvailable}
+                              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
+                                isAvailable
+                                  ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
+                                  : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
+                              }`}
+                            >
+                              <span>{item.title}</span>
+                              <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
+                                isAvailable
+                                  ? 'bg-purple-200 text-purple-700'
+                                  : 'bg-gray-300 text-gray-500'
+                              }`}>
+                                {isAvailable ? `${item.cost}点` : '敬请期待'}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
                 </nav>
+                </div>
               </div>
             </aside>
           </div>
@@ -1631,7 +1604,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 opacity-70 hover:opacity-100"
+                          className="h-8 w-8 sm:h-6 sm:w-6 opacity-70 hover:opacity-100 touch-manipulation"
                           onClick={() => imageInputRef.current?.click()}
                           title="上传图片"
                         >
@@ -1640,7 +1613,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 opacity-70 hover:opacity-100"
+                          className="h-8 w-8 sm:h-6 sm:w-6 opacity-70 hover:opacity-100 touch-manipulation"
                           onClick={() => setIsCameraOpen(true)}
                           title="拍照识别"
                         >
@@ -1790,8 +1763,8 @@ The future of AI depends on our ability to balance innovation with responsibilit
               </div>
 
               {/* 底部操作区 */}
-              <div className="p-3 md:p-4 lg:p-6 border-t border-gray-200 bg-gray-50">
-                <div className="space-y-3">
+              <div className="p-2 md:p-3 border-t border-gray-200 bg-gray-50">
+                <div className="space-y-2">
                   <div className="flex justify-between items-center text-sm">
                     <div className="flex items-center gap-2">
                       {canAnalyze ? (
@@ -1831,7 +1804,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                   </div>
 
                   {!hasEnoughPoints && canAnalyze && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
                       <div className="flex items-center gap-2 text-amber-700 text-sm">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -1850,7 +1823,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                   <Button
                     onClick={handleAnalyze}
                     disabled={!canAnalyze || isAnalyzing || !hasEnoughPoints}
-                    className={`w-full h-12 font-medium text-base transition-all duration-300 ${
+                    className={`w-full h-11 font-medium text-base transition-all duration-300 ${
                       canAnalyze && !isAnalyzing && hasEnoughPoints
                         ? 'evolink-button'
                         : 'bg-secondary text-muted-foreground cursor-not-allowed'
@@ -1946,8 +1919,8 @@ The future of AI depends on our ability to balance innovation with responsibilit
                                 .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1f2937; font-weight: 600;">$1</strong>')
                                 .replace(/- (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">• $1</div>')
                                 .replace(/(\d+)\. (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">$1. $2</div>')
-                                .replace(/✅/g, '<span style="color: #10b981;">✅</span>')
-                                .replace(/⚠️/g, '<span style="color: #f59e0b;">⚠️</span>')
+                                .replace(/\u2705/g, '<span style="color: #10b981;">✅</span>')
+                                .replace(/\u26a0\ufe0f/g, '<span style="color: #f59e0b;">⚠️</span>')
                             }} />
                           )}
                         </div>
@@ -1999,7 +1972,32 @@ The future of AI depends on our ability to balance innovation with responsibilit
         </main>
       </div>
 
-  
+      {/* 左下角固定专业版升级区域 */}
+      <div className={`hidden md:block fixed bottom-6 z-50 transition-all duration-300 ${
+        sidebarCollapsed ? 'left-20 w-16' : 'left-4 w-56'
+      }`}>
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-3 border border-amber-200 shadow-lg hover:shadow-xl transition-shadow duration-200">
+          {!sidebarCollapsed ? (
+            <>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⭐</span>
+                  <div className="evolink-heading text-foreground text-xs font-semibold">专业版</div>
+                </div>
+                <Button size="sm" className="evolink-button text-xs px-3 h-7">
+                  升级
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">解锁全部功能</p>
+            </>
+          ) : (
+            <div className="flex items-center justify-center">
+              <span className="text-xl">⭐</span>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 点数兑换弹窗 */}
       {showRedeemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -2103,27 +2101,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
           <Gift className="w-5 h-5" />
           <span className="text-sm font-medium">邀请有礼</span>
         </button>
-      </div>
-
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes slide-up {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.6s ease-out;
-        }
-
-        .animate-slide-up {
-          animation: slide-up 0.5s ease-out;
-        }
-      `}</style>
+        </div>
     </div>
   );
 }

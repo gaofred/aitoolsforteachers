@@ -66,5 +66,56 @@
   body {
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* 移动端优化 */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
   }
+  /* 移动端触摸优化 */
+  button, a {
+    touch-action: manipulation;
+  }
+  /* 移动端文本选择优化 */
+  input, textarea {
+    font-size: 16px; /* 防止iOS自动缩放 */
+  }
+}
+
+/* 侧边栏自定义滚动条样式 */
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 移动端侧边栏自定义滚动条样式 */
+.mobile-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mobile-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.mobile-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.mobile-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

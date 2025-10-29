@@ -388,7 +388,7 @@ export default function ReadingComprehensionAnalysisPage() {
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     请输入要分析的阅读理解文章内容：
@@ -405,7 +405,7 @@ export default function ReadingComprehensionAnalysisPage() {
 • 判断指代关系
 • 词义推断
 • 理解文章主旨要义"
-                    className="h-[400px] resize-none overflow-y-auto"
+                    className="h-[300px] resize-none overflow-y-auto"
                   />
                 </div>
 
