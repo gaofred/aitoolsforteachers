@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
           p_amount: pointsCost,
           p_type: 'REFUND',
           p_description: `文本分析失败 - Coze API调用失败 (HTTP ${response.status})`,
-          p_related_id: null
+          p_related_id: null,
+          p_metadata: null
         } as any);
 
         if (refundError) {
@@ -307,12 +308,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 扣除用户点数
-    const { error: deductError } = await supabase.rpc('add_user_points', {
+    const { error: deductError } = await supabase.rpc('deduct_user_points', {
       p_user_id: user.id,
-      p_amount: -pointsCost,
-      p_type: 'GENERATE',
+      p_amount: pointsCost,
       p_description: `英语文本深度分析 - Fred老师原创`,
-      p_related_id: null
+      p_related_id: null,
+      p_metadata: null
     } as any);
 
     if (deductError) {

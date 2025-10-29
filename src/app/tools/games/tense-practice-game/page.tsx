@@ -247,37 +247,41 @@ export default function TensePracticeGamePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
       {/* Header Controls */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-sm p-4">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-sm p-2 sm:p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={goHome}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 px-2 sm:px-3"
             >
-              <Home className="w-4 h-4 mr-2" />
-              首页
+              <Home className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">首页</span>
             </Button>
             {showGame && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={resetToIntro}
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 px-2 sm:px-3"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                返回选择
+                <ArrowLeft className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">返回选择</span>
               </Button>
             )}
-            <h1 className="text-xl font-bold text-white">English Grammar Practice</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-white truncate max-w-[120px] sm:max-w-none">
+              <span className="hidden sm:inline">English Grammar Practice</span>
+              <span className="sm:hidden">语法练习</span>
+            </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => speakText(currentSet.name)}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 p-2 sm:px-3"
+              title="朗读标题"
             >
               <Volume2 className="w-4 h-4" />
             </Button>
@@ -286,8 +290,8 @@ export default function TensePracticeGamePage() {
               size="sm"
               onClick={handleExportPPT}
               disabled={isExportingPPT}
-              className="text-white hover:bg-white/20 disabled:opacity-50"
-              title="导出为动画版HTML页面"
+              className="text-white hover:bg-white/20 disabled:opacity-50 p-2 sm:px-3"
+              title="导出动画版"
             >
               {isExportingPPT ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
@@ -299,7 +303,8 @@ export default function TensePracticeGamePage() {
               variant="ghost"
               size="sm"
               onClick={toggleFullscreen}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 p-2 sm:px-3"
+              title="全屏模式"
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </Button>
@@ -308,7 +313,7 @@ export default function TensePracticeGamePage() {
       </div>
 
       {/* Main Content */}
-      <div className="pt-20 px-4 pb-8">
+      <div className="pt-16 sm:pt-20 px-2 sm:px-4 pb-4 sm:pb-8">
         <div className="max-w-6xl mx-auto">
           {/* Introduction Screen */}
           <AnimatePresence>
@@ -320,18 +325,18 @@ export default function TensePracticeGamePage() {
                 className="min-h-[80vh] flex items-center justify-center"
               >
                 <Card className="w-full max-w-4xl bg-white/95 backdrop-blur-sm border-0 shadow-2xl">
-                  <CardContent className="p-12 text-center">
+                  <CardContent className="p-4 sm:p-6 md:p-12 text-center">
                     <div className="mb-8">
                       <motion.div
                         initial={{ y: -20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.2 }}
                       >
-                        <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-                        <h1 className="text-4xl font-bold text-gray-800 mb-4">
+                        <Trophy className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-500 mx-auto mb-3 sm:mb-4" />
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-3 sm:mb-4">
                           English Grammar Challenge
                         </h1>
-                        <p className="text-xl text-gray-600 mb-8">
+                        <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-6 sm:mb-8">
                           Master verb tenses with interactive practice
                         </p>
                       </motion.div>
@@ -344,10 +349,10 @@ export default function TensePracticeGamePage() {
                       className="space-y-6"
                     >
                       <div>
-                        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                        <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-3 sm:mb-4">
                           Choose Your Challenge
                         </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
                           {tenseSets.map(set => (
                             <Card
                               key={set.id}
@@ -358,25 +363,25 @@ export default function TensePracticeGamePage() {
                               }`}
                               onClick={() => setSelectedSet(set.id)}
                             >
-                              <CardContent className="p-6">
-                                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                              <CardContent className="p-4 sm:p-6">
+                                <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2">
                                   {set.name}
                                 </h3>
-                                <p className="text-sm text-gray-600 mb-3">
+                                <p className="text-xs sm:text-sm text-gray-600 mb-3 line-clamp-2">
                                   {set.description}
                                 </p>
-                                <div className="flex justify-between items-center">
-                                  <Badge variant="outline">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">
                                     {set.questions.length} questions
                                   </Badge>
                                   {selectedSet === set.id && (
-                                    <div className="flex gap-2">
-                                      <Badge className="bg-purple-500">
-                                        <FileText className="w-3 h-3 mr-1" />
-                                        支持动画版导出
+                                    <div className="flex flex-wrap gap-1 sm:gap-2">
+                                      <Badge className="bg-purple-500 text-xs">
+                                        <FileText className="w-3 h-3 mr-1 hidden sm:inline" />
+                                        动画导出
                                       </Badge>
-                                      <Badge className="bg-blue-500">
-                                        Selected
+                                      <Badge className="bg-blue-500 text-xs">
+                                        已选择
                                       </Badge>
                                     </div>
                                   )}
@@ -387,32 +392,32 @@ export default function TensePracticeGamePage() {
                         </div>
                       </div>
 
-                      <div className="pt-8 space-y-4">
-                        <div className="flex justify-center gap-4">
+                      <div className="pt-6 sm:pt-8 space-y-4">
+                        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
                           <Button
                             onClick={startGame}
                             size="lg"
-                            className="px-12 py-4 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
+                            className="px-6 sm:px-12 py-3 sm:py-4 text-base sm:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg w-full sm:w-auto"
                           >
-                            <Play className="w-5 h-5 mr-2" />
+                            <Play className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                             Start Practice
                           </Button>
                           <Button
                             onClick={handleExportPPT}
                             disabled={isExportingPPT}
                             size="lg"
-                            className="px-8 py-4 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg"
+                            className="px-4 sm:px-8 py-3 sm:py-4 text-base sm:text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg w-full sm:w-auto"
                           >
                             {isExportingPPT ? (
-                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                              <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-2 border-white border-t-transparent" />
                             ) : (
-                              <Download className="w-5 h-5 mr-2" />
+                              <Download className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                             )}
                             {isExportingPPT ? '生成中...' : '导出动画版'}
                           </Button>
                         </div>
-                        <div className="text-center space-y-2">
-                          <p className="text-sm text-gray-500">
+                        <div className="text-center space-y-2 px-2">
+                          <p className="text-xs sm:text-sm text-gray-500">
                             ✨ 导出动画版HTML页面，包含完整动画效果
                           </p>
                           <p className="text-xs text-gray-400">
@@ -425,12 +430,12 @@ export default function TensePracticeGamePage() {
                         <motion.div
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="mt-8 p-6 bg-green-50 rounded-lg border border-green-200"
+                          className="mt-6 sm:mt-8 p-4 sm:p-6 bg-green-50 rounded-lg border border-green-200"
                         >
-                          <p className="text-lg font-semibold text-green-800">
+                          <p className="text-base sm:text-lg font-semibold text-green-800">
                             Last Score: {gameScore.score} / {gameScore.total}
                           </p>
-                          <p className="text-sm text-green-600 mt-1">
+                          <p className="text-xs sm:text-sm text-green-600 mt-1">
                             {Math.round((gameScore.score / gameScore.total) * 100)}% accuracy
                           </p>
                         </motion.div>
@@ -452,17 +457,17 @@ export default function TensePracticeGamePage() {
                 className="min-h-[80vh]"
               >
                 {/* Game Header */}
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-white mb-2">
+                <div className="text-center mb-6 sm:mb-8 px-2">
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2">
                     {currentSet.name}
                   </h2>
-                  <p className="text-white/80">
+                  <p className="text-sm sm:text-base text-white/80">
                     {currentSet.description}
                   </p>
                 </div>
 
                 {/* Game Component */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">
+                <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8">
                   <FlipCardGame
                     questions={currentSet.questions}
                     title={currentSet.name}
@@ -471,22 +476,24 @@ export default function TensePracticeGamePage() {
                 </div>
 
                 {/* Navigation Controls */}
-                <div className="flex justify-center mt-8 gap-4">
+                <div className="flex flex-col sm:flex-row justify-center mt-6 sm:mt-8 gap-3 sm:gap-4 px-2">
                   <Button
                     variant="outline"
                     onClick={resetToIntro}
-                    className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+                    className="bg-white/20 text-white border-white/30 hover:bg-white/30 w-full sm:w-auto"
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Choose Different Set
+                    <span className="hidden sm:inline">Choose Different Set</span>
+                    <span className="sm:hidden">返回选择</span>
                   </Button>
                   {gameScore && (
                     <Button
                       onClick={startGame}
-                      className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+                      className="bg-white/20 text-white border-white/30 hover:bg-white/30 w-full sm:w-auto"
                     >
                       <RotateCcw className="w-4 h-4 mr-2" />
-                      Try Again
+                      <span className="hidden sm:inline">Try Again</span>
+                      <span className="sm:hidden">重新开始</span>
                     </Button>
                   )}
                 </div>

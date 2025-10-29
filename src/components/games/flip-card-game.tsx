@@ -108,14 +108,14 @@ export default function FlipCardGame({
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="text-center py-12"
+            className="text-center py-8 sm:py-12 px-2"
           >
-            <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-4">游戏完成！</h2>
-            <p className="text-lg mb-6">
+            <Trophy className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-yellow-500 mx-auto mb-3 sm:mb-4" />
+            <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">游戏完成！</h2>
+            <p className="text-base sm:text-lg mb-4 sm:mb-6">
               你答对了 {score} / {questions.length} 道题
             </p>
-            <Button onClick={resetGame} className="px-6">
+            <Button onClick={resetGame} className="px-4 sm:px-6 py-2 sm:py-3">
               <RotateCcw className="w-4 h-4 mr-2" />
               重新开始
             </Button>

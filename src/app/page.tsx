@@ -44,7 +44,7 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6 },
+      { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6, route: "/tools/reading/reading-comprehension-deep-analysis" },
       { id: "text-generator", title: "阅读文本生成神器", cost: 4, route: "/tools/reading/reading-generator" },
       { id: "textbook-passage-analysis", title: "课文文章分析", cost: 5, route: "/tools/reading/textbook_passage_analysis" },
       { id: "cd-adaptation", title: "CD篇改编", cost: 5, route: "/tools/reading/cd-adaptation" },

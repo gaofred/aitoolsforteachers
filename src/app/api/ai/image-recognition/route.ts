@@ -10,9 +10,20 @@ export async function POST(request: Request) {
     console.log('图片识别API - 免费功能，跳过认证检查');
 
     // 获取请求数据
-    const { imageBase64 } = await request.json();
+    const { imageBase64, images } = await request.json();
 
-    if (!imageBase64) {
+    // 兼容两种格式：单个图片的imageBase64和图片数组的images
+    let imageDataUrl = null;
+
+    if (imageBase64) {
+      // 单个图片格式
+      imageDataUrl = imageBase64;
+    } else if (images && images.length > 0) {
+      // 图片数组格式，取第一张图片
+      imageDataUrl = images[0];
+    }
+
+    if (!imageDataUrl) {
       return NextResponse.json({
         success: false,
         error: "未提供图片数据"
@@ -20,14 +31,13 @@ export async function POST(request: Request) {
     }
 
     // 确保图片数据是完整的data URL格式
-    let imageDataUrl = imageBase64;
-    if (!imageBase64.startsWith('data:')) {
+    if (!imageDataUrl.startsWith('data:')) {
       // 如果不是data URL格式，添加JPEG的data URL前缀
-      imageDataUrl = `data:image/jpeg;base64,${imageBase64}`;
+      imageDataUrl = `data:image/jpeg;base64,${imageDataUrl}`;
     }
 
     console.log('图片识别 - 数据格式检查:', {
-      原始格式: imageBase64.substring(0, 50) + '...',
+      原始格式: imageDataUrl.substring(0, 50) + '...',
       最终格式: imageDataUrl.substring(0, 50) + '...',
       是否DataURL: imageDataUrl.startsWith('data:'),
       数据长度: imageDataUrl.length
