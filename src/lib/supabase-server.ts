@@ -13,11 +13,9 @@ export const createServerSupabaseClient = () => {
 
   return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      getAll() {
-        // 在Next.js 15中，需要await cookies()
-        // 但这里无法使用async，所以使用同步方式
+      async getAll() {
         try {
-          const cookieStore = cookies()
+          const cookieStore = await cookies()
           return cookieStore.getAll()
         } catch (error) {
           console.log('Cookie获取错误:', error)
