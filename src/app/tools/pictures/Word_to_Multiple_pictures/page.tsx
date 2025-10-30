@@ -92,6 +92,8 @@ export default function ImageGeneratorPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // 添加认证头，确保 Edge 浏览器能正确传递认证信息
+          'Authorization': `Bearer ${localStorage.getItem('sb-access-token') || ''}`
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -163,6 +165,8 @@ export default function ImageGeneratorPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // 添加认证头，确保 Edge 浏览器能正确传递认证信息
+          'Authorization': `Bearer ${localStorage.getItem('sb-access-token') || ''}`
         },
         credentials: 'include',
         body: JSON.stringify({

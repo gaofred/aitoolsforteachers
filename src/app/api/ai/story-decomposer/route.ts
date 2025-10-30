@@ -25,14 +25,23 @@ export async function POST(request: NextRequest) {
     const accessToken = cookieStore.get('sb-access-token')?.value;
     const refreshToken = cookieStore.get('sb-refresh-token')?.value;
 
-    console.log('故事拆解API - Cookie检查:', {
+    // 同时检查Authorization头（为Edge浏览器提供备用认证方式）
+    const authHeader = request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+
+    console.log('故事拆解API - 认证检查:', {
       hasAccessToken: !!accessToken,
       hasRefreshToken: !!refreshToken,
+      hasBearerToken: !!bearerToken,
       accessTokenLength: accessToken?.length || 0,
+      bearerTokenLength: bearerToken?.length || 0,
       allCookies: cookieStore.getAll().map(c => c.name)
     });
 
-    if (!accessToken) {
+    // 优先使用Cookie，如果没有则使用Authorization头
+    const finalToken = accessToken || bearerToken;
+
+    if (!finalToken) {
       return NextResponse.json(
         { error: '未认证 - 请先登录' },
         { status: 401 }
