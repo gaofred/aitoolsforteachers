@@ -390,20 +390,56 @@ export default function ReadingComprehensionDeepAnalysisPage() {
   
   
   // 检测题干选项的函数 (与首页一致)
-  const detectQuizOptions = (text: string): boolean => {
-    const quizPatterns = [
-      /\b[A-D]\)[^.]*\./,
-      /\b[1-9]\d*[).][^.]*\./,
-      /\bWhich[^.]*\?/,
-      /\bWhat[^.]*\?/,
-      /\bWhen[^.]*\?/,
-      /\bWhere[^.]*\?/,
-      /\bWhy[^.]*\?/,
-      /\bHow[^.]*\?/,
-      /\bChoose[^.]*\./,
-      /\bSelect[^.]*\./
-    ];
-    return quizPatterns.some(pattern => pattern.test(text));
+  const detectQuizOptions = (inputText: string): boolean => {
+    const text = inputText.trim();
+    if (!text) return false;
+
+    // 检测题干模式：以数字开头，后跟问号的问题（更严格的匹配）
+    const questionPattern = /^\d+\.\s+.*[？?]\s*$/im;
+
+    // 检测选项模式：更严格的选项检测，避免误判普通句子
+    // 要求：行首是单个大写字母，后跟点号，然后是选项内容（不含数字开头，且长度适中）
+    const optionPattern = /^[A-D]\.\s+[a-zA-Z][^0-9]*$/im;
+
+    // 检测括号选项模式：(A) (B) (C) (D)
+    const bracketOptionPattern = /\([A-D]\)[^)]*$/im;
+
+    // 检测连续选项模式：必须包含多个选项才算真正的是选择题
+    const multipleOptionsPattern = (/[A-D]\.\s+.*\n.*[B-D]\.\s+/im ||
+                                  /\([A-D]\).*\n.*\([B-D]\)/im);
+
+    // 检测问题关键词模式（但需要结合其他条件）
+    const questionKeywords = /\b(Which|What|When|Where|Why|How|Choose|Select)\b.*\?/i;
+
+    try {
+      const hasQuestions = questionPattern.test(text);
+      const hasSingleOption = optionPattern.test(text);
+      const hasBracketOption = bracketOptionPattern.test(text);
+      const hasMultipleOptions = multipleOptionsPattern.test(text);
+      const hasQuestionKeywords = questionKeywords.test(text);
+
+      // 更严格的判断：
+      // 1. 要么有明确的数字题目格式
+      // 2. 要么有多个连续的选项
+      // 3. 或者有问题关键词 + 选项模式
+      const hasValidOptions = (hasSingleOption || hasBracketOption) && (hasMultipleOptions || hasQuestionKeywords);
+
+      console.log('题干选项检测结果 (深度分析页面):', {
+        hasQuestions,
+        hasSingleOption,
+        hasBracketOption,
+        hasMultipleOptions,
+        hasQuestionKeywords,
+        hasValidOptions,
+        textLength: text.length,
+        textPreview: text.substring(0, 100) + '...'
+      });
+
+      return hasQuestions || hasValidOptions;
+    } catch (error) {
+      console.error('检测题干选项时出错:', error);
+      return false;
+    }
   }
 
   const handleAnalyze = async () => {

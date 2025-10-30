@@ -777,16 +777,40 @@ export default function Home() {
     const text = inputText.trim();
     if (!text) return false;
 
-    // 检测题干模式：以数字开头，后跟问号的问题
-    const questionPattern = /^\d+\.\s+.*\?$/im;
-    // 检测选项模式：包含 A. B. C. D. 或类似格式
-    const optionPattern = /^[A-D]\.\s+/im;
+    // 检测题干模式：以数字开头，后跟问号的问题（更严格的匹配）
+    const questionPattern = /^\d+\.\s+.*[？?]\s*$/im;
+
+    // 检测选项模式：更严格的选项检测，避免误判普通句子
+    // 要求：行首是单个大写字母，后跟点号，然后是选项内容（不含数字开头，且长度适中）
+    const optionPattern = /^[A-D]\.\s+[a-zA-Z][^0-9]*$/im;
+
+    // 检测括号选项模式：(A) (B) (C) (D)
+    const bracketOptionPattern = /\([A-D]\)[^)]*$/im;
+
+    // 检测连续选项模式：必须包含多个选项才算真正的是选择题
+    const multipleOptionsPattern = (/[A-D]\.\s+.*\n.*[B-D]\.\s+/im ||
+                                  /\([A-D]\).*\n.*\([B-D]\)/im);
 
     try {
       const hasQuestions = questionPattern.test(text);
-      const hasOptions = optionPattern.test(text);
+      const hasSingleOption = optionPattern.test(text);
+      const hasBracketOption = bracketOptionPattern.test(text);
+      const hasMultipleOptions = multipleOptionsPattern.test(text);
 
-      return hasQuestions || hasOptions;
+      // 更严格的判断：要么有问题，要么有多个连续的选项
+      const hasValidOptions = (hasSingleOption || hasBracketOption) && hasMultipleOptions;
+
+      console.log('题干选项检测结果:', {
+        hasQuestions,
+        hasSingleOption,
+        hasBracketOption,
+        hasMultipleOptions,
+        hasValidOptions,
+        textLength: text.length,
+        textPreview: text.substring(0, 100) + '...'
+      });
+
+      return hasQuestions || hasValidOptions;
     } catch (error) {
       console.error('检测题干选项时出错:', error);
       return false;
@@ -866,12 +890,38 @@ export default function Home() {
           console.log('🎨 开始发送图片生成请求，提示词长度:', text.length);
           console.log('📝 提示词内容:', text);
 
+          // 获取认证信息
+          const getAuthToken = () => {
+            if (typeof window !== 'undefined') {
+              // 优先尝试从 localStorage 获取
+              let token = localStorage.getItem('sb-access-token');
+              if (token) return token;
+
+              // 备用方案：从 sessionStorage 获取
+              token = sessionStorage.getItem('sb-access-token');
+              if (token) return token;
+
+              // 最后尝试：从 cookie 中获取（通过 document.cookie）
+              const cookies = document.cookie.split(';');
+              for (const cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'sb-access-token' && value) {
+                  return value;
+                }
+              }
+            }
+            return '';
+          };
+
+          const authToken = getAuthToken();
+          console.log('连环画生成 - 获取到的认证token:', authToken ? '有效' : '无效或空');
+
           const response = await fetch('/api/ai/image-generator', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               // 添加认证头，确保 Edge 浏览器能正确传递认证信息
-              'Authorization': `Bearer ${localStorage.getItem('sb-access-token') || ''}`
+              'Authorization': `Bearer ${authToken}`
             },
             credentials: 'include', // 确保发送cookies
             body: JSON.stringify({

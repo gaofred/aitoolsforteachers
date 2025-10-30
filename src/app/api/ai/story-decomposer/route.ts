@@ -42,30 +42,50 @@ export async function POST(request: NextRequest) {
     const finalToken = accessToken || bearerToken;
 
     if (!finalToken) {
+      console.error('故事拆解API - 未找到认证token');
       return NextResponse.json(
-        { error: '未认证 - 请先登录' },
+        { success: false, error: '未认证 - 请先登录' },
         { status: 401 }
       );
     }
 
     const supabase = createServerSupabaseClient();
 
-    // 使用Supabase的session获取用户信息（与其他正常工作的API保持一致）
+    // 首先尝试标准的session认证
     let user, authError;
     try {
       const result = await supabase.auth.getUser();
       user = result.data.user;
       authError = result.error;
+
+      console.log('故事拆解API - 标准认证结果:', {
+        hasUser: !!user,
+        authError: authError?.message
+      });
     } catch (networkError) {
       console.error('故事拆解网络错误:', networkError);
-      return NextResponse.json(
-        { success: false, error: '网络连接失败，请检查网络后重试' },
-        { status: 500 }
-      );
+    }
+
+    // 如果标准认证失败，尝试使用直接token认证
+    if (!user || authError) {
+      console.log('故事拆解API - 标准认证失败，尝试直接token认证');
+      try {
+        const result = await supabase.auth.getUser(finalToken);
+        user = result.data.user;
+        authError = result.error;
+
+        console.log('故事拆解API - 直接token认证结果:', {
+          hasUser: !!user,
+          authError: authError?.message
+        });
+      } catch (tokenError) {
+        console.error('故事拆解API - 直接token认证错误:', tokenError);
+        authError = tokenError as any;
+      }
     }
 
     if (authError || !user) {
-      console.error('故事拆解认证错误:', authError);
+      console.error('故事拆解API - 所有认证方式都失败:', authError);
       return NextResponse.json(
         { success: false, error: '认证失败 - 请重新登录' },
         { status: 401 }

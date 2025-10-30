@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
     const finalToken = accessToken || bearerToken;
 
     if (!finalToken) {
+      console.error('连环画生成API - 未找到认证token');
       return NextResponse.json(
         { success: false, error: '未认证 - 请先登录' },
         { status: 401 }
@@ -78,35 +79,65 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServerSupabaseClient();
 
-    // 使用Supabase的session获取用户信息（与其他正常工作的API保持一致）
+    // 首先尝试标准的session认证
     let user, authError;
+    try {
+      const result = await supabase.auth.getUser();
+      user = result.data.user;
+      authError = result.error;
+
+      console.log('连环画生成API - 标准认证结果:', {
+        hasUser: !!user,
+        authError: authError?.message
+      });
+    } catch (networkError) {
+      console.error('连环画生成网络错误:', networkError);
+    }
+
+    // 如果标准认证失败，尝试使用直接token认证
+    if (!user || authError) {
+      console.log('连环画生成API - 标准认证失败，尝试直接token认证');
+      try {
+        const result = await supabase.auth.getUser(finalToken);
+        user = result.data.user;
+        authError = result.error;
+
+        console.log('连环画生成API - 直接token认证结果:', {
+          hasUser: !!user,
+          authError: authError?.message
+        });
+      } catch (tokenError) {
+        console.error('连环画生成API - 直接token认证错误:', tokenError);
+        authError = tokenError as any;
+      }
+    }
+
+    // 如果所有认证都失败，尝试重试机制
     let retryCount = 0;
     const maxRetries = 3;
 
-    while (retryCount < maxRetries) {
+    while ((!user || authError) && retryCount < maxRetries) {
+      retryCount++;
+      console.log(`连环画生成API - 重试认证 (尝试 ${retryCount}/${maxRetries})`);
+
       try {
-        const result = await supabase.auth.getUser();
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒
+        const result = await supabase.auth.getUser(finalToken);
         user = result.data.user;
         authError = result.error;
-        break; // 成功则退出重试循环
-      } catch (networkError) {
-        retryCount++;
-        console.error(`连环画生成网络错误 (尝试 ${retryCount}/${maxRetries}):`, networkError);
 
-        if (retryCount >= maxRetries) {
-          return NextResponse.json(
-            { success: false, error: '网络连接失败，请检查网络后重试' },
-            { status: 500 }
-          );
+        if (user && !authError) {
+          console.log('连环画生成API - 重试认证成功');
+          break;
         }
-
-        // 等待1秒后重试
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (retryError) {
+        console.error(`连环画生成API - 重试 ${retryCount} 失败:`, retryError);
+        authError = retryError as any;
       }
     }
 
     if (authError || !user) {
-      console.error('连环画生成认证错误:', authError);
+      console.error('连环画生成API - 所有认证方式都失败:', authError);
       return NextResponse.json(
         { success: false, error: '认证失败 - 请重新登录' },
         { status: 401 }
