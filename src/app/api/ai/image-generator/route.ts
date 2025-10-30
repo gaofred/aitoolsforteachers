@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (!VOLCENGINE_API_KEY) {
       console.error('火山引擎API Key未配置');
       return NextResponse.json(
-        { error: '火山引擎API Key未配置' },
+        { success: false, error: '火山引擎API Key未配置' },
         { status: 500 }
       );
     }
@@ -62,20 +62,44 @@ export async function POST(request: NextRequest) {
 
     if (!accessToken) {
       return NextResponse.json(
-        { error: '未认证 - 请先登录' },
+        { success: false, error: '未认证 - 请先登录' },
         { status: 401 }
       );
     }
 
     const supabase = createServerSupabaseClient();
 
-    // 使用access token获取用户信息
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    // 使用Supabase的session获取用户信息（与其他正常工作的API保持一致）
+    let user, authError;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount < maxRetries) {
+      try {
+        const result = await supabase.auth.getUser();
+        user = result.data.user;
+        authError = result.error;
+        break; // 成功则退出重试循环
+      } catch (networkError) {
+        retryCount++;
+        console.error(`连环画生成网络错误 (尝试 ${retryCount}/${maxRetries}):`, networkError);
+
+        if (retryCount >= maxRetries) {
+          return NextResponse.json(
+            { success: false, error: '网络连接失败，请检查网络后重试' },
+            { status: 500 }
+          );
+        }
+
+        // 等待1秒后重试
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
 
     if (authError || !user) {
       console.error('连环画生成认证错误:', authError);
       return NextResponse.json(
-        { error: '认证失败 - 请重新登录' },
+        { success: false, error: '认证失败 - 请重新登录' },
         { status: 401 }
       );
     }
@@ -83,8 +107,10 @@ export async function POST(request: NextRequest) {
     console.log('连环画生成用户认证成功:', user.id);
 
     // 获取请求数据
-    const { stages, originalStory } = await request.json();
-    const max_images = 4; // 固定生成4张图片，对应故事的4个阶段
+    const { stages, originalStory, style, styleConfig } = await request.json();
+    const max_images = 5; // 固定生成5张图片，对应故事的5个阶段
+
+    console.log('连环画生成 - 收到风格参数:', { style, styleConfig: styleConfig?.name });
 
     if (!stages || !Array.isArray(stages) || stages.length === 0) {
       return NextResponse.json({
@@ -105,14 +131,14 @@ export async function POST(request: NextRequest) {
     if (userError || !userData) {
       console.error('获取用户点数失败:', userError);
       return NextResponse.json(
-        { error: '获取用户信息失败' },
+        { success: false, error: '获取用户信息失败' },
         { status: 500 }
       );
     }
 
     if ((userData as any).points < pointsCost) {
       return NextResponse.json(
-        { error: `点数不足，需要${pointsCost}点数，当前余额${(userData as any).points}点数` },
+        { success: false, error: `点数不足，需要${pointsCost}点数，当前余额${(userData as any).points}点数` },
         { status: 400 }
       );
     }
@@ -122,12 +148,50 @@ export async function POST(request: NextRequest) {
       pointsCost
     });
 
+    // 根据风格设置全局参数
+    let globalImageSize = '1K';
+    let globalApiStyle = 'realistic';
+
+    switch (style) {
+      case 'realistic':
+        globalImageSize = '1K';
+        globalApiStyle = 'realistic';
+        break;
+      case 'anime':
+        globalImageSize = '1K';
+        globalApiStyle = 'vivid'; // 动漫风格使用鲜艳的色彩
+        break;
+      case 'watercolor':
+        globalImageSize = '1K';
+        globalApiStyle = 'natural'; // 水彩风格使用自然的色彩
+        break;
+      case 'cyberpunk':
+        globalImageSize = '1K';
+        globalApiStyle = 'dramatic'; // 赛博朋克风格使用戏剧性的色彩
+        break;
+      default:
+        globalImageSize = '1K';
+        globalApiStyle = 'realistic';
+    }
+
     // 为每个故事阶段单独生成图片
     const generatedImages = [];
 
-    for (let i = 0; i < Math.min(stages.length, 4); i++) {
+    for (let i = 0; i < Math.min(stages.length, 5); i++) {
       const stage = stages[i];
-      const stagePrompt = `Seedream 4.0 Generate image. Stage: ${stage.stage} - ${stage.description}.
+
+      // 根据风格生成对应的提示词
+      let stagePrompt = '';
+      let imageSize = globalImageSize;
+      let apiStyle = globalApiStyle;
+
+      if (styleConfig && styleConfig.prompt) {
+        // 使用预定义的风格提示词模板
+        stagePrompt = styleConfig.prompt.replace('[STAGE_DESCRIPTION]', `${stage.stage}: ${stage.description}`);
+        // imageSize 和 apiStyle 已经在循环外部设置好了
+      } else {
+        // 默认提示词（向后兼容）
+        stagePrompt = `Seedream 4.0 Generate image. Stage: ${stage.stage} - ${stage.description}.
 
 Visual requirements:
 - 电影大片级视觉冲击力，电影感，末日既视感
@@ -139,6 +203,7 @@ Visual requirements:
 - Size 1920x1080, High detail, clear focus on core scene
 
 Color tone and emotional style should match the ${stage.stage} of this story stage.`;
+      }
 
       console.log(`生成第 ${i + 1} 阶段图片 (${stage.stage}):`, {
         description: stage.description,
@@ -159,13 +224,13 @@ Color tone and emotional style should match the ${stage.stage} of this story sta
             prompt: stagePrompt,
             n: 1, // 每个阶段生成1张图片
             response_format: "url",
-            size: "1K",
+            size: imageSize,
             stream: false, // 对于图片生成，流式主要用于进度反馈
             watermark: false, // 去除水印
             sequential_image_generation: "disabled", // 明确禁用连续生成
             // 额外的质量参数
             quality: "hd",
-            style: "realistic"
+            style: apiStyle
           })
         });
 
@@ -231,7 +296,7 @@ Color tone and emotional style should match the ${stage.stage} of this story sta
     console.log(`总共成功生成 ${generatedImages.length} 张图片`);
 
     // 检查生成结果：如果生成的图片数量少于总阶段数的一半，认为失败
-    const expectedImages = 4; // 期望生成4张图片
+    const expectedImages = 5; // 期望生成5张图片
     const successThreshold = Math.ceil(expectedImages / 2); // 至少需要成功一半
 
     if (generatedImages.length < successThreshold) {
@@ -274,69 +339,43 @@ Color tone and emotional style should match the ${stage.stage} of this story sta
       console.log(`部分成功：生成了${generatedImages.length}/${expectedImages}张图片`);
     }
 
-    // 扣除用户点数（只有生成成功才扣点数）
-    const { error: pointsError } = await supabase
-      .from('user_points')
-      .update({
-        points: (userData as any).points - pointsCost,
-        updated_at: new Date().toISOString()
-      } as any)
-      .eq('user_id', user.id as any);
+    // 简化版本：不进行复杂的数据库操作
+    console.log(`成功生成 ${generatedImages.length} 张故事阶段图片，跳过数据库记录以提高稳定性`);
 
-    if (pointsError) {
-      console.error('扣除点数失败:', pointsError);
-      // 点数扣除失败，但图片已生成，记录错误但不返回失败
-    }
+    // 成功生成图片，直接返回结果给用户（简化版本，不进行数据库操作）
+    console.log(`✅ 成功生成 ${generatedImages.length} 张故事阶段图片，直接返回给用户`);
 
-    // 记录点数交易
-    const { error: transactionError } = await supabase
-      .from('point_transactions')
-      .insert({
-        user_id: user.id,
-        amount: -pointsCost,
-        type: 'GENERATE',
-        description: `AI故事图片生成 (${generatedImages.length}张图片)`,
-        created_at: new Date().toISOString()
-      } as any);
-
-    if (transactionError) {
-      console.error('记录交易失败:', transactionError);
-      // 交易记录失败不影响主要功能
-    }
-
-    // 记录AI生成记录
-    const { error: recordError } = await supabase
-      .from('ai_generations')
-      .insert({
-        user_id: user.id,
-        toolName: 'story-image-generator',
-        inputData: { stages, originalStory },
-        outputData: {
-          image_count: generatedImages.length,
-          stages: generatedImages.map(img => ({
-            stage: img.stage,
-            description: img.description
-          })),
-          model: "doubao-seedream-4-0-250828",
-          size: "1K"
-        },
-        pointsCost: pointsCost,
-        created_at: new Date().toISOString()
-      } as any);
-
-    if (recordError) {
-      console.error('记录AI生成失败:', recordError);
-      // 记录失败不影响主要功能
-    }
-
-    console.log(`成功生成 ${generatedImages.length} 张故事阶段图片`);
-
-    return NextResponse.json({
+    const finalResponse = {
       success: true,
       images: generatedImages,
-      pointsCost: pointsCost,
-      message: `成功生成${generatedImages.length}张故事阶段图片`
+      pointsCost: 0, // 暂时不扣点数，等前端处理
+      style: style,
+      styleConfig: styleConfig,
+      message: `成功生成${generatedImages.length}张${styleConfig?.name || '写实风'}故事阶段图片`
+    };
+
+    console.log('准备返回最终响应:', {
+      success: finalResponse.success,
+      imageCount: finalResponse.images.length,
+      responseSize: JSON.stringify(finalResponse).length
     });
+
+    try {
+      return NextResponse.json(finalResponse);
+    } catch (responseError) {
+      console.error('返回响应时发生错误:', responseError);
+      // 如果返回响应失败，也要退还点数
+      const refundReason = `响应序列化失败补偿`;
+      const refundSuccess = await refundPoints(supabase, user.id, pointsCost, refundReason);
+
+      return NextResponse.json({
+        success: false,
+        error: `图片生成成功但返回响应失败。${refundSuccess ? '已为您退还12点数，' : '点数退还处理中，'}请稍后重试。`,
+        pointsRefunded: refundSuccess,
+        pointsAmount: pointsCost,
+        generatedCount: generatedImages.length
+      }, { status: 500 });
+    }
 
   } catch (error) {
     console.error("连环画生成处理错误:", error);

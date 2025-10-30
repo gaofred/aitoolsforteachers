@@ -22,9 +22,9 @@ export const createServerSupabaseClient = () => {
           return []
         }
       },
-      setAll(cookiesToSet) {
+      async setAll(cookiesToSet) {
         try {
-          const cookieStore = cookies()
+          const cookieStore = await cookies()
           cookiesToSet.forEach(({ name, value, options }) => {
             cookieStore.set(name, value, { ...options, path: '/' })
           })

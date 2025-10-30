@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     if (!VOLCENGINE_API_KEY) {
       console.error('火山引擎API Key未配置');
       return NextResponse.json(
-        { error: '火山引擎API Key未配置' },
+        { success: false, error: '火山引擎API Key未配置' },
         { status: 500 }
       );
     }
@@ -41,13 +41,24 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServerSupabaseClient();
 
-    // 使用access token获取用户信息
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    // 使用Supabase的session获取用户信息（与其他正常工作的API保持一致）
+    let user, authError;
+    try {
+      const result = await supabase.auth.getUser();
+      user = result.data.user;
+      authError = result.error;
+    } catch (networkError) {
+      console.error('故事拆解网络错误:', networkError);
+      return NextResponse.json(
+        { success: false, error: '网络连接失败，请检查网络后重试' },
+        { status: 500 }
+      );
+    }
 
     if (authError || !user) {
       console.error('故事拆解认证错误:', authError);
       return NextResponse.json(
-        { error: '认证失败 - 请重新登录' },
+        { success: false, error: '认证失败 - 请重新登录' },
         { status: 401 }
       );
     }
@@ -55,7 +66,7 @@ export async function POST(request: NextRequest) {
     console.log('故事拆解用户认证成功:', user.id);
 
     // 获取请求数据
-    const { story } = await request.json();
+    const { story, style, styleConfig } = await request.json();
 
     if (!story || !story.trim()) {
       return NextResponse.json({
@@ -63,6 +74,8 @@ export async function POST(request: NextRequest) {
         error: "未提供故事内容"
       }, { status: 400 });
     }
+
+    console.log('故事拆解 - 收到风格参数:', { style, styleConfig: styleConfig?.name });
 
     console.log('故事拆解 - 开始调用豆包大模型:', {
       storyLength: story.length,
@@ -81,13 +94,21 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `你是一个专业的故事分析师，专门将英语叙事文章拆解为4个关键阶段的简洁描述。
+            content: `你是一个专业的故事分析师，专门将英语叙事文章拆解为5个关键阶段的简洁描述。
+
+当前选择的绘图风格：${styleConfig?.name || '写实风'}
+风格特点：${styleConfig?.description || '真实自然的视觉效果'}
 
 请按照以下要求分析故事：
-1. 识别故事的4个关键阶段：Exposition (开端)、Conflict (发展)、Climax (高潮)、Resolution (结局)
+1. 识别故事的5个关键阶段：Exposition (开端)、Conflict (发展)、Climax (高潮)、Resolution (结局)、Ending (尾声)
 2. 为每个阶段生成简洁的英文描述（1-2句话）
-3. 确保描述适合AI图片生成
-4. 保持风格一致性
+3. 确保描述适合AI图片生成，特别关注"${styleConfig?.name || '写实风'}"风格的视觉元素
+4. 保持风格一致性，重点提取适合"${styleConfig?.name || '写实风'}"的场景细节
+
+${style === 'realistic' ? '重点关注：现实场景、自然人物表情、日常环境、真实光影效果。' : ''}
+${style === 'anime' ? '重点关注：角色特色外观、动态表情、幻想元素、鲜明色彩场景。' : ''}
+${style === 'watercolor' ? '重点关注：柔和色调、情感氛围、自然景色、温馨场景。' : ''}
+${style === 'cyberpunk' ? '重点关注：未来科技感、霓虹灯光、机械元素、都市环境。' : ''}
 
 输出格式必须是JSON格式：
 {
@@ -107,13 +128,17 @@ export async function POST(request: NextRequest) {
     {
       "stage": "Resolution",
       "description": "简洁的英文描述，展现故事的结局"
+    },
+    {
+      "stage": "Ending",
+      "description": "简洁的英文描述，展现故事的尾声和最终状态"
     }
   ]
 }`
           },
           {
             role: "user",
-            content: `请分析以下英语故事并拆解为4个阶段：\n\n${story.trim()}`
+            content: `请分析以下英语故事并拆解为5个阶段（针对${styleConfig?.name || '写实风'}风格）：\n\n${story.trim()}`
           }
         ],
         temperature: 0.7,
@@ -187,8 +212,8 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    if (parsedStages.stages.length !== 4) {
-      console.warn('阶段数量不是4个:', parsedStages.stages.length);
+    if (parsedStages.stages.length !== 5) {
+      console.warn('阶段数量不是5个:', parsedStages.stages.length);
     }
 
     console.log(`成功解析出 ${parsedStages.stages.length} 个故事阶段`);
@@ -197,7 +222,9 @@ export async function POST(request: NextRequest) {
       success: true,
       stages: parsedStages.stages,
       originalStory: story,
-      message: `成功拆解故事为 ${parsedStages.stages.length} 个阶段`
+      style: style,
+      styleConfig: styleConfig,
+      message: `成功拆解故事为 ${parsedStages.stages.length} 个阶段（${styleConfig?.name || '写实风'}）`
     });
 
   } catch (error) {

@@ -73,6 +73,19 @@ const navigationData = [
     ]
   },
   {
+    id: "image",
+    title: "AI图片生成工具",
+    subtitle: "智能连环画生成与编辑",
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+      </svg>
+    ),
+    items: [
+      { id: "image-generator", title: "AI生成故事组图", cost: 14, route: "/tools/pictures/Word_to_Multiple_pictures" }
+    ]
+  },
+  {
     id: "grammar",
     title: "语法练习工具",
     subtitle: "语法填空与练习生成",
@@ -131,19 +144,6 @@ const navigationData = [
     ),
     items: [
       { id: "listening-generator", title: "英语听力生成器", cost: 8, disabled: true }
-    ]
-  },
-  {
-    id: "image",
-    title: "AI图片生成工具",
-    subtitle: "智能连环画生成与编辑",
-    icon: (
-      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-      </svg>
-    ),
-    items: [
-      { id: "image-generator", title: "AI生成故事组图", cost: 14, route: "/tools/pictures/Word_to_Multiple_pictures" }
     ]
   },
   {

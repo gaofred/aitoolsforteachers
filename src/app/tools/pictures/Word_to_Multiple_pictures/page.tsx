@@ -17,18 +17,56 @@ interface GeneratedImage {
 
 export default function ImageGeneratorPage() {
   const router = useRouter();
-  const { currentUser } = useUser();
+  const { currentUser, userPoints } = useUser();
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const actualImageCount = 4; // 固定生成4张图片，对应故事4个阶段
+  const actualImageCount = 5; // 固定生成5张图片，对应故事5个阶段
 
   // 新增步骤相关状态
   const [story, setStory] = useState(""); // 用户输入的完整故事
   const [decomposedStages, setDecomposedStages] = useState<any[]>([]); // 拆解后的阶段
+  const [editableStages, setEditableStages] = useState<any[]>([]); // 可编辑的阶段副本
   const [currentStep, setCurrentStep] = useState(1); // 当前步骤：1-故事输入，2-阶段确认，3-生成图片
   const [isDecomposing, setIsDecomposing] = useState(false); // 故事拆解中状态
+  const [selectedStyle, setSelectedStyle] = useState("realistic"); // 选中的绘图风格
+
+  // AI绘图风格配置
+  const IMAGE_STYLES = [
+    {
+      id: "realistic",
+      name: "写实风",
+      description: "适配现实向、校园、家庭类英文故事",
+      icon: "📷",
+      prompt: "Seedream 4.0 Generate image based on this specific story stage description with consistent realism style. Requirements: Extract characters' appearance/actions/emotions, setting (time/place/environment), key objects from the stage description. Technical parameters: Size 1920×1080, Resolution 300dpi, Rendering: Photo-realistic details, natural lighting, clear focus on core scene, no redundant elements. [STAGE_DESCRIPTION]",
+      size: "1024×1024"
+    },
+    {
+      id: "anime",
+      name: "动漫风",
+      description: "适配青春、奇幻、冒险类英文故事",
+      icon: "🎌",
+      prompt: "Seedream 4.0 Generate image based on this specific story stage description with consistent anime style. Requirements: Extract characters' anime-style features (big eyes, distinct hairstyle), actions/emotions, setting (fantasy or daily scenes), key objects from the stage description. Technical parameters: Size 1920×1080, Resolution 300dpi, Rendering: Bold line art, vibrant colors, soft shading, dynamic poses for action scenes. [STAGE_DESCRIPTION]",
+      size: "1024×1024"
+    },
+    {
+      id: "watercolor",
+      name: "水彩风",
+      description: "适配温情、治愈、文艺类英文故事",
+      icon: "🎨",
+      prompt: "Seedream 4.0 Generate image based on this specific story stage description with consistent watercolor style. Requirements: Extract soft-toned setting (sunset, countryside, cozy rooms), characters' gentle actions/emotions, key objects from the stage description. Technical parameters: Size 1920×1080, Resolution 300dpi, Rendering: Transparent watercolor layers, muted color scheme, blurred background, focus on emotional atmosphere. [STAGE_DESCRIPTION]",
+      size: "1024×1024"
+    },
+    {
+      id: "cyberpunk",
+      name: "赛博朋克风",
+      description: "适配科幻、悬疑、未来类英文故事",
+      icon: "🌃",
+      prompt: "Seedream 4.0 Generate image based on this specific story stage description with consistent cyberpunk style. Requirements: Extract futuristic setting (neon-lit cities, high-tech devices, rain-soaked streets), characters' cyber-style outfits/actions, key tech objects from the stage description. Technical parameters: Size 1920×1080, Resolution 300dpi, Rendering: Neon color accents (cyan/magenta), dark background, glowing elements, mechanical details. [STAGE_DESCRIPTION]",
+      size: "1024×1024"
+    }
+  ];
 
   const storyDecomposeCost = 2; // 故事拆解消耗2个点数
   const imageGenerateCost = 12; // 图片生成消耗12个点数
@@ -57,7 +95,9 @@ export default function ImageGeneratorPage() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          story: story.trim()
+          story: story.trim(),
+          style: selectedStyle,
+          styleConfig: IMAGE_STYLES.find(s => s.id === selectedStyle)
         })
       });
 
@@ -66,6 +106,7 @@ export default function ImageGeneratorPage() {
       if (data.success) {
         console.log('故事拆解成功:', data.stages);
         setDecomposedStages(data.stages);
+        setEditableStages([...data.stages]); // 初始化可编辑状态
         setCurrentStep(2); // 进入步骤2：阶段确认
       } else {
         console.error('故事拆解API错误:', data);
@@ -79,8 +120,24 @@ export default function ImageGeneratorPage() {
     }
   };
 
+  // 处理阶段描述修改
+  const handleStageEdit = (index: number, newDescription: string) => {
+    const updatedStages = [...editableStages];
+    updatedStages[index] = {
+      ...updatedStages[index],
+      description: newDescription
+    };
+    setEditableStages(updatedStages);
+  };
+
+  // 重置到原始阶段描述
+  const handleResetStages = () => {
+    setEditableStages([...decomposedStages]);
+  };
+
   // 确认阶段并开始生成图片
   const handleConfirmStages = () => {
+    setDecomposedStages(editableStages); // 使用编辑后的阶段
     setCurrentStep(3); // 进入步骤3：生成图片
     handleGenerateImages();
   };
@@ -110,7 +167,9 @@ export default function ImageGeneratorPage() {
         credentials: 'include',
         body: JSON.stringify({
           stages: decomposedStages,
-          originalStory: story
+          originalStory: story,
+          style: selectedStyle,
+          styleConfig: IMAGE_STYLES.find(s => s.id === selectedStyle)
         })
       });
 
@@ -171,6 +230,7 @@ export default function ImageGeneratorPage() {
   const handleReset = () => {
     setStory("");
     setDecomposedStages([]);
+    setEditableStages([]);
     setCurrentStep(1);
     setError(null);
   };
@@ -311,13 +371,13 @@ export default function ImageGeneratorPage() {
               </button>
               <div>
                 <h1 className="text-xl font-semibold text-gray-900">英语故事图片生成</h1>
-                <p className="text-sm text-gray-500">输入英语叙事文章，AI将为您生成故事4个关键阶段的图片</p>
+                <p className="text-sm text-gray-500">输入英语叙事文章，AI将为您生成故事5个关键阶段的图片。如果是高中英语读后续写，要包含完整的故事。</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               {currentUser && (
                 <div className="text-sm text-gray-600">
-                  点数余额: <span className="font-semibold text-purple-600">{currentUser.points}</span>
+                  点数余额: <span className="font-semibold text-purple-600">{userPoints}</span>
                   <span className="text-xs text-gray-500 ml-1">(拆解2点数+生成12点数)</span>
                 </div>
               )}
@@ -395,7 +455,10 @@ export default function ImageGeneratorPage() {
                         disabled={isDecomposing}
                       />
                       <div className="mt-2 text-xs text-gray-500">
-                        💡 AI会自动识别故事的4个关键阶段：Exposition（开端）、Conflict（发展）、Climax（高潮）、Resolution（结局），并生成风格一致的4张图片
+                        💡 AI会自动识别故事的5个关键阶段：Exposition（开端）、Conflict（发展）、Climax（高潮）、Resolution（结局）、Ending（尾声），并生成风格一致的5张图片
+                      </div>
+                      <div className="mt-1 text-xs text-orange-600 bg-orange-50 p-2 rounded border border-orange-200">
+                        <strong>特别提醒：</strong>输入英语叙事文章，AI将为您生成故事5个关键阶段的图片。如果是高中英语读后续写，要包含完整的故事（原文+续写部分）。
                       </div>
                     </div>
 
@@ -414,6 +477,42 @@ export default function ImageGeneratorPage() {
                       />
                       <div className="mt-2 text-xs text-gray-500">
                         💡 支持拍照或上传图片，AI将自动识别图片中的文字内容并填充到上方输入框
+                      </div>
+                      <div className="mt-1 text-xs text-orange-600 bg-orange-50 p-2 rounded border border-orange-200">
+                        <strong>特别提醒：</strong>如果是高中英语读后续写题目，请确保拍照内容包含完整的故事（原文部分+续写部分），以便AI准确分析故事结构。
+                      </div>
+                    </div>
+
+                    {/* AI绘图风格选择 */}
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                        </svg>
+                        <span className="text-sm font-medium text-gray-700">选择AI绘图风格</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {IMAGE_STYLES.map((style) => (
+                          <div
+                            key={style.id}
+                            onClick={() => setSelectedStyle(style.id)}
+                            className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                              selectedStyle === style.id
+                                ? 'border-purple-500 bg-purple-50'
+                                : 'border-gray-200 bg-white hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-lg">{style.icon}</span>
+                              <span className="text-sm font-medium text-gray-900">{style.name}</span>
+                            </div>
+                            <div className="text-xs text-gray-500">{style.description}</div>
+                            <div className="text-xs text-gray-400 mt-1">{style.size}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 text-xs text-gray-500">
+                        💡 根据您的英语故事类型选择最适合的绘画风格，AI将生成相应风格的5张连贯图片
                       </div>
                     </div>
 
@@ -456,21 +555,30 @@ export default function ImageGeneratorPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         故事阶段分析结果
+                        <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                          ✏️ 可直接编辑描述内容
+                        </span>
                       </label>
                       <div className="space-y-3">
-                        {decomposedStages.map((stage, index) => (
+                        {editableStages.map((stage, index) => (
                           <div key={index} className="p-3 bg-gray-50 rounded-md border">
-                            <div className="font-medium text-gray-900 mb-1">
+                            <div className="font-medium text-gray-900 mb-2">
                               {stage.stage}
                             </div>
-                            <div className="text-sm text-gray-600">
-                              {stage.description}
+                            <Textarea
+                              value={stage.description}
+                              onChange={(e) => handleStageEdit(index, e.target.value)}
+                              className="min-h-[80px] text-sm border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                              placeholder="请输入此阶段的英文描述..."
+                            />
+                            <div className="mt-1 text-xs text-gray-500">
+                              💡 建议包含场景、人物、氛围等视觉元素，便于AI生成图片
                             </div>
                           </div>
                         ))}
                       </div>
-                      <div className="mt-3 text-xs text-gray-500">
-                        请确认以上阶段分析是否准确，AI将根据这些描述生成对应的图片
+                      <div className="mt-3 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                        📝 编辑提示：修改描述将直接影响生成的图片内容，建议使用简洁明确的英文描述
                       </div>
                     </div>
 
@@ -492,6 +600,14 @@ export default function ImageGeneratorPage() {
                         ) : (
                           "确认并生成图片!"
                         )}
+                      </Button>
+                      <Button
+                        onClick={handleResetStages}
+                        variant="outline"
+                        disabled={isGenerating}
+                        className="border-gray-300"
+                      >
+                        重置描述
                       </Button>
                       <Button
                         onClick={handleReset}
@@ -585,7 +701,7 @@ export default function ImageGeneratorPage() {
                       <div className="w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-medium mt-0.5">2</div>
                       <div>
                         <div className="font-medium text-gray-700">确认故事阶段</div>
-                        <div className="text-sm text-gray-500">AI将分析出4个故事阶段供您确认</div>
+                        <div className="text-sm text-gray-500">AI将分析出5个故事阶段供您确认</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -608,7 +724,7 @@ export default function ImageGeneratorPage() {
                     </svg>
                   </div>
                   <h3 className="text-lg font-medium text-gray-700 mb-4">故事阶段分析完成</h3>
-                  <p className="text-sm text-gray-600 mb-4">AI已成功分析出故事的4个关键阶段</p>
+                  <p className="text-sm text-gray-600 mb-4">AI已成功分析出故事的5个关键阶段</p>
                   <div className="text-left max-w-md mx-auto bg-blue-50 p-4 rounded-md">
                     <p className="text-sm text-blue-700">
                       <strong>下一步：</strong>请检查左侧的阶段分析结果，确认无误后点击"确认并生成图片"按钮。
@@ -660,7 +776,7 @@ export default function ImageGeneratorPage() {
                           生成了 {generatedImages.length} 张故事阶段图片
                           {generatedImages.length < actualImageCount && (
                             <span className="text-amber-600 ml-1">
-                              ⚠️ 数量不足（期望 4 张）
+                              ⚠️ 数量不足（期望 5 张）
                             </span>
                           )}
                         </div>
@@ -674,7 +790,7 @@ export default function ImageGeneratorPage() {
                             >
                               重新生成
                             </button>
-                            来获得完整的4张阶段图片
+                            来获得完整的5张阶段图片
                           </div>
                         )}
                       </div>
