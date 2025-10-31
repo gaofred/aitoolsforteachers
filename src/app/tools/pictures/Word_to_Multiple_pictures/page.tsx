@@ -72,29 +72,6 @@ export default function ImageGeneratorPage() {
   const imageGenerateCost = 12; // 图片生成消耗12个点数
   const totalCost = storyDecomposeCost + imageGenerateCost; // 总消耗14个点数
 
-  // 获取认证信息的辅助函数
-  const getAuthToken = () => {
-    if (typeof window !== 'undefined') {
-      // 优先尝试从 localStorage 获取
-      let token = localStorage.getItem('sb-access-token');
-      if (token) return token;
-
-      // 备用方案：从 sessionStorage 获取
-      token = sessionStorage.getItem('sb-access-token');
-      if (token) return token;
-
-      // 最后尝试：从 cookie 中获取（通过 document.cookie）
-      const cookies = document.cookie.split(';');
-      for (const cookie of cookies) {
-        const [name, value] = cookie.trim().split('=');
-        if (name === 'sb-access-token' && value) {
-          return value;
-        }
-      }
-    }
-    return '';
-  };
-
   // 处理故事拆解
   const handleDecomposeStory = async () => {
     if (!story.trim()) {
@@ -111,15 +88,12 @@ export default function ImageGeneratorPage() {
     setError(null);
 
     try {
-      const authToken = getAuthToken();
-      console.log('故事拆解 - 获取到的认证token:', authToken ? '有效' : '无效或空');
-
       const response = await fetch('/api/ai/story-decomposer', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // 添加认证头，确保 Edge 浏览器能正确传递认证信息
-          'Authorization': `Bearer ${authToken}`
+          // 直接使用 localStorage，与其他正常功能保持一致
+          'Authorization': `Bearer ${localStorage.getItem('sb-access-token') || ''}`
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -187,15 +161,13 @@ export default function ImageGeneratorPage() {
     setGeneratedImages([]);
 
     try {
-      const authToken = getAuthToken();
-      console.log('图片生成 - 获取到的认证token:', authToken ? '有效' : '无效或空');
+      console.log('图片生成 - 开始生成图片');
 
       const response = await fetch('/api/ai/image-generator', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // 添加认证头，确保 Edge 浏览器能正确传递认证信息
-          'Authorization': `Bearer ${authToken}`
+          'Authorization': `Bearer ${localStorage.getItem('sb-access-token') || ''}`
         },
         credentials: 'include',
         body: JSON.stringify({
