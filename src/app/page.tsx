@@ -50,6 +50,7 @@ const navigationData = [
       { id: "cd-adaptation", title: "CD篇改编", cost: 5, route: "/tools/reading/cd-adaptation" },
       { id: "cd-creator", title: "CD篇命题", active: true, cost: 4, route: "/tools/reading/cd-creator" },
         { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true },
+        { id: "gap-filling-exercise-analysis", title: "语法填空解析", active: true, cost: 4, route: "/tools/reading/gap-filling-exercise-analysis" },
         { id: "reading-comprehension-analysis", title: "阅读理解解析", cost: 2, route: "/tools/reading/reading-comprehension-analysis" },
         { id: "cloze-test-analysis", title: "完形填空解析", cost: 3, route: "/tools/reading/cloze-test-analysis" }
     ]
@@ -274,6 +275,18 @@ const toolConfig = {
     placeholder: "请输入提示词，例如：生成一组共4张连贯插画，核心为同一庭院一角的四季变迁...",
     buttonText: "开始生成连环画!",
     analysisText: "AI正在生成连环画中..."
+  },
+  "gap-filling-exercise-analysis": {
+    title: "语法填空解析",
+    description: "输入语法填空题，AI将为您详细分析每一道题的语法考点、解题思路和答案解析，帮助您深入理解语法填空的解题技巧",
+    icon: (
+      <svg className="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+      </svg>
+    ),
+    placeholder: "请粘贴语法填空题内容（包含题目和空格）...",
+    buttonText: "开始语法解析!",
+    analysisText: "AI正在解析语法填空中..."
   },
   "reading-comprehension-analysis": {
     title: "阅读理解解析",
@@ -1455,14 +1468,14 @@ The future of AI depends on our ability to balance innovation with responsibilit
                             disabled={!isAvailable}
                             className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
                               isAvailable
-                                ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
+                                ? 'text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 hover:text-purple-700 hover:font-medium border border-transparent hover:border-purple-200'
                                 : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
                             }`}
                           >
                             <span>{item.title}</span>
                             <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
                               isAvailable
-                                ? 'bg-purple-200 text-purple-700'
+                                ? 'bg-gray-100 text-gray-600 group-hover:bg-purple-100 group-hover:text-purple-700'
                                 : 'bg-gray-300 text-gray-500'
                             }`}>
                               {isAvailable ? `${item.cost}点` : '敬请期待'}
@@ -1555,14 +1568,14 @@ The future of AI depends on our ability to balance innovation with responsibilit
                               disabled={!isAvailable}
                               className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
                                 isAvailable
-                                  ? 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 font-medium border border-purple-200 shadow-sm'
+                                  ? 'text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 hover:text-purple-700 hover:font-medium border border-transparent hover:border-purple-200'
                                   : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
                               }`}
                             >
                               <span>{item.title}</span>
                               <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
                                 isAvailable
-                                  ? 'bg-purple-200 text-purple-700'
+                                  ? 'bg-gray-100 text-gray-600 group-hover:bg-purple-100 group-hover:text-purple-700'
                                   : 'bg-gray-300 text-gray-500'
                               }`}>
                                 {isAvailable ? `${item.cost}点` : '敬请期待'}

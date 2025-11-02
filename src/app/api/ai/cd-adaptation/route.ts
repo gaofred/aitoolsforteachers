@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { cookies } from 'next/headers';
 import fs from 'fs';
 import path from 'path';
 
@@ -48,28 +47,15 @@ async function refundPoints(supabase: any, user_id: string, amount: number, reas
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    
-    // 获取Supabase认证相关的cookies
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    const refreshToken = cookieStore.get('sb-refresh-token')?.value;
-
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: '未认证 - 请先登录' },
-        { status: 401 }
-      );
-    }
-
     const supabase = createServerSupabaseClient();
 
-    // 使用access token获取用户信息
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    // 使用Supabase标准认证方式（与CD篇命题保持一致）
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       console.error('认证错误:', authError);
       return NextResponse.json(
-        { error: '认证失败 - 请重新登录' },
+        { error: '未认证 - 请先登录' },
         { status: 401 }
       );
     }

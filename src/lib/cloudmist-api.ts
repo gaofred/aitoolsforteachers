@@ -34,7 +34,7 @@ export interface CloudMistResponse {
 }
 
 export class CloudMistService {
-  private static readonly API_BASE_URL = 'https://api.cloudmist.ai/v1';
+  private static readonly API_BASE_URL = 'https://yunwu.ai/v1';
   
   /**
    * 根据模型名称选择合适的API Key
@@ -143,6 +143,12 @@ export class CloudMistService {
         category: 'google'
       },
       {
+        id: 'gemini-2.5-pro',
+        name: 'Gemini 2.5 Pro',
+        description: 'Google最新的Gemini 2.5 Pro模型，强大的分析和推理能力',
+        category: 'google'
+      },
+      {
         id: 'gemini-pro-vision',
         name: 'Gemini Pro Vision',
         description: '支持图像理解的Gemini模型',
@@ -222,7 +228,7 @@ export class CloudMistService {
     }
     
     if (hasGoogleKey) {
-      configuredModels.push('gemini-pro', 'gemini-pro-vision');
+      configuredModels.push('gemini-pro', 'gemini-2.5-pro', 'gemini-pro-vision');
     }
 
     if (hasVolcengineKey) {
