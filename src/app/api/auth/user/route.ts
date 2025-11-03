@@ -3,9 +3,11 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('用户API - 使用Supabase自动token处理');
+
     const supabase = createServerSupabaseClient()
 
-    // 直接使用Supabase的session获取用户信息
+    // 使用Supabase自动处理token（与/api/auth/check相同的方式）
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {

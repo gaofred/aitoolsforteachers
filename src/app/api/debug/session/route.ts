@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // 检查用户认证状态
+    // 使用Supabase标准认证方式检查用户认证状态
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     console.log('认证检查结果:', { user: !!user, error: !!authError })
 

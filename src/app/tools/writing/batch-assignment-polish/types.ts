@@ -18,6 +18,8 @@ export interface Requirement {
 export interface OCRResult {
   imageId: string;
   studentName: string;
+  originalText: string; // 完整的OCR原文
+  editedText?: string; // 用户编辑后的文本
   sentences: string[];
   confidence: number;
   processedAt: Date;

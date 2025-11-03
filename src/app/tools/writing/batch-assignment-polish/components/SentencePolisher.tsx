@@ -54,19 +54,26 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
     }
   }, [assignments]);
 
-  // 计算积分消耗
-  const calculatePoints = (sentenceCount: number): number => {
-    if (sentenceCount >= 10) {
-      return Math.ceil(sentenceCount * 0.8); // 批量处理8折优惠
-    }
-    return sentenceCount;
+  // 计算点数消耗（按学生数计算）
+  const calculatePoints = (studentCount: number): number => {
+    // 每个学生1.5点数，向上取整
+    return Math.ceil(studentCount * 1.5);
   };
 
   // 获取总句子数
   const getTotalSentences = (): number => {
-    return assignments.reduce((total, assignment) =>
-      total + assignment.ocrResult.sentences.length, 0
-    );
+    return assignments.reduce((total, assignment) => {
+      // 优先使用提取后的句子，如果没有则使用OCR原始句子
+      const sentenceCount = assignment.extractedSentences && assignment.extractedSentences.length > 0
+        ? assignment.extractedSentences.length
+        : assignment.ocrResult.sentences.length;
+      return total + sentenceCount;
+    }, 0);
+  };
+
+  // 获取学生数量
+  const getStudentCount = (): number => {
+    return assignments.length;
   };
 
   // 构建润色提示词
@@ -128,23 +135,27 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
 
   // 调用AI润色单个句子
   const polishSentence = async (sentence: string, index: number, allRequirements: Requirement[]): Promise<PolishedSentence> => {
-    const prompt = buildPolishPrompt(sentence, index, allRequirements);
-
     try {
-      // 使用智谱GLM-4.6进行润色
-      const response = await fetch('/api/ai/cd-adaptation', {
+      // 获取适用要求
+      const generalRequirements = allRequirements.filter(req => req.sentenceIndex === 0);
+      const specificRequirements = allRequirements.filter(req => req.sentenceIndex === index + 1);
+      const applicableRequirements = [...generalRequirements, ...specificRequirements];
+
+      // 调用专用的句子润色API（移除超时控制，依赖批量处理的延迟机制）
+      const response = await fetch('/api/ai/sentence-polish', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          text: prompt,
-          difficulty: 'intermediate' // 使用标准版模型
+          sentence: sentence,
+          requirements: applicableRequirements
         })
       });
 
       if (!response.ok) {
-        throw new Error(`润色API错误: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        throw new Error(`润色API错误: ${errorData.error || response.status}`);
       }
 
       const data = await response.json();
@@ -153,7 +164,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
         throw new Error(data.error || '润色失败');
       }
 
-      const polishedText = data.result;
+      const polishedText = data.result?.trim() || sentence;
 
       // 分析变化
       const changes = analyzeChanges(sentence, polishedText);
@@ -169,7 +180,21 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
 
     } catch (error) {
       console.error('句子润色失败:', error);
-      throw error;
+      
+      // 处理错误
+      let errorMessage = '未知错误';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      // 如果是API错误，返回原句作为备选方案
+      return {
+        original: sentence,
+        polished: sentence, // 使用原句
+        changes: [],
+        explanation: `润色失败：${errorMessage}，保持原句`,
+        confidence: 0
+      };
     }
   };
 
@@ -243,44 +268,95 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
     return [...new Set(explanations)].join('；');
   };
 
-  // 处理单个作业
-  const processAssignment = async (assignment: StudentAssignment, allRequirements: Requirement[]): Promise<StudentAssignment> => {
-    const polishedSentences: PolishedSentence[] = [];
+  // 批量处理函数：限制并发数量
+  const processInBatches = async <T, R>(
+    items: T[],
+    processor: (item: T, index: number) => Promise<R>,
+    batchSize: number = 3,
+    delayMs: number = 1000
+  ): Promise<R[]> => {
+    const results: R[] = [];
+    
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map((item, batchIndex) => processor(item, i + batchIndex))
+      );
+      results.push(...batchResults);
+      
+      // 批次间延迟，避免API限制
+      if (i + batchSize < items.length) {
+        console.log(`批次完成，等待 ${delayMs}ms 后继续...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+    
+    return results;
+  };
 
-    for (let i = 0; i < assignment.ocrResult.sentences.length; i++) {
-      const sentence = assignment.ocrResult.sentences[i];
-      setCurrentProcessing(`${assignment.student.name} - 句子 ${i + 1}`);
+  // 处理单个作业（限制并发数量）
+  const processAssignment = async (assignment: StudentAssignment, allRequirements: Requirement[], processedCountRef: { current: number }, totalSentences: number): Promise<StudentAssignment> => {
+    // 优先使用提取后的句子，如果没有则使用OCR原始句子
+    const sentencesToPolish = assignment.extractedSentences && assignment.extractedSentences.length > 0
+      ? assignment.extractedSentences
+      : assignment.ocrResult.sentences;
 
+    console.log(`处理学生 ${assignment.student.name} 的作业:`, {
+      使用提取句子: !!assignment.extractedSentences,
+      提取句子数量: assignment.extractedSentences?.length || 0,
+      OCR句子数量: assignment.ocrResult.sentences.length,
+      实际处理句子数: sentencesToPolish.length
+    });
+
+    // 使用批量处理限制并发
+    const polishedSentences = await processInBatches(
+      sentencesToPolish,
+      async (sentence, i) => {
       try {
         const polished = await polishSentence(sentence, i, allRequirements);
-        polishedSentences.push(polished);
+          console.log(`✅ 学生 ${assignment.student.name} 句子 ${i + 1} 润色完成`);
+          
+          // 更新进度
+          processedCountRef.current += 1;
+          setProcessingProgress((processedCountRef.current / totalSentences) * 100);
+          
+          return polished;
       } catch (error) {
-        console.error(`润色句子失败: ${sentence}`, error);
-        // 添加错误标记的润色结果
-        polishedSentences.push({
+          console.error(`❌ 润色句子失败: ${sentence}`, error);
+          setErrors(prev => [...prev, `${assignment.student.name} 句子${i + 1} 润色失败`]);
+          
+          // 更新进度（即使失败也计入）
+          processedCountRef.current += 1;
+          setProcessingProgress((processedCountRef.current / totalSentences) * 100);
+          
+          // 返回错误标记的润色结果
+          return {
           original: sentence,
           polished: sentence,
           changes: [],
           explanation: '润色失败，保持原句',
           confidence: 0
-        });
-        setErrors(prev => [...prev, `${assignment.student.name} 句子${i + 1} 润色失败`]);
-      }
+          };
+        }
+      },
+      3, // 并发数量限制为3
+      1000 // 批次间延迟1秒
+    );
 
-      // 更新进度
-      const totalProcessed = processedAssignments.reduce((total, a) =>
-        total + a.polishedSentences.length, 0) + polishedSentences.length;
-      const totalSentences = getTotalSentences();
-      setProcessingProgress((totalProcessed / totalSentences) * 100);
-    }
-
-    return {
+    const result = {
       ...assignment,
       polishedSentences
     };
+
+    console.log(`学生 ${assignment.student.name} 处理完成:`, {
+      polishedSentences数量: result.polishedSentences.length,
+      第一个句子: result.polishedSentences[0]?.polished || '无'
+    });
+
+    return result;
   };
 
-  // 开始批量润色
+  // 开始批量润色（并行处理所有作业和句子）
   const startBatchPolishing = async () => {
     if (!currentUser) {
       alert('请先登录');
@@ -288,68 +364,121 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
     }
 
     const totalSentences = getTotalSentences();
-    const pointsNeeded = calculatePoints(totalSentences);
+    const studentCount = getStudentCount();
+    const pointsNeeded = calculatePoints(studentCount);
 
-    // 检查积分是否足够
+    // 检查点数是否足够
     try {
       const userPoints = await SupabasePointsService.getUserPoints(currentUser.id);
       if (userPoints < pointsNeeded) {
-        alert(`积分不足！需要 ${pointsNeeded} 积分，当前积分：${userPoints}`);
+        alert(`点数不足！需要 ${pointsNeeded} 点数，当前点数：${userPoints}`);
         return;
       }
     } catch (error) {
-      console.error('获取用户积分失败:', error);
-      alert('无法获取积分信息，请稍后重试');
+      console.error('获取用户点数失败:', error);
+      alert('无法获取点数信息，请稍后重试');
       return;
     }
 
     setIsProcessing(true);
     setErrors([]);
     setProcessedAssignments([]);
-    setCurrentProcessing("");
+    setCurrentProcessing("并行处理中...");
     setProcessingProgress(0);
 
     const startTime = Date.now();
 
     try {
-      const updatedAssignments: StudentAssignment[] = [];
+      // 用于跟踪处理进度的引用
+      const processedCountRef = { current: 0 };
 
-      // 逐个处理作业
-      for (let i = 0; i < assignments.length; i++) {
-        const assignment = assignments[i];
-        setCurrentProcessing(`处理 ${assignment.student.name} 的作业...`);
-
+      // 并行处理所有作业
+      const assignmentPromises = assignments.map(async (assignment) => {
         try {
-          const processedAssignment = await processAssignment(assignment, requirements);
-          updatedAssignments.push(processedAssignment);
-          setProcessedAssignments(prev => [...prev, processedAssignment]);
+          const processedAssignment = await processAssignment(
+            assignment,
+            requirements,
+            processedCountRef,
+            totalSentences
+          );
+          
+          // 更新已处理的作业列表
+          setProcessedAssignments(prev => {
+            const newList = [...prev, processedAssignment];
+            // 保持按原始顺序排序
+            return assignments
+              .map(a => newList.find(pa => pa.id === a.id))
+              .filter(Boolean) as StudentAssignment[];
+          });
+          
+          return processedAssignment;
         } catch (error) {
           console.error(`处理作业失败: ${assignment.student.name}`, error);
           setErrors(prev => [...prev, `${assignment.student.name} 作业处理失败`]);
-          // 添加未处理的作业
-          updatedAssignments.push({
+          
+          // 返回未处理的作业
+          return {
             ...assignment,
-            polishedSentences: assignment.ocrResult.sentences.map(sentence => ({
+            polishedSentences: (assignment.extractedSentences && assignment.extractedSentences.length > 0
+              ? assignment.extractedSentences
+              : assignment.ocrResult.sentences).map(sentence => ({
               original: sentence,
               polished: sentence,
               changes: [],
               explanation: '处理失败，保持原句',
               confidence: 0
             }))
-          });
+          };
         }
-      }
+      });
 
-      // 扣除积分
+      // 等待所有作业处理完成
+      const updatedAssignments = await Promise.all(assignmentPromises);
+
+      // 扣除点数
       try {
         await SupabasePointsService.addPoints(
           currentUser.id,
           -pointsNeeded,
           'PURCHASE',
-          `批量润色作业 - ${totalSentences}个句子`
+          `批量润色作业 - ${studentCount}个学生`
         );
       } catch (error) {
-        console.error('扣除积分失败:', error);
+        console.error('扣除点数失败:', error);
+      }
+
+      // 计算失败的学生数量并退还点数
+      const failedStudents = updatedAssignments.filter(assignment => {
+        // 检查该学生的所有句子是否都失败了（confidence为0表示失败）
+        const allSentencesFailed = assignment.polishedSentences.every(s => s.confidence === 0);
+        return allSentencesFailed;
+      });
+
+      const failedStudentCount = failedStudents.length;
+      
+      if (failedStudentCount > 0) {
+        const refundPoints = Math.ceil(failedStudentCount * 1.5); // 每个失败学生退还1.5点数，向上取整
+        
+        try {
+               await SupabasePointsService.addPoints(
+                 currentUser.id,
+                 refundPoints,
+                 'BONUS',
+                 `批量润色失败退款 - ${failedStudentCount}个学生失败，退还${refundPoints}点数`
+               );
+          
+          console.log(`退还点数成功: ${failedStudentCount}个学生失败，退还${refundPoints}点数`);
+          
+          // 显示退款通知
+          if (failedStudentCount < studentCount) {
+            alert(`部分学生润色失败，已退还${refundPoints}点数。失败学生：${failedStudents.map(s => s.student.name).join(', ')}`);
+          } else {
+            alert(`所有学生润色失败，已退还${refundPoints}点数`);
+          }
+        } catch (error) {
+          console.error('退还点数失败:', error);
+          alert(`润色失败但退款失败，请联系客服。失败学生数：${failedStudentCount}`);
+        }
       }
 
       // 更新统计信息
@@ -374,6 +503,22 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
     } catch (error) {
       console.error('批量润色失败:', error);
       setErrors(prev => [...prev, '批量润色过程发生错误']);
+      
+      // 如果整个过程失败，退还所有点数
+      try {
+           await SupabasePointsService.addPoints(
+             currentUser.id,
+             pointsNeeded,
+             'BONUS',
+             `批量润色系统错误退款 - 退还${pointsNeeded}点数`
+           );
+        
+        console.log(`系统错误，退还所有点数: ${pointsNeeded}`);
+        alert(`润色过程发生系统错误，已退还${pointsNeeded}点数`);
+      } catch (refundError) {
+        console.error('系统错误退款失败:', refundError);
+        alert(`润色失败且退款失败，请联系客服。应退还点数：${pointsNeeded}`);
+      }
     } finally {
       setIsProcessing(false);
       setCurrentProcessing("");
@@ -383,15 +528,152 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
 
   // 重试失败的句子
   const retryFailedSentences = async () => {
-    // 实现重试逻辑
-    await startBatchPolishing();
+    if (!currentUser) {
+      alert('请先登录');
+      return;
+    }
+
+    // 找出所有失败的句子
+    const failedAssignments = processedAssignments.filter(assignment => 
+      assignment.polishedSentences.some(s => s.confidence === 0)
+    );
+
+    if (failedAssignments.length === 0) {
+      alert('没有失败的句子需要重试');
+      return;
+    }
+
+    // 计算重试需要的点数（只计算失败的学生）
+    const failedStudentCount = failedAssignments.filter(assignment => 
+      assignment.polishedSentences.every(s => s.confidence === 0)
+    ).length;
+    
+    const retryPointsNeeded = Math.ceil(failedStudentCount * 1.5);
+
+    // 检查点数是否足够
+    try {
+      const userPoints = await SupabasePointsService.getUserPoints(currentUser.id);
+      if (userPoints < retryPointsNeeded) {
+        alert(`点数不足！重试需要 ${retryPointsNeeded} 点数，当前点数：${userPoints}`);
+        return;
+      }
+    } catch (error) {
+      console.error('获取用户点数失败:', error);
+      alert('无法获取点数信息，请稍后重试');
+      return;
+    }
+
+    setIsProcessing(true);
+    setCurrentProcessing("重试失败的句子...");
+    setProcessingProgress(0);
+
+    const startTime = Date.now();
+
+    try {
+      // 只处理有失败句子的作业
+      const retryPromises = failedAssignments.map(async (assignment) => {
+        const failedSentences = assignment.polishedSentences
+          .map((sentence, index) => ({ sentence, index }))
+          .filter(({ sentence }) => sentence.confidence === 0);
+
+        if (failedSentences.length === 0) {
+          return assignment; // 没有失败的句子，直接返回
+        }
+
+        console.log(`重试学生 ${assignment.student.name} 的 ${failedSentences.length} 个失败句子`);
+
+        // 使用批量处理重新润色失败的句子
+        const retryResults = await processInBatches(
+          failedSentences,
+          async ({ sentence, index }) => {
+            try {
+              const polished = await polishSentence(sentence.original, index, requirements);
+              console.log(`✅ 重试成功: 学生 ${assignment.student.name} 句子 ${index + 1}`);
+              return { index, result: polished };
+            } catch (error) {
+              console.error(`❌ 重试失败: ${sentence.original}`, error);
+              return { index, result: sentence }; // 保持原来的失败状态
+            }
+          },
+          2, // 重试时使用更保守的并发数量
+          1500 // 重试时使用更长的延迟
+        );
+
+        // 更新作业的润色结果
+        const updatedPolishedSentences = [...assignment.polishedSentences];
+        retryResults.forEach(({ index, result }) => {
+          updatedPolishedSentences[index] = result;
+        });
+
+        return {
+          ...assignment,
+          polishedSentences: updatedPolishedSentences
+        };
+      });
+
+      const retryResults = await Promise.all(retryPromises);
+
+      // 扣除重试点数
+      if (retryPointsNeeded > 0) {
+        try {
+          await SupabasePointsService.addPoints(
+            currentUser.id,
+            -retryPointsNeeded,
+            'PURCHASE',
+            `批量润色重试 - ${failedStudentCount}个学生重试`
+          );
+        } catch (error) {
+          console.error('扣除重试点数失败:', error);
+        }
+      }
+
+      // 更新处理结果
+      const updatedAssignments = processedAssignments.map(assignment => {
+        const retryResult = retryResults.find(r => r.id === assignment.id);
+        return retryResult || assignment;
+      });
+
+      setProcessedAssignments(updatedAssignments);
+
+      // 计算重试后的成功率
+      const totalRetried = failedAssignments.reduce((total, assignment) => 
+        total + assignment.polishedSentences.filter(s => s.confidence === 0).length, 0
+      );
+      
+      const nowSuccessful = retryResults.reduce((total, assignment) => 
+        total + assignment.polishedSentences.filter(s => s.confidence > 0).length, 0
+      );
+
+      alert(`重试完成！重试了 ${totalRetried} 个句子，成功 ${nowSuccessful} 个`);
+
+    } catch (error) {
+      console.error('重试失败:', error);
+      alert('重试过程发生错误，请稍后再试');
+    } finally {
+      setIsProcessing(false);
+      setCurrentProcessing("");
+      setProcessingProgress(100);
+    }
   };
 
   const totalSentences = getTotalSentences();
-  const pointsNeeded = calculatePoints(totalSentences);
+  const studentCount = getStudentCount();
+  const pointsNeeded = calculatePoints(studentCount);
   const processedCount = processedAssignments.reduce((total, assignment) =>
     total + assignment.polishedSentences.length, 0
   );
+  
+  // 计算失败的句子数量
+  const failedSentencesCount = processedAssignments.reduce((total, assignment) =>
+    total + assignment.polishedSentences.filter(s => s.confidence === 0).length, 0
+  );
+  
+  // 计算完全失败的学生数量（用于重试点数计算）
+  const failedStudentCount = processedAssignments.filter(assignment => 
+    assignment.polishedSentences.every(s => s.confidence === 0)
+  ).length;
+  
+  const retryPointsNeeded = Math.ceil(failedStudentCount * 1.5);
 
   return (
     <div className="space-y-6">
@@ -440,7 +722,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">{pointsNeeded}</div>
-                <div className="text-sm text-gray-600">消耗积分</div>
+                <div className="text-sm text-gray-600">消耗点数</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">{errors.length === 0 ? '✓' : errors.length}</div>
@@ -448,7 +730,26 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
               </div>
             </div>
 
-            {/* 开始按钮 */}
+            {/* 处理模式提示 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-medium">🔧 处理模式：</span>
+                <span>稳定批量处理</span>
+              </div>
+              <div className="text-xs text-blue-600">
+                • AI模型：极客智坊Qwen-Plus（高质量润色）
+                <br />
+                • 并发限制：每批3个句子，批次间延迟1秒
+                <br />
+                • 稳定优先：移除超时控制，确保处理稳定性
+                <br />
+                • 重试机制：失败句子可单独重试
+              </div>
+            </div>
+
+            {/* 按钮区域 */}
+            <div className="space-y-3">
+              {/* 开始润色按钮 */}
             <Button
               onClick={startBatchPolishing}
               disabled={isProcessing || assignments.length === 0}
@@ -463,10 +764,34 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
               ) : (
                 <>
                   <Wand2 className="w-5 h-5 mr-2" />
-                  开始AI润色 (消耗 {pointsNeeded} 积分)
+                    开始AI润色 (消耗 {pointsNeeded} 点数)
                 </>
               )}
             </Button>
+
+              {/* 重试按钮 - 只有在有失败句子时才显示 */}
+              {failedSentencesCount > 0 && processedAssignments.length > 0 && (
+                <Button
+                  onClick={retryFailedSentences}
+                  disabled={isProcessing}
+                  variant="outline"
+                  className="w-full border-orange-200 text-orange-600 hover:bg-orange-50"
+                  size="lg"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      重试中...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-5 h-5 mr-2" />
+                      重试失败句子 ({failedSentencesCount}个) - 消耗 {retryPointsNeeded} 点数
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -507,11 +832,6 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
             {/* 总览内容 */}
             {selectedAssignment === null && (
                 <div className="grid gap-4">
-                  <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                    <div>调试: processedAssignments 长度: {processedAssignments.length}</div>
-                    <div>调试: selectedAssignment存在: {selectedAssignment ? 'true' : 'false'}</div>
-                    <div>调试: polishedSentences总数: {processedAssignments.reduce((total, a) => total + (a.polishedSentences?.length || 0), 0)}</div>
-                  </div>
                   {processedAssignments.map((assignment, index) => (
                     <div
                       key={assignment.id}
@@ -529,9 +849,6 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
                       </div>
                       <div className="text-sm text-gray-600">
                         成功润色: {assignment.polishedSentences.filter(s => s.confidence > 0).length} / {assignment.polishedSentences.length}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        调试: polishedSentences数组长度: {assignment.polishedSentences.length}
                       </div>
                     </div>
                   ))}
@@ -552,24 +869,28 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
                   </Button>
                 </div>
 
-                {/* 调试信息 */}
-                <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                  <div>调试: selectedAssignment.student.name: {selectedAssignment.student?.name || '未知'}</div>
-                  <div>调试: selectedAssignment.polishedSentences 长度: {selectedAssignment.polishedSentences?.length || 0}</div>
-                  <div>调试: selectedAssignment.ocrResult.sentences 长度: {selectedAssignment.ocrResult?.sentences?.length || 0}</div>
-                  <div>调试: selectedAssignment完整数据: {JSON.stringify(selectedAssignment, null, 2).substring(0, 200)}...</div>
-                </div>
 
                 {selectedAssignment.polishedSentences.map((polishedSentence, index) => (
-                  <Card key={index} className="p-4">
+                  <Card key={index} className={`p-4 ${polishedSentence.confidence === 0 ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">句子 {index + 1}</span>
-                        {polishedSentence.confidence > 0 ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <AlertCircle className="w-4 h-4 text-red-500" />
-                        )}
+                        <div className="flex items-center gap-2">
+                          {polishedSentence.confidence === 0 ? (
+                            <Badge variant="destructive" className="text-xs">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              润色失败
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              润色成功
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-xs">
+                            置信度: {Math.round((polishedSentence.confidence || 0) * 100)}%
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -594,10 +915,6 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
                         </div>
                       )}
 
-                      {/* 额外的调试信息 */}
-                      <div className="text-xs text-gray-400 border-t pt-2">
-                        调试数据: original={polishedSentence.original?.length || 0}, polished={polishedSentence.polished?.length || 0}, confidence={polishedSentence.confidence}
-                      </div>
                     </div>
                   </Card>
                 ))}
@@ -649,9 +966,152 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
             <li>• <strong>智能润色</strong>：基于您设置的要求进行智能句子优化</li>
             <li>• <strong>保持原意</strong>：在优化表达的同时保持句子的原意不变</li>
             <li>• <strong>批量处理</strong>：支持同时处理多个学生的多个句子</li>
-            <li>• <strong>积分消耗</strong>：每句1个积分，10句以上享受8折优惠</li>
+            <li>• <strong>点数消耗</strong>：每个学生1.5点数，向上取整</li>
             <li>• <strong>质量保证</strong>：使用专业AI模型确保润色质量</li>
           </ul>
+        </CardContent>
+      </Card>
+
+      {/* 示例效果展示 */}
+      <Card className="border-gray-200">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span>示例效果</span>
+            <Badge variant="outline" className="text-sm">5句</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* 示例句子1 */}
+            <div className="border-l-4 border-blue-400 pl-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-medium text-sm">句子 1</span>
+                <Badge variant="default" className="bg-green-500 text-xs">优化完成</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">原句:</span>
+                  <p className="mt-1 p-2 bg-gray-50 rounded text-xs">
+                    When she finished her passionate speech and bowed deeply on the stage, thunderous applause broke out and echoed in the auditorium for a long time.
+                  </p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">润色后:</span>
+                  <p className="mt-1 p-2 bg-green-50 rounded text-green-800 text-xs">
+                    After delivering her passionate speech and bowing deeply on the stage, thunderous applause erupted and echoed through the auditorium for minutes on end.
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-blue-600 mt-2">
+                <span className="font-medium">说明:</span> 优化了词汇表达，使用更准确的词汇
+              </div>
+            </div>
+
+            {/* 示例句子2 */}
+            <div className="border-l-4 border-blue-400 pl-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-medium text-sm">句子 2</span>
+                <Badge variant="default" className="bg-green-500 text-xs">优化完成</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">原句:</span>
+                  <p className="mt-1 p-2 bg-gray-50 rounded text-xs">
+                    With tears in my eyes, I lingered in the airport, because I knew that I didn't know when to see you again this time.
+                  </p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">润色后:</span>
+                  <p className="mt-1 p-2 bg-green-50 rounded text-green-800 text-xs">
+                    Eyes brimming with tears, I lingered at the airport, for I had no idea when I would see you again this time.
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-blue-600 mt-2">
+                <span className="font-medium">说明:</span> 优化了词汇表达，使用更准确的词汇
+              </div>
+            </div>
+
+            {/* 示例句子3 */}
+            <div className="border-l-4 border-blue-400 pl-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-medium text-sm">句子 3</span>
+                <Badge variant="default" className="bg-green-500 text-xs">优化完成</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">原句:</span>
+                  <p className="mt-1 p-2 bg-gray-50 rounded text-xs">
+                    At the thought of the final exam next week, I started to organize the study notes right away.
+                  </p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">润色后:</span>
+                  <p className="mt-1 p-2 bg-green-50 rounded text-green-800 text-xs">
+                    The moment I thought about next week's final exam, I immediately began organizing my study notes.
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-blue-600 mt-2">
+                <span className="font-medium">说明:</span> 优化了词汇表达，使用更准确的词汇
+              </div>
+            </div>
+
+            {/* 示例句子4 */}
+            <div className="border-l-4 border-blue-400 pl-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-medium text-sm">句子 4</span>
+                <Badge variant="default" className="bg-green-500 text-xs">优化完成</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">原句:</span>
+                  <p className="mt-1 p-2 bg-gray-50 rounded text-xs">
+                    Winning the first place in the competition, my heart filled with pride as I listened to the thunderous applause.
+                  </p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">润色后:</span>
+                  <p className="mt-1 p-2 bg-green-50 rounded text-green-800 text-xs">
+                    Having won first place in the competition, I felt my heart fill with pride as I listened to the thunderous applause.
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-blue-600 mt-2">
+                <span className="font-medium">说明:</span> 优化了词汇表达，使用更准确的词汇
+              </div>
+            </div>
+
+            {/* 示例句子5 */}
+            <div className="border-l-4 border-blue-400 pl-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-medium text-sm">句子 5</span>
+                <Badge variant="default" className="bg-green-500 text-xs">优化完成</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">原句:</span>
+                  <p className="mt-1 p-2 bg-gray-50 rounded text-xs">
+                    The World - famous Golden Gate Bridge springs to mind when people talk about San Francisco.
+                  </p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">润色后:</span>
+                  <p className="mt-1 p-2 bg-green-50 rounded text-green-800 text-xs">
+                    When people talk about San Francisco, the world-famous Golden Gate Bridge immediately springs to mind.
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-blue-600 mt-2">
+                <span className="font-medium">说明:</span> 优化了词汇表达，使用更准确的词汇
+              </div>
+            </div>
+
+            {/* 提示文字 */}
+            <div className="text-xs text-gray-500 text-center pt-2 border-t">
+              💡 以上为示例效果，实际润色结果会根据您的具体要求和句子内容进行调整
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

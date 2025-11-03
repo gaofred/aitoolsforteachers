@@ -126,7 +126,7 @@ export function EmailRegisterForm() {
                 localStorage.removeItem('pending_invite_code')
                 console.log('邀请奖励发放成功:', claimResult.data.pointsAwarded)
 
-                // 刷新页面以更新用户积分显示和登录状态
+                // 刷新页面以更新用户点数显示和登录状态
                 setTimeout(() => {
                   window.location.reload()
                 }, 1000)
@@ -176,7 +176,7 @@ export function EmailRegisterForm() {
                 <h3 className="font-semibold text-purple-900">邀请奖励已激活！</h3>
               </div>
               <p className="text-sm text-gray-700 mb-2">
-                您的朋友 <span className="font-semibold">邀请者</span> 将获得30点积分奖励
+                您的朋友 <span className="font-semibold">邀请者</span> 将获得30点数奖励
               </p>
               <p className="text-xs text-gray-600">
                 邀请码：{inviteCode}
@@ -185,7 +185,7 @@ export function EmailRegisterForm() {
           )}
 
           <p className="text-sm text-gray-500 mb-6">
-            您已获得25个初始积分，首次每日签到再获得20积分
+            您已获得15个初始点数，首次每日签到再获得10点数
           </p>
           <div className="flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -214,7 +214,7 @@ export function EmailRegisterForm() {
             <h3 className="font-semibold text-purple-900 text-sm">您正在通过邀请注册</h3>
           </div>
           <p className="text-xs text-gray-700 mb-2">
-            注册成功后，您的朋友将获得30点积分奖励
+            注册成功后，您的朋友将获得30点数奖励
           </p>
           <div className="bg-white/60 rounded px-2 py-1">
             <p className="text-xs font-mono text-purple-700">邀请码：{inviteCode}</p>

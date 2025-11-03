@@ -1,0 +1,859 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { CheckCircle, AlertCircle, Clock, Star, FileText, Coins, RefreshCw } from "lucide-react";
+import { useUser } from "@/lib/user-context";
+import type { ApplicationBatchTask, ApplicationGradingResult, ProcessingStats } from "../types";
+
+interface ApplicationGraderProps {
+  task: ApplicationBatchTask | null;
+  setTask: (task: ApplicationBatchTask | null) => void;
+  onNext: () => void;
+  onPrev: () => void;
+  processingStats: ProcessingStats;
+  setProcessingStats: (stats: ProcessingStats) => void;
+  isGradingCompleted: boolean;
+  setIsGradingCompleted: (completed: boolean) => void;
+  userId?: string;
+}
+
+const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
+  task,
+  setTask,
+  onNext,
+  onPrev,
+  processingStats,
+  setProcessingStats,
+  isGradingCompleted,
+  setIsGradingCompleted,
+  userId
+}) => {
+  const [isGrading, setIsGrading] = useState(false);
+  const [currentGrading, setCurrentGrading] = useState<string>('');
+  const [parallelProgress, setParallelProgress] = useState<{
+    batchIndex: number;
+    totalBatches: number;
+    completedInBatch: number;
+    totalInBatch: number;
+  } | null>(null);
+  const { userPoints, refreshUser } = useUser();
+
+  if (!task) return null;
+
+  const assignments = task.assignments || [];
+
+  // 调试信息
+  console.log('ApplicationGrader组件状态:', {
+    userId: userId,
+    userPoints: userPoints,
+    assignmentsCount: assignments.length,
+    taskTopic: task?.topic,
+    currentUser: userId ? '已传递' : '未传递'
+  });
+
+  // 计算点数消耗（向上取整）
+  const calculateTotalPoints = () => {
+    const pointsPerStudent = 1.5;
+    const totalPoints = assignments.length * pointsPerStudent;
+    return Math.ceil(totalPoints); // 向上取整
+  };
+
+  const totalPointsNeeded = calculateTotalPoints();
+  const hasEnoughPoints = userPoints >= totalPointsNeeded;
+
+  // 批改单个作文
+  const gradeApplication = async (assignmentId: string) => {
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) return null;
+
+    try {
+      const requestData = {
+        studentName: assignment.student.name,
+        topic: task.topic,
+        content: assignment.ocrResult.editedText || assignment.ocrResult.originalText || assignment.ocrResult.content,
+        gradingType: 'both',
+        userId: userId
+      };
+
+      console.log('开始批改作业:', {
+        assignmentId,
+        studentName: assignment.student.name,
+        userId: userId,
+        topicLength: task.topic?.length,
+        contentLength: requestData.content?.length,
+        requestData: JSON.stringify(requestData).substring(0, 200) + '...'
+      });
+
+      let response;
+      try {
+        // 获取认证token（Edge浏览器兼容方式）
+        const getAuthToken = () => {
+          if (typeof window !== 'undefined') {
+            // 优先从 localStorage 获取
+            let token = localStorage.getItem('sb-access-token');
+            if (token) return token;
+
+            // 备用：从 sessionStorage 获取
+            token = sessionStorage.getItem('sb-access-token');
+            if (token) return token;
+          }
+          return '';
+        };
+
+        const authToken = getAuthToken();
+        console.log('发送API请求到 /api/ai/application-grading，token存在:', !!authToken);
+
+        response = await fetch('/api/ai/application-grading', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // 添加认证头，确保 Edge 浏览器能正确传递认证信息
+            'Authorization': `Bearer ${authToken}`
+          },
+          credentials: 'include', // 确保发送cookies（Edge浏览器兼容）
+          body: JSON.stringify(requestData)
+        });
+      } catch (fetchError) {
+        console.error('网络请求失败:', fetchError);
+        throw new Error(`网络请求失败: ${fetchError.message}`);
+      }
+
+      console.log('批改API响应状态:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (!response.ok) {
+        console.error('HTTP错误响应:', response.status, response.statusText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('JSON解析失败:', jsonError);
+        throw new Error(`响应解析失败: ${jsonError.message}`);
+      }
+
+      console.log('批改API响应:', {
+        success: data.success,
+        error: data.error,
+        pointsCost: data.pointsCost,
+        remainingPoints: data.remainingPoints,
+        httpStatus: response.status
+      });
+
+      if (data.success) {
+        const gradingResult: ApplicationGradingResult = {
+          score: data.result.score,
+          feedback: data.result.feedback,
+          improvedVersion: data.result.improvedVersion,
+          gradingDetails: data.result.gradingDetails,
+          gradedAt: new Date()
+        };
+
+        console.log('批改成功:', {
+          studentName: assignment.student.name,
+          score: gradingResult.score,
+          pointsCost: data.pointsCost,
+          remainingPoints: data.remainingPoints
+        });
+
+        return gradingResult;
+      } else {
+        console.error('批改API返回错误:', {
+          error: data.error,
+          success: data.success,
+          httpStatus: response.status,
+          statusText: response.statusText,
+          studentName: assignment.student.name,
+          userId: userId
+        });
+        throw new Error(data.error || '批改失败');
+      }
+    } catch (error) {
+      console.error('批改失败 (完整错误):', {
+        error: error,
+        message: error?.message,
+        stack: error?.stack,
+        studentName: assignment.student.name,
+        userId: userId,
+        hasResponse: !!response?.status
+      });
+      throw error;
+    }
+  };
+
+  // 批量批改所有作文（使用新的批量API）
+  const gradeAllApplications = async () => {
+    if (assignments.length === 0) return;
+
+    setIsGrading(true);
+    setProcessingStats({
+      ...processingStats,
+      totalApplications: assignments.length,
+      gradedApplications: 0,
+      errors: []
+    });
+
+    // 将所有作业标记为处理中
+    const updatedAssignments = assignments.map(assignment => ({
+      ...assignment,
+      status: 'processing' as const,
+      gradingResult: undefined,
+      error: undefined
+    }));
+    setTask({ ...task, assignments: updatedAssignments });
+
+    setCurrentGrading(`批量批改 ${assignments.length} 个学生...`);
+
+    try {
+      // 获取认证token
+      const getAuthToken = () => {
+        if (typeof window !== 'undefined') {
+          let token = localStorage.getItem('sb-access-token');
+          if (token) return token;
+          token = sessionStorage.getItem('sb-access-token');
+          if (token) return token;
+        }
+        return '';
+      };
+
+      const authToken = getAuthToken();
+
+      // 准备批量请求数据
+      const batchRequestData = {
+        assignments: assignments.map(assignment => ({
+          id: assignment.id,
+          studentName: assignment.student.name,
+          topic: task.topic,
+          content: assignment.ocrResult.editedText || assignment.ocrResult.originalText || assignment.ocrResult.content,
+          gradingType: 'both'
+        })),
+        gradingType: 'both'
+      };
+
+      console.log('发送批量批改请求:', {
+        assignmentCount: assignments.length,
+        gradingType: 'both',
+        tokenExists: !!authToken
+      });
+
+      // 调用批量批改API
+      const response = await fetch('/api/ai/application-grading-batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        credentials: 'include',
+        body: JSON.stringify(batchRequestData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('批量批改API响应:', data);
+
+      if (!data.success) {
+        throw new Error(data.error || '批量批改失败');
+      }
+
+      // 处理批改结果
+      const { results, statistics } = data;
+      const resultsAssignments = [...updatedAssignments];
+
+      results.forEach((result: any) => {
+        const index = resultsAssignments.findIndex(a => a.id === result.id);
+        if (index !== -1) {
+          resultsAssignments[index] = {
+            ...resultsAssignments[index],
+            status: result.status,
+            gradingResult: result.gradingResult,
+            error: result.error
+          };
+        }
+      });
+
+      // 更新任务状态
+      setTask({ ...task, assignments: resultsAssignments });
+
+      // 更新处理统计
+      setProcessingStats({
+        totalApplications: assignments.length,
+        gradedApplications: statistics.successful,
+        averageScore: statistics.averageScore || 0,
+        errors: data.errors || []
+      });
+
+      // 计算失败数量
+      const failedCount = results.filter((r: any) => r.status === 'failed').length;
+
+      setTask({ ...task, assignments: resultsAssignments });
+      setIsGrading(false);
+      setCurrentGrading('批量批改完成！');
+      setParallelProgress(null);
+      setIsGradingCompleted(true);
+
+      // 3秒后清除批改完成消息
+      setTimeout(() => {
+        setCurrentGrading('');
+      }, 3000);
+
+      // 刷新用户点数
+      setTimeout(() => {
+        refreshUser().catch(error => {
+          console.warn('刷新用户信息失败:', error);
+        });
+      }, 500);
+
+    } catch (error) {
+      console.error('批量批改过程中发生错误:', error);
+      setCurrentGrading(`批量批改失败: ${error.message}`);
+      setIsGrading(false);
+
+      // 恢复作业状态
+      const failedAssignments = assignments.map(assignment => ({
+        ...assignment,
+        status: 'pending' as const
+      }));
+      setTask({ ...task, assignments: failedAssignments });
+    }
+  };
+
+  // 重新批改单个作文
+  const retryGradeApplication = async (assignmentId: string) => {
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) return;
+
+    const updatedAssignments = [...assignments];
+    const index = assignments.findIndex(a => a.id === assignmentId);
+    
+    try {
+      // 更新状态为处理中
+      updatedAssignments[index] = { ...assignment, status: 'processing' };
+      setTask({ ...task, assignments: updatedAssignments });
+
+      const gradingResult = await gradeApplication(assignmentId);
+      
+      if (gradingResult) {
+        // 更新状态为完成
+        updatedAssignments[index] = {
+          ...assignment,
+          gradingResult,
+          status: 'completed'
+        };
+        
+        // 从错误列表中移除该学生的错误
+        setProcessingStats(prev => ({
+          ...prev,
+          errors: prev.errors.filter(error => !error.includes(assignment.student.name))
+        }));
+
+        // 显示重新批改成功提示（包含点数消耗）
+        console.log(`✅ 重新批改完成：${assignment.student.name}，消耗2点数`);
+
+        // 刷新用户点数（延迟执行）
+        setTimeout(() => {
+          refreshUser().catch(error => {
+            console.warn('刷新用户信息失败:', error);
+          });
+        }, 500);
+      }
+    } catch (error) {
+      console.error(`重新批改学生 ${assignment.student.name} 的作文失败:`, error);
+      // 更新状态为失败
+      updatedAssignments[index] = { ...assignment, status: 'failed' };
+    }
+
+    setTask({ ...task, assignments: updatedAssignments });
+  };
+
+  // 重新批改所有失败的作文
+  const retryAllFailedApplications = async () => {
+    const failedAssignments = assignments.filter(a => a.status === 'failed');
+    if (failedAssignments.length === 0) return;
+
+    setIsGrading(true);
+    const errors: string[] = [];
+    const updatedAssignments = [...assignments];
+
+    for (const assignment of failedAssignments) {
+      const index = assignments.findIndex(a => a.id === assignment.id);
+      setCurrentGrading(assignment.student.name);
+
+      try {
+        // 更新状态为处理中
+        updatedAssignments[index] = { ...assignment, status: 'processing' };
+        setTask({ ...task, assignments: updatedAssignments });
+
+        const gradingResult = await gradeApplication(assignment.id);
+        
+        if (gradingResult) {
+          // 更新状态为完成
+          updatedAssignments[index] = {
+            ...assignment,
+            gradingResult,
+            status: 'completed'
+          };
+        }
+      } catch (error) {
+        console.error(`重新批改学生 ${assignment.student.name} 的作文失败:`, error);
+        const errorMsg = `${assignment.student.name}: ${error instanceof Error ? error.message : '批改失败'}`;
+        errors.push(errorMsg);
+        
+        // 更新状态为失败
+        updatedAssignments[index] = { ...assignment, status: 'failed' };
+      }
+    }
+
+    setTask({ ...task, assignments: updatedAssignments });
+    setProcessingStats(prev => ({ ...prev, errors }));
+    setIsGrading(false);
+    setCurrentGrading('');
+
+    // 刷新用户点数（延迟执行）
+    setTimeout(() => {
+      refreshUser().catch(error => {
+        console.warn('刷新用户信息失败:', error);
+      });
+    }, 500);
+  };
+
+  // 重新批改所有作文
+  const retryAllApplications = async () => {
+    if (assignments.length === 0) return;
+
+    const pointsPerStudent = 1.5;
+    const totalPointsRequired = assignments.length * pointsPerStudent;
+    const totalPoints = Math.ceil(totalPointsRequired); // 向上取整
+    const confirmMessage = `确定要重新批改所有 ${assignments.length} 份作文吗？将消耗 ${totalPoints} 点数（当前余额：${userPoints} 点）`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsGrading(true);
+    const errors: string[] = [];
+    const updatedAssignments = assignments.map(assignment => ({
+      ...assignment,
+      status: 'processing' as const,
+      gradingResult: undefined,
+      error: undefined
+    }));
+
+    setTask({ ...task, assignments: updatedAssignments });
+    setProcessingStats({
+      totalApplications: assignments.length,
+      gradedApplications: 0,
+      averageScore: 0,
+      errors: []
+    });
+    setIsGradingCompleted(false);
+    setCurrentGrading('开始重新批改...');
+
+    try {
+      // 并行处理所有作文
+      const batchSize = 3; // 并发限制
+      const batches = [];
+
+      for (let i = 0; i < updatedAssignments.length; i += batchSize) {
+        batches.push(updatedAssignments.slice(i, i + batchSize));
+      }
+
+      let gradedCount = 0;
+
+      for (const batch of batches) {
+        const batchPromises = batch.map(async (assignment) => {
+          const index = assignments.findIndex(a => a.id === assignment.id);
+          setCurrentGrading(assignment.student.name);
+
+          try {
+            const gradingResult = await gradeApplication(assignment.id);
+
+            if (gradingResult) {
+              gradedCount++;
+              return {
+                ...assignment,
+                gradingResult,
+                status: 'completed' as const
+              };
+            } else {
+              throw new Error('批改结果为空');
+            }
+          } catch (error) {
+            console.error(`重新批改学生 ${assignment.student.name} 的作文失败:`, error);
+            errors.push(`重新批改${assignment.student.name}失败: ${error.message}`);
+            return {
+              ...assignment,
+              status: 'failed' as const,
+              error: error.message
+            };
+          }
+        });
+
+        const batchResults = await Promise.allSettled(batchPromises);
+
+        // 更新已完成数量
+        batchResults.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value.status === 'completed') {
+            const currentStats = gradedCount;
+            setProcessingStats(prev => ({
+              ...prev,
+              gradedApplications: currentStats
+            }));
+          }
+        });
+
+        // 更新任务状态
+        batchResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            const assignmentIndex = assignments.findIndex(a => a.id === batch[index].id);
+            updatedAssignments[assignmentIndex] = result.value;
+          }
+        });
+
+        setTask({ ...task, assignments: [...updatedAssignments] });
+      }
+
+      // 计算平均分
+      const successfulApplications = updatedAssignments.filter(a =>
+        a.status === 'completed' && a.gradingResult?.score
+      );
+      const averageScore = successfulApplications.length > 0
+        ? successfulApplications.reduce((sum, a) => sum + (a.gradingResult?.score || 0), 0) / successfulApplications.length
+        : 0;
+
+      setProcessingStats({
+        totalApplications: assignments.length,
+        gradedApplications: gradedCount,
+        averageScore,
+        errors
+      });
+
+      setTask({ ...task, assignments: updatedAssignments });
+      setIsGrading(false);
+      setCurrentGrading('重新批改完成！');
+      setParallelProgress(null);
+      setIsGradingCompleted(true);
+
+      // 3秒后清除批改完成消息
+      setTimeout(() => {
+        setCurrentGrading('');
+      }, 3000);
+
+      // 刷新用户点数
+      setTimeout(() => {
+        refreshUser().catch(error => {
+          console.warn('刷新用户信息失败:', error);
+        });
+      }, 500);
+
+    } catch (error) {
+      console.error('重新批改过程中发生错误:', error);
+      setCurrentGrading(`重新批改失败: ${error.message}`);
+      setIsGrading(false);
+    }
+  };
+
+  const completedCount = assignments.filter(a => a.status === 'completed').length;
+  const failedCount = assignments.filter(a => a.status === 'failed').length;
+  const canProceed = completedCount > 0;
+  const progress = assignments.length > 0 ? (processingStats.gradedApplications / assignments.length) * 100 : 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">AI批改</h2>
+        <p className="text-gray-600 text-sm">
+          AI将根据应用文题目要求对学生作文进行详细批改和打分
+        </p>
+      </div>
+
+      {assignments.length === 0 ? (
+        <Card>
+          <CardContent className="p-6 text-center text-gray-500">
+            暂无作文数据，请返回上一步
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* 批改控制面板 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Star className="w-5 h-5 text-yellow-600" />
+                批改控制面板
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 统计信息 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{assignments.length}</div>
+                  <div className="text-sm text-blue-700">总作文数</div>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{completedCount}</div>
+                  <div className="text-sm text-green-700">已完成</div>
+                </div>
+                <div className="text-center p-3 bg-red-50 rounded-lg">
+                  <div className="text-2xl font-bold text-red-600">{failedCount}</div>
+                  <div className="text-sm text-red-700">失败</div>
+                </div>
+                <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                  <div className="text-2xl font-bold text-yellow-600">{totalPointsNeeded}</div>
+                  <div className="text-sm text-yellow-700">需要点数</div>
+                </div>
+              </div>
+
+              {/* 进度条 */}
+              {isGrading && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>批改进度</span>
+                    <span>{processingStats.gradedApplications}/{assignments.length}</span>
+                  </div>
+                  <Progress value={progress} className="w-full" />
+                  {currentGrading && (
+                    <div className="text-sm text-blue-600 flex items-center gap-1">
+                      <Clock className="w-3 h-3 animate-spin" />
+                      正在批改: {currentGrading}
+                    </div>
+                  )}
+
+                  {/* 并行处理进度 */}
+                  {parallelProgress && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                      <div className="text-xs text-blue-700 mb-1">
+                        <strong>并行批模式</strong> - 第 {parallelProgress.batchIndex}/{parallelProgress.totalBatches} 批
+                      </div>
+                      <div className="text-xs text-blue-600">
+                        当前进度: {parallelProgress.completedInBatch}/{parallelProgress.totalInBatch} 个学生
+                      </div>
+                      <Progress
+                        value={(parallelProgress.completedInBatch / parallelProgress.totalInBatch) * 100}
+                        className="mt-1 h-1"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 点数余额提示 */}
+              {!hasEnoughPoints && assignments.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-amber-700 text-sm">
+                    <Coins className="w-4 h-4" />
+                    <span>点数不足，需要 {totalPointsNeeded} 点数，当前余额 {userPoints} 点数</span>
+                  </div>
+                </div>
+              )}
+
+              {/* 操作按钮 */}
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  onClick={gradeAllApplications}
+                  disabled={isGrading || isGradingCompleted || !hasEnoughPoints}
+                  className="flex items-center gap-2"
+                >
+                  {isGrading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      批改中...
+                    </>
+                  ) : (
+                    <>
+                      <Star className="w-4 h-4" />
+                      {hasEnoughPoints ? `开始批改 (${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
+                    </>
+                  )}
+                </Button>
+
+                {failedCount > 0 && !isGrading && (
+                  <Button
+                    variant="outline"
+                    onClick={retryAllFailedApplications}
+                    disabled={userPoints < Math.ceil(failedCount * 1.5)}
+                    className="flex items-center gap-2 border-orange-300 text-orange-600 hover:bg-orange-50"
+                    title={`重新批改失败的作文（消耗${Math.ceil(failedCount * 1.5)}点数，当前余额${userPoints}点）`}
+                  >
+                    <AlertCircle className="w-4 h-4" />
+                    重新批改失败项 ({failedCount}份 - {Math.ceil(failedCount * 1.5)}点)
+                  </Button>
+                )}
+
+                {isGradingCompleted && failedCount === 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      批改完成
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2 border-blue-300 text-blue-600 hover:bg-blue-50"
+                      onClick={retryAllApplications}
+                      disabled={isGrading}
+                      title={`重新批改所有作文（消耗${Math.ceil(assignments.length * 1.5)}点数，当前余额${userPoints}点）`}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      重新批改
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 批改结果列表 */}
+          <div className="space-y-4">
+            {assignments.map((assignment, index) => (
+              <Card key={assignment.id} className="border border-gray-200">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      {assignment.student.name} - 作文 {index + 1}
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          assignment.status === 'completed' ? 'default' :
+                          assignment.status === 'processing' ? 'secondary' :
+                          assignment.status === 'failed' ? 'destructive' : 'outline'
+                        }
+                      >
+                        {assignment.status === 'pending' && '待批改'}
+                        {assignment.status === 'processing' && '批改中'}
+                        {assignment.status === 'completed' && '已完成'}
+                        {assignment.status === 'failed' && '失败'}
+                      </Badge>
+                      {assignment.gradingResult && (
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                          {assignment.gradingResult.score}分
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* 作文内容预览 */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">
+                      作文内容
+                    </label>
+                    <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 max-h-20 overflow-y-auto">
+                      {(assignment.ocrResult.editedText || assignment.ocrResult.content).substring(0, 150)}
+                      {(assignment.ocrResult.editedText || assignment.ocrResult.content).length > 150 && '...'}
+                    </div>
+                  </div>
+
+                  {/* 批改结果 */}
+                  {assignment.gradingResult && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 block">
+                        批改结果
+                      </label>
+                      <div className="bg-green-50 p-3 rounded border border-green-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span className="font-medium text-green-800">
+                            得分: {assignment.gradingResult.score}分
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-700 max-h-32 overflow-y-auto">
+                          {assignment.gradingResult.feedback.substring(0, 200)}...
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {assignment.status === 'failed' && (
+                    <div className="bg-red-50 p-3 rounded border border-red-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-red-700">
+                          <AlertCircle className="w-4 h-4" />
+                          <span className="text-sm">批改失败，请稍后重试</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => retryGradeApplication(assignment.id)}
+                          disabled={isGrading || userPoints < 2}
+                          className="text-xs border-orange-300 text-orange-600 hover:bg-orange-50"
+                          title={`重新批改这份作文（消耗2点数，当前余额${userPoints}点）`}
+                        >
+                          重新批改 (2点)
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 已完成的作文也可以重新批改 */}
+                  {assignment.status === 'completed' && assignment.gradingResult && (
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => retryGradeApplication(assignment.id)}
+                        disabled={isGrading || userPoints < 2}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                        title={`重新批改这份作文（消耗2点数，当前余额${userPoints}点）`}
+                      >
+                        重新批改 (2点)
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* 错误信息 */}
+          {processingStats.errors.length > 0 && (
+            <Card className="border-red-200">
+              <CardHeader>
+                <CardTitle className="text-lg text-red-600">批改错误</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  {processingStats.errors.map((error, index) => (
+                    <div key={index} className="text-sm text-red-600">
+                      {error}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* 操作按钮 */}
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={onPrev} disabled={isGrading}>
+          上一步
+        </Button>
+        <Button
+          onClick={onNext}
+          disabled={!canProceed || isGrading}
+          className="px-8"
+        >
+          下一步：查看结果导出
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default ApplicationGrader;

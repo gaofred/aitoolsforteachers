@@ -17,19 +17,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   const refreshUser = async () => {
+    console.log('🔄 refreshUser 开始执行');
+
     try {
+      // 使用与主页面相同的简单请求方式
       const response = await fetch('/api/auth/user');
+
       if (response.ok) {
         const userData = await response.json();
         setCurrentUser(userData);
         setUserPoints(userData.user_points?.points || 25);
-        console.log('用户登录成功:', userData);
+        console.log('✅ 用户上下文认证成功:', userData);
       } else {
-        console.log('用户未登录或认证失败');
+        console.log('❌ 用户上下文认证失败，状态码:', response.status);
         setCurrentUser(null);
       }
     } catch (error) {
-      console.error('检查用户状态失败:', error);
+      console.error('❌ 检查用户状态失败:', error);
       setCurrentUser(null);
     } finally {
       setIsLoadingUser(false);

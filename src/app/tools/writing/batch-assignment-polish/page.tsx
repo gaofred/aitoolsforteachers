@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // import { Progress } from "@/components/ui/progress"; // 暂时移除
 import { Badge } from "@/components/ui/badge";
 // import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // 暂时移除
+import { Home } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/user-context";
 import { SupabasePointsService } from "@/lib/supabase-points-service";
 import {
@@ -19,6 +21,7 @@ import {
 import type { BatchTask, Student, Requirement, StudentAssignment, ProcessingStats } from "./types";
 
 const BatchAssignmentPolish = () => {
+  const router = useRouter();
   const { currentUser } = useUser();
   const [currentStep, setCurrentStep] = useState(1);
   const [task, setTask] = useState<BatchTask | null>(null);
@@ -31,11 +34,14 @@ const BatchAssignmentPolish = () => {
     errors: [],
     processingTime: 0
   });
+  const [isPolishCompleted, setIsPolishCompleted] = useState(false);
+  const [editingAssignments, setEditingAssignments] = useState<{[key: string]: boolean}>({});
+  const [editedTexts, setEditedTexts] = useState<{[key: string]: string}>({});
 
   // 步骤配置 - 8步流程，职责分离
   const steps = [
     { id: 1, title: "导入学生姓名", description: "添加或导入学生名单" },
-    { id: 2, title: "设置润色要求", description: "定义句子润色规则" },
+    { id: 2, title: "设置润色要求", description: "定义句子润色规则（可选）" },
     { id: 3, title: "批量OCR识别", description: "专注图像文字识别" },
     { id: 4, title: "确认OCR结果", description: "核对识别的原文内容" },
     { id: 5, title: "句子智能提取", description: "提取完整英文句子" },
@@ -63,12 +69,10 @@ const BatchAssignmentPolish = () => {
     initializeTask();
   }, []);
 
-  // 计算积分消耗
-  const calculatePoints = (sentenceCount: number): number => {
-    if (sentenceCount >= 10) {
-      return Math.ceil(sentenceCount * 0.8); // 批量处理8折优惠
-    }
-    return sentenceCount;
+  // 计算点数消耗（按学生数计算）
+  const calculatePoints = (studentCount: number): number => {
+    // 每个学生1.5点数，向上取整
+    return Math.ceil(studentCount * 1.5);
   };
 
   // 更新任务状态
@@ -151,52 +155,75 @@ const BatchAssignmentPolish = () => {
     }
   };
 
+  // 重新开始
+  const handleRestart = () => {
+    if (confirm('确定要重新开始吗？当前所有数据将被清空。')) {
+      // 重置所有状态
+      setCurrentStep(1);
+      initializeTask();
+      setProcessingStats({
+        totalImages: 0,
+        processedImages: 0,
+        totalSentences: 0,
+        polishedSentences: 0,
+        errors: [],
+        processingTime: 0
+      });
+      setIsLoading(false);
+    }
+  };
+
   if (!currentUser) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-gray-600">请先登录后使用批量润色功能</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    router.push('/auth/signin');
+    return null;
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
+    <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-6xl">
       {/* 头部信息 */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          批量修改润色学生英语作业
-        </h1>
-        <p className="text-gray-600">
+      <div className="mb-4 sm:mb-6 md:mb-8">
+        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/')}
+            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-2 sm:px-3"
+          >
+            <Home className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">首页</span>
+          </Button>
+          <div className="h-6 w-px bg-gray-300"></div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+            批量润色学生英文句子
+          </h1>
+        </div>
+        <p className="text-sm sm:text-base text-gray-600 pl-0 sm:pl-12">
           智能OCR识别 + AI润色修改，高效处理学生作业
         </p>
       </div>
 
       {/* 进度条 */}
-      <Card className="mb-8">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">处理进度</h3>
-            <Badge variant="secondary">
+      <Card className="mb-4 sm:mb-6 md:mb-8">
+        <CardContent className="p-3 sm:p-4 md:p-6">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-semibold">处理进度</h3>
+            <Badge variant="secondary" className="text-xs sm:text-sm">
               {currentStep} / {steps.length}
             </Badge>
           </div>
 
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+          <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2 mb-3 sm:mb-4">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-blue-600 h-1.5 sm:h-2 rounded-full transition-all duration-300"
                 style={{ width: `${getProgressPercentage()}%` }}
               />
             </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-1.5 sm:gap-2">
             {steps.map((step) => (
               <div
                 key={step.id}
-                className={`text-center p-2 rounded-lg border ${
+                className={`text-center p-1.5 sm:p-2 rounded-lg border ${
                   getStepStatus(step.id) === 'completed'
                     ? 'bg-green-50 border-green-200 text-green-800'
                     : getStepStatus(step.id) === 'current'
@@ -204,8 +231,8 @@ const BatchAssignmentPolish = () => {
                     : 'bg-gray-50 border-gray-200 text-gray-600'
                 }`}
               >
-                <div className="text-xs font-medium">{step.title}</div>
-                <div className="text-xs opacity-75 mt-1">{step.id}</div>
+                <div className="text-[10px] sm:text-xs font-medium leading-tight">{step.title}</div>
+                <div className="text-[10px] sm:text-xs opacity-75 mt-0.5 sm:mt-1">{step.id}</div>
               </div>
             ))}
           </div>
@@ -214,15 +241,15 @@ const BatchAssignmentPolish = () => {
 
       {/* 主要内容 */}
       <Card>
-        <CardHeader>
-          <CardTitle>
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="text-base sm:text-lg md:text-xl">
             {steps[currentStep - 1].title}
-            <div className="text-sm font-normal text-gray-600 mt-1">
+            <div className="text-xs sm:text-sm font-normal text-gray-600 mt-1">
               {steps[currentStep - 1].description}
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent className="min-h-[500px]">
+        <CardContent className="min-h-[300px] sm:min-h-[400px] md:min-h-[500px] p-3 sm:p-4 md:p-6">
           {currentStep === 1 && (
             <StudentNameInput
               students={task?.students || []}
@@ -247,20 +274,34 @@ const BatchAssignmentPolish = () => {
                 if (assignments && assignments.length > 0) {
                   console.log('First assignment sample:', assignments[0]);
                   console.log('First OCR result:', assignments[0].ocrResult);
+                  
+                  // 直接更新task状态，包含assignments
+                  setTask(prevTask => {
+                    if (!prevTask) {
+                      console.error('No task exists, creating new one with assignments');
+                      return {
+                        id: `task_${Date.now()}`,
+                        title: `批量润色任务_${new Date().toLocaleDateString()}`,
+                        students: [],
+                        requirements: [],
+                        assignments: assignments,
+                        status: 'ocr_completed',
+                        createdAt: new Date(),
+                        pointsCost: 0
+                      };
+                    }
+                    
+                    const updated = {
+                      ...prevTask,
+                      assignments: assignments,
+                      status: 'ocr_completed' as const
+                    };
+                    console.log('Task updated with assignments:', updated);
+                    return updated;
+                  });
+                } else {
+                  console.warn('No assignments received from OCR');
                 }
-
-                updateAssignments(assignments);
-                updateTask({ status: 'ocr_processing' });
-
-                // 强制检查是否assignments已经更新
-                setTimeout(() => {
-                  console.log('=== Checking assignments after timeout ===');
-                  console.log('Current task after OCR:', task);
-                  console.log('Assignments count:', task?.assignments.length || 0);
-                  if (task?.assignments?.length > 0) {
-                    console.log('Task first assignment:', task.assignments[0]);
-                  }
-                }, 100);
               }}
               onStatsUpdate={setProcessingStats}
             />
@@ -274,8 +315,8 @@ const BatchAssignmentPolish = () => {
                   请核对OCR识别的原文内容，确保文本提取准确
                 </p>
 
-                {/* 检查是否有OCR数据 */}
-                {!task?.assignments?.length ? (
+                {/* 检查是否有OCR数据 - 同时检查task.assignments和processingStats */}
+                {(!task?.assignments?.length && processingStats.processedImages === 0) ? (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
                     <div className="text-yellow-800">
                       <h4 className="font-semibold mb-2">⚠️ 缺少OCR识别数据</h4>
@@ -290,37 +331,138 @@ const BatchAssignmentPolish = () => {
                       </Button>
                     </div>
                   </div>
-                ) : (
-                  <>
-                    {/* 调试信息 */}
-                    <div className="text-xs text-gray-500 mb-4 p-2 bg-gray-100 rounded">
-                      <div>🔧 调试信息:</div>
-                      <div>task存在: {task ? '是' : '否'}</div>
-                      <div>assignments数量: {task?.assignments?.length || 0}</div>
-                      <div>当前步骤: {currentStep}</div>
-                      <div>task详情: {JSON.stringify(task, null, 2)}</div>
-                    </div>
-
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-medium mb-2">识别结果预览</h4>
-                      {task?.assignments?.map((assignment, index) => (
-                        <div key={assignment.id} className="mb-4 p-3 bg-white rounded border">
-                          <div className="font-medium text-blue-600 mb-1">
-                            学生: {assignment.student.name}
+                ) : task?.assignments?.length ? (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-4 text-left">识别结果预览</h4>
+                    {task.assignments.map((assignment, index) => (
+                      <div key={assignment.id} className="mb-4 p-4 bg-white rounded-lg border border-gray-200 text-left">
+                        <div className="mb-3">
+                          <div className="font-medium text-blue-600 mb-1 text-lg">
+                            提取的学生姓名: <span className="text-blue-800 bg-blue-50 px-2 py-1 rounded">{assignment.ocrResult.studentName}</span>
                           </div>
-                          <div className="text-sm text-gray-700">
-                            原文: {assignment.ocrResult.sentences.join('. ') + (assignment.ocrResult.sentences.length > 0 ? '.' : '')}
-                          </div>
-                          {/* 额外的调试信息 */}
-                          <div className="text-xs text-gray-400 mt-2">
-                            句子数量: {assignment.ocrResult.sentences.length} |
-                            置信度: {assignment.ocrResult.confidence} |
-                            处理时间: {assignment.ocrResult.processedAt.toLocaleTimeString()}
+                          <div className="text-xs text-gray-500">
+                            匹配学生: <span className="font-medium">{assignment.student.name}</span>
                           </div>
                         </div>
-                      ))}
+                        
+                        {/* 完整原文显示和编辑 */}
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="font-medium text-gray-700 text-sm">完整OCR原文:</div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const isEditing = editingAssignments[assignment.id];
+                                if (isEditing) {
+                                  // 保存编辑
+                                  const editedText = editedTexts[assignment.id];
+                                  if (editedText !== undefined) {
+                                    // 更新assignment的OCR结果
+                                    setTask(prevTask => {
+                                      if (!prevTask) return prevTask;
+                                      const updatedAssignments = prevTask.assignments.map(a => 
+                                        a.id === assignment.id 
+                                          ? {
+                                              ...a,
+                                              ocrResult: {
+                                                ...a.ocrResult,
+                                                editedText: editedText
+                                              }
+                                            }
+                                          : a
+                                      );
+                                      return {
+                                        ...prevTask,
+                                        assignments: updatedAssignments
+                                      };
+                                    });
+                                  }
+                                  setEditingAssignments(prev => ({ ...prev, [assignment.id]: false }));
+                                } else {
+                                  // 开始编辑
+                                  setEditingAssignments(prev => ({ ...prev, [assignment.id]: true }));
+                                  setEditedTexts(prev => ({ 
+                                    ...prev, 
+                                    [assignment.id]: assignment.ocrResult.editedText || assignment.ocrResult.originalText || ''
+                                  }));
+                                }
+                              }}
+                              className="text-xs"
+                            >
+                              {editingAssignments[assignment.id] ? '保存' : '编辑'}
+                            </Button>
+                          </div>
+                          
+                          {editingAssignments[assignment.id] ? (
+                            <textarea
+                              value={editedTexts[assignment.id] || ''}
+                              onChange={(e) => {
+                                setEditedTexts(prev => ({ 
+                                  ...prev, 
+                                  [assignment.id]: e.target.value 
+                                }));
+                              }}
+                              className="w-full p-3 border border-gray-300 rounded text-sm text-gray-800 whitespace-pre-wrap break-words min-h-32 resize-y"
+                              placeholder="请输入或修改OCR识别的文本内容..."
+                            />
+                          ) : (
+                            <div className="bg-gray-50 p-3 rounded border border-gray-300 text-sm text-gray-800 whitespace-pre-wrap break-words max-h-96 overflow-y-auto">
+                              {assignment.ocrResult.editedText || assignment.ocrResult.originalText || '未识别到原文'}
+                            </div>
+                          )}
+                          
+                          {assignment.ocrResult.editedText && (
+                            <div className="text-xs text-green-600 mt-1">
+                              ✓ 已编辑 - 将使用编辑后的内容进行句子提取
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* 提取的句子预览 */}
+                        <div className="mb-3">
+                          <div className="font-medium text-gray-700 mb-2 text-sm">提取的句子 ({assignment.ocrResult.sentences.length}个):</div>
+                          <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded border border-gray-200">
+                            {assignment.ocrResult.sentences.length > 0 
+                              ? assignment.ocrResult.sentences.map((sentence, idx) => (
+                                  <div key={idx} className="mb-2 last:mb-0">
+                                    <span className="text-gray-500 text-xs mr-2">{idx + 1}.</span>
+                                    {sentence}
+                                  </div>
+                                ))
+                              : '未提取到句子'
+                            }
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-4 text-xs text-gray-500 pt-2 border-t border-gray-200">
+                          <div>句子数量: <span className="font-medium">{assignment.ocrResult.sentences.length}</span></div>
+                          <div>原文长度: <span className="font-medium">{assignment.ocrResult.originalText?.length || 0} 字符</span></div>
+                          <div>置信度: <span className="font-medium">{assignment.ocrResult.confidence}</span></div>
+                          <div>处理时间: <span className="font-medium">{assignment.ocrResult.processedAt.toLocaleTimeString()}</span></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <div className="text-blue-800">
+                      <h4 className="font-semibold mb-2">🔄 正在加载OCR结果...</h4>
+                      <p className="mb-4">
+                        OCR识别已完成（{processingStats.processedImages}张图片），数据正在加载中...
+                      </p>
+                      <Button
+                        onClick={() => {
+                          // 强制刷新状态
+                          window.location.reload();
+                        }}
+                        variant="outline"
+                        className="border-blue-600 text-blue-600 hover:bg-blue-100"
+                      >
+                        刷新页面
+                      </Button>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
@@ -331,8 +473,27 @@ const BatchAssignmentPolish = () => {
               <div className="text-center py-8">
                 <h3 className="text-lg font-semibold mb-4">句子智能提取</h3>
                 <p className="text-gray-600 mb-6">
-                  AI将从OCR文本中提取完整的英文句子
+                  AI将从OCR文本（包括您编辑后的内容）中提取完整的英文句子
                 </p>
+                
+                {/* 显示当前作业信息 */}
+                {task?.assignments?.length > 0 && (
+                  <div className="mb-6 text-sm text-gray-600">
+                    <p>准备提取 <span className="font-semibold text-blue-600">{task.assignments.length}</span> 份作业的句子</p>
+                    {(() => {
+                      const editedCount = task.assignments.filter(a => a.ocrResult.editedText).length;
+                      if (editedCount > 0) {
+                        return (
+                          <p className="text-green-600 mt-1">
+                            ✓ 其中 <span className="font-semibold">{editedCount}</span> 份作业使用了编辑后的内容
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
+
                 <Button
                   onClick={async () => {
                     if (!task?.assignments?.length) {
@@ -341,32 +502,59 @@ const BatchAssignmentPolish = () => {
                     }
 
                     setIsLoading(true);
+                    const errors: string[] = [];
+                    
                     try {
                       const updatedAssignments = await Promise.all(
-                        task.assignments.map(async (assignment) => {
-                          const fullText = assignment.ocrResult.sentences.join(' ');
+                        task.assignments.map(async (assignment, index) => {
+                          try {
+                            // 优先使用编辑后的文本，如果没有则使用OCR原文
+                            const fullText = assignment.ocrResult.editedText || assignment.ocrResult.originalText || assignment.ocrResult.sentences.join(' ');
+                            
+                            console.log(`[${index + 1}/${task.assignments.length}] 提取学生 ${assignment.student.name} 的句子...`);
+                            console.log('原文长度:', fullText.length);
 
-                          const response = await fetch('/api/ai/extract-sentences', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              text: fullText,
-                              options: {
-                                minLength: 10,
-                                includeFragments: false,
-                                preserveOriginal: true
-                              }
-                            })
-                          });
+                            const response = await fetch('/api/ai/extract-sentences', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                text: fullText,
+                                options: {
+                                  minLength: 10,
+                                  includeFragments: false,
+                                  preserveOriginal: true
+                                }
+                              })
+                            });
 
-                          if (response.ok) {
                             const data = await response.json();
-                            return {
-                              ...assignment,
-                              extractedSentences: data.result.extractedSentences,
-                              extractionMethod: 'ai' as const
-                            };
-                          } else {
+                            console.log(`学生 ${assignment.student.name} 的API响应:`, data);
+
+                            if (response.ok && data.success) {
+                              const extractedSentences = data.result?.extractedSentences || [];
+                              console.log(`✅ 成功提取 ${extractedSentences.length} 个句子`);
+                              
+                              return {
+                                ...assignment,
+                                extractedSentences: extractedSentences.length > 0 ? extractedSentences : assignment.ocrResult.sentences,
+                                extractionMethod: extractedSentences.length > 0 ? 'ai' as const : 'traditional' as const
+                              };
+                            } else {
+                              const errorMsg = data.error || '未知错误';
+                              console.warn(`⚠️ AI提取失败，使用原始句子。错误: ${errorMsg}`);
+                              errors.push(`${assignment.student.name}: ${errorMsg}`);
+                              
+                              return {
+                                ...assignment,
+                                extractedSentences: assignment.ocrResult.sentences,
+                                extractionMethod: 'traditional' as const
+                              };
+                            }
+                          } catch (error) {
+                            const errorMsg = error instanceof Error ? error.message : '网络错误';
+                            console.error(`❌ 学生 ${assignment.student.name} 处理失败:`, error);
+                            errors.push(`${assignment.student.name}: ${errorMsg}`);
+                            
                             return {
                               ...assignment,
                               extractedSentences: assignment.ocrResult.sentences,
@@ -376,12 +564,28 @@ const BatchAssignmentPolish = () => {
                         })
                       );
 
-                      updateAssignments(updatedAssignments);
-                      updateTask({ status: 'sentence_extraction' });
+                      // 更新状态
+                      setTask(prevTask => {
+                        if (!prevTask) return prevTask;
+                        return {
+                          ...prevTask,
+                          assignments: updatedAssignments,
+                          status: 'sentence_extraction'
+                        };
+                      });
+
+                      // 显示结果
+                      if (errors.length > 0) {
+                        alert(`部分作业使用了备用提取方式：\n${errors.join('\n')}\n\n已使用基础分割方式处理这些作业。`);
+                      } else {
+                        console.log('✅ 所有作业句子提取完成');
+                      }
+
+                      // 进入下一步
                       handleNext();
                     } catch (error) {
                       console.error('句子提取失败:', error);
-                      alert('句子提取失败，请重试');
+                      alert(`句子提取失败: ${error instanceof Error ? error.message : '未知错误'}\n\n请检查网络连接后重试。`);
                     } finally {
                       setIsLoading(false);
                     }
@@ -398,6 +602,11 @@ const BatchAssignmentPolish = () => {
                     '开始智能提取句子'
                   )}
                 </Button>
+
+                {/* 显示提取说明 */}
+                <div className="mt-6 text-xs text-gray-500 max-w-md mx-auto">
+                  <p>💡 提示：如果 AI 提取失败，系统会自动使用基础分割方式处理</p>
+                </div>
               </div>
             </div>
           )}
@@ -419,17 +628,41 @@ const BatchAssignmentPolish = () => {
               assignments={task?.assignments || []}
               requirements={task?.requirements || []}
               onPolishComplete={(assignments) => {
-                updateAssignments(assignments);
-                updateTask({
-                  status: 'completed',
-                  completedAt: new Date(),
-                  pointsCost: calculatePoints(
-                    assignments.reduce((total, assignment) =>
-                      total + assignment.polishedSentences.length, 0
-                    )
-                  )
+                console.log('=== 润色完成回调 ===');
+                console.log('接收到的 assignments:', assignments.length);
+                console.log('第一个 assignment 的 polishedSentences:', assignments[0]?.polishedSentences?.length || 0);
+                
+                // 计算点数消耗（按学生数计算）
+                const studentCount = assignments.length;
+                const pointsCost = calculatePoints(studentCount);
+                
+                console.log('学生数量:', studentCount);
+                console.log('点数消耗:', pointsCost);
+                
+                // 直接更新完整的 task，确保 assignments 和状态一起更新
+                setTask(prevTask => {
+                  if (!prevTask) {
+                    console.error('No task exists in onPolishComplete');
+                    return null;
+                  }
+                  
+                  const updated = {
+                    ...prevTask,
+                    assignments: assignments,
+                    status: 'completed' as const,
+                    completedAt: new Date(),
+                    pointsCost: pointsCost
+                  };
+                  
+                  console.log('更新后的 task:', updated);
+                  console.log('更新后的 assignments 数量:', updated.assignments.length);
+                  console.log('第一个 assignment 的 polishedSentences:', updated.assignments[0]?.polishedSentences?.length || 0);
+                  
+                  return updated;
                 });
-                handleNext();
+                
+                // 设置润色完成状态
+                setIsPolishCompleted(true);
               }}
               onStatsUpdate={setProcessingStats}
             />
@@ -443,24 +676,30 @@ const BatchAssignmentPolish = () => {
           )}
 
           {/* 导航按钮 */}
-          <div className="flex justify-between mt-6 pt-6 border-t">
-            <Button
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={currentStep === 1}
-            >
-              上一步
-            </Button>
+          <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t">
+            <div className="flex gap-2 justify-center sm:justify-start">
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={currentStep === 1}
+                className="flex-1 sm:flex-none text-sm"
+              >
+                上一步
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRestart}
+                className="flex-1 sm:flex-none text-sm text-orange-600 border-orange-200 hover:bg-orange-50"
+              >
+                重新开始
+              </Button>
+            </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
               {task && (
-                <div className="text-sm text-gray-600">
+                <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
                   预计消耗: <span className="font-semibold text-purple-600">
-                    {calculatePoints(
-                      task.assignments.reduce((total, assignment) =>
-                        total + assignment.ocrResult.sentences.length, 0
-                      )
-                    )} 积分
+                    {calculatePoints(task.assignments.length || task.students.length || 0)} 点数
                   </span>
                 </div>
               )}
@@ -480,10 +719,9 @@ const BatchAssignmentPolish = () => {
                     handleNext();
                   }}
                   disabled={
-                    (currentStep === 1 && (!task?.students.length)) ||
-                    (currentStep === 2 && (!task?.requirements.length)) ||
                     (currentStep === 3 && (!task?.assignments.length) && processingStats.processedImages === 0)
                   }
+                  className="w-full sm:w-auto text-sm"
                 >
                   下一步
                 </Button>
@@ -491,7 +729,7 @@ const BatchAssignmentPolish = () => {
 
               {/* 调试信息 */}
               {process.env.NODE_ENV === 'development' && (
-                <div className="text-xs text-gray-500 mt-2">
+                <div className="text-xs text-gray-500 mt-2 text-center sm:text-left">
                   Step {currentStep} - Students: {task?.students.length || 0} -
                   Requirements: {task?.requirements.length || 0} -
                   Assignments: {task?.assignments.length || 0}
@@ -504,25 +742,25 @@ const BatchAssignmentPolish = () => {
 
       {/* 处理统计 */}
       {processingStats.totalImages > 0 && (
-        <Card className="mt-6">
-          <CardContent className="p-4">
-            <h4 className="font-semibold mb-2">处理统计</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <Card className="mt-3 sm:mt-4 md:mt-6">
+          <CardContent className="p-3 sm:p-4">
+            <h4 className="text-sm sm:text-base font-semibold mb-2 sm:mb-3">处理统计</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
               <div>
                 <div className="text-gray-600">图片处理</div>
-                <div className="font-semibold">
+                <div className="font-semibold text-sm sm:text-base">
                   {processingStats.processedImages} / {processingStats.totalImages}
                 </div>
               </div>
               <div>
                 <div className="text-gray-600">句子润色</div>
-                <div className="font-semibold">
+                <div className="font-semibold text-sm sm:text-base">
                   {processingStats.polishedSentences} / {processingStats.totalSentences}
                 </div>
               </div>
               <div>
                 <div className="text-gray-600">处理时间</div>
-                <div className="font-semibold">
+                <div className="font-semibold text-sm sm:text-base">
                   {Math.round(processingStats.processingTime / 1000)}秒
                 </div>
               </div>

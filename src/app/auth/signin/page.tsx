@@ -29,13 +29,43 @@ function SignInPageContent() {
     }
   }, [searchParams])
 
+  // 测试函数
+  const testAPI = async () => {
+    console.log('🧪 开始测试API调用...')
+    try {
+      const response = await fetch('/api/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ test: 'hello world' }),
+      })
+
+      console.log('📡 测试API响应状态:', response.status)
+      console.log('📡 测试API响应ok:', response.ok)
+
+      const data = await response.json()
+      console.log('📦 测试API响应数据:', data)
+    } catch (error) {
+      console.error('❌ 测试API调用失败:', error)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
+    // 先测试一下API是否工作
+    console.log('🧪 首先测试基础API...')
+    await testAPI()
+
     try {
-      console.log('开始登录请求...')
+      console.log('🔐 开始登录请求...')
+      console.log('请求URL:', '/api/auth/signin')
+      console.log('请求体:', { email, password: '***' })
+      console.log('请求方法:', 'POST')
+
       const response = await fetch('/api/auth/signin', {
         method: 'POST',
         headers: {
@@ -44,39 +74,85 @@ function SignInPageContent() {
         body: JSON.stringify({ email, password }),
       })
 
+      console.log('收到登录响应!')
       console.log('登录响应状态:', response.status)
       console.log('响应headers:', Object.fromEntries(response.headers.entries()))
+      console.log('response.ok:', response.ok)
+
+      // 检查响应是否为空
+      const responseClone = response.clone()
+      const responseText = await responseClone.text()
+      console.log('响应原始文本长度:', responseText.length)
+      console.log('响应原始文本:', responseText)
       
+      // 尝试解析JSON响应
+      let data
+      try {
+        data = JSON.parse(responseText)
+        console.log('JSON解析成功:', data)
+      } catch (parseError) {
+        console.error('JSON解析失败:', parseError)
+        console.error('响应文本:', responseText)
+
+        // 如果响应为空或不是JSON，提供更友好的错误信息
+        if (!responseText.trim()) {
+          throw new Error('服务器没有返回任何响应，请稍后重试')
+        }
+        throw new Error(`服务器响应格式错误: ${parseError.message}`)
+      }
+
       // 检查响应是否有效
       if (!response.ok) {
         let errorMessage = '登录失败'
-        try {
-          // 先读取原始文本
-          const responseText = await response.text()
-          console.log('响应原始文本:', responseText)
-          
-          // 尝试解析JSON
-          let errorData: { error?: string; rawText?: string } = {}
-          if (responseText) {
-            try {
-              errorData = JSON.parse(responseText)
-            } catch (e) {
-              console.error('JSON解析失败:', e)
-              errorData = { rawText: responseText }
-            }
-          }
 
-          errorMessage = errorData.error || errorMessage
-          console.error('登录错误详情:', errorData)
-        } catch (parseError) {
-          console.error('无法解析错误响应:', parseError)
-          errorMessage = `服务器错误 (${response.status})`
+        // 处理空对象或无效响应
+        if (!data || typeof data !== 'object') {
+          console.error('服务器返回了无效的响应:', data)
+          console.error('原始响应文本:', responseText)
+          throw new Error(`服务器错误 (HTTP ${response.status}): 响应格式不正确`)
         }
+
+        // 尝试从多个字段获取错误信息
+        const possibleErrors = [
+          data?.error,
+          data?.message,
+          data?.details,
+          data?.description,
+          data?.title,
+          JSON.stringify(data) // 最后显示完整对象
+        ]
+
+        console.error('登录错误详情 - 完整数据:', data)
+        console.error('可能的错误字段:', possibleErrors)
+
+        for (const err of possibleErrors) {
+          if (err && typeof err === 'string' && err.trim()) {
+            errorMessage = err
+            break
+          }
+        }
+
+        // 如果还是空的，使用状态码
+        if (errorMessage === '登录失败') {
+          errorMessage = `登录失败 (HTTP ${response.status})`
+        }
+
         throw new Error(errorMessage)
       }
 
-      const data = await response.json()
       console.log('登录成功:', data)
+
+      // 保存token到localStorage和sessionStorage（Edge浏览器兼容）
+      if (data.accessToken) {
+        localStorage.setItem('sb-access-token', data.accessToken)
+        sessionStorage.setItem('sb-access-token', data.accessToken)
+        console.log('Token已保存到localStorage和sessionStorage')
+      }
+
+      if (data.refreshToken) {
+        localStorage.setItem('sb-refresh-token', data.refreshToken)
+        sessionStorage.setItem('sb-refresh-token', data.refreshToken)
+      }
 
       // 登录成功，重定向到原始请求页面或主页
       const redirectTo = searchParams.get('redirect') || '/'

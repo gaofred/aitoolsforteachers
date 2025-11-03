@@ -25,6 +25,7 @@ interface ResultTableProps {
 export const ResultTable: React.FC<ResultTableProps> = ({ task, stats }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
+
   // 过滤作业数据
   const filteredAssignments = task?.assignments.filter(assignment =>
     assignment.student.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -80,7 +81,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ task, stats }) => {
     content += `生成时间: ${new Date().toLocaleString()}\n`;
     content += `处理学生: ${task.assignments.length} 名\n`;
     content += `处理句子: ${calculatedStats?.totalSentences || 0} 句\n`;
-    content += `消耗积分: ${task.pointsCost} 点\n\n`;
+    content += `消耗点数: ${task.pointsCost} 点\n\n`;
 
     task.assignments.forEach(assignment => {
       content += `【${assignment.student.name}】\n`;
@@ -98,62 +99,107 @@ export const ResultTable: React.FC<ResultTableProps> = ({ task, stats }) => {
     copyToClipboard(content);
   };
 
+  // 导出为TXT文件
+  const exportToTxt = () => {
+    if (!task) return;
+
+    let content = `批量润色结果报告\n`;
+    content += `生成时间: ${new Date().toLocaleString()}\n`;
+    content += `处理学生: ${task.assignments.length} 名\n`;
+    content += `处理句子: ${calculatedStats?.totalSentences || 0} 句\n`;
+    content += `优化句子: ${calculatedStats?.improvedSentences || 0} 句\n`;
+    content += `优化率: ${calculatedStats?.improvementRate.toFixed(1) || 0}%\n`;
+    content += `处理时间: ${calculatedStats?.processingTime.toFixed(1) || 0} 秒\n`;
+    content += `消耗点数: ${task.pointsCost} 点\n`;
+    content += `${'='.repeat(50)}\n\n`;
+
+    task.assignments.forEach((assignment, studentIndex) => {
+      content += `【学生 ${studentIndex + 1}: ${assignment.student.name}】\n`;
+      content += `${'-'.repeat(40)}\n`;
+      
+      assignment.polishedSentences.forEach((sentence, index) => {
+        content += `\n句子 ${index + 1}:\n`;
+        content += `原句: ${sentence.original}\n`;
+        content += `润色: ${sentence.polished}\n`;
+        if (sentence.explanation) {
+          content += `说明: ${sentence.explanation}\n`;
+        }
+        content += `状态: ${sentence.confidence > 0 ? '优化完成' : '保持原句'}\n`;
+        content += '\n';
+      });
+      content += '\n';
+    });
+
+    // 创建Blob对象并下载
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `批量润色结果_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    alert('TXT文件导出成功！');
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* 统计概览 */}
       {calculatedStats && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">处理结果概览</CardTitle>
+          <CardHeader className="p-3 sm:p-4 md:p-6">
+            <CardTitle className="text-base sm:text-lg">处理结果概览</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <CardContent className="p-3 sm:p-4 md:p-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
               <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-blue-100 rounded-lg mb-2">
-                  <Users className="w-6 h-6 text-blue-600" />
+                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 mx-auto bg-blue-100 rounded-lg mb-1 sm:mb-2">
+                  <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{calculatedStats.totalStudents}</div>
-                <div className="text-sm text-gray-600">处理学生</div>
+                <div className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.totalStudents}</div>
+                <div className="text-xs sm:text-sm text-gray-600">处理学生</div>
               </div>
 
               <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-green-100 rounded-lg mb-2">
-                  <FileText className="w-6 h-6 text-green-600" />
+                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 mx-auto bg-green-100 rounded-lg mb-1 sm:mb-2">
+                  <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{calculatedStats.totalSentences}</div>
-                <div className="text-sm text-gray-600">处理句子</div>
+                <div className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.totalSentences}</div>
+                <div className="text-xs sm:text-sm text-gray-600">处理句子</div>
               </div>
 
               <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-purple-100 rounded-lg mb-2">
-                  <TrendingUp className="w-6 h-6 text-purple-600" />
+                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 mx-auto bg-purple-100 rounded-lg mb-1 sm:mb-2">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{calculatedStats.improvedSentences}</div>
-                <div className="text-sm text-gray-600">优化句子</div>
+                <div className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.improvedSentences}</div>
+                <div className="text-xs sm:text-sm text-gray-600">优化句子</div>
               </div>
 
               <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-orange-100 rounded-lg mb-2">
-                  <CheckCircle className="w-6 h-6 text-orange-600" />
+                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 mx-auto bg-orange-100 rounded-lg mb-1 sm:mb-2">
+                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{calculatedStats.improvementRate.toFixed(1)}%</div>
-                <div className="text-sm text-gray-600">优化率</div>
+                <div className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.improvementRate.toFixed(1)}%</div>
+                <div className="text-xs sm:text-sm text-gray-600">优化率</div>
               </div>
 
               <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-cyan-100 rounded-lg mb-2">
-                  <Clock className="w-6 h-6 text-cyan-600" />
+                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 mx-auto bg-cyan-100 rounded-lg mb-1 sm:mb-2">
+                  <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-600" />
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{calculatedStats.processingTime.toFixed(1)}s</div>
-                <div className="text-sm text-gray-600">处理时间</div>
+                <div className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.processingTime.toFixed(1)}s</div>
+                <div className="text-xs sm:text-sm text-gray-600">处理时间</div>
               </div>
 
               <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-lg mb-2">
-                  <span className="text-lg font-bold text-red-600">{calculatedStats.pointsUsed}</span>
+                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 mx-auto bg-red-100 rounded-lg mb-1 sm:mb-2">
+                  <span className="text-base sm:text-lg font-bold text-red-600">{calculatedStats.pointsUsed}</span>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{calculatedStats.pointsUsed}</div>
-                <div className="text-sm text-gray-600">消耗积分</div>
+                <div className="text-lg sm:text-2xl font-bold text-gray-900">{calculatedStats.pointsUsed}</div>
+                <div className="text-xs sm:text-sm text-gray-600">消耗点数</div>
               </div>
             </div>
           </CardContent>
@@ -162,16 +208,17 @@ export const ResultTable: React.FC<ResultTableProps> = ({ task, stats }) => {
 
       {/* 搜索和筛选 */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">结果筛选</CardTitle>
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="text-base sm:text-lg">结果筛选</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
+        <CardContent className="p-3 sm:p-4 md:p-6">
+          <div className="flex gap-2 sm:gap-4">
             <div className="flex-1">
               <Input
                 placeholder="搜索学生姓名..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="text-sm sm:text-base"
               />
             </div>
           </div>
@@ -180,77 +227,98 @@ export const ResultTable: React.FC<ResultTableProps> = ({ task, stats }) => {
 
       {/* 结果表格 */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center justify-between">
-            <span>润色结果详情</span>
-            <div className="flex gap-2">
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="text-base sm:text-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+            <span className="text-base sm:text-lg">润色结果详情</span>
+            <div className="flex gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 onClick={copyAllResults}
-                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                className="flex-1 sm:flex-none text-xs sm:text-sm text-blue-600 border-blue-200 hover:bg-blue-50"
               >
-                <Copy className="w-4 h-4 mr-2" />
+                <Copy className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 复制全部
+              </Button>
+              <Button
+                variant="outline"
+                onClick={exportToTxt}
+                className="flex-1 sm:flex-none text-xs sm:text-sm text-green-600 border-green-200 hover:bg-green-50"
+              >
+                <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                导出txt
               </Button>
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 sm:p-4 md:p-6">
           {filteredAssignments.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <p>暂无匹配的结果</p>
             </div>
           ) : (
             <div className="space-y-6">
-              {filteredAssignments.map((assignment) => (
-                <Card key={assignment.id}>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center justify-between">
-                      <span>{assignment.student.name}</span>
-                      <Badge variant="outline">
-                        {assignment.polishedSentences.length} 句
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {assignment.polishedSentences.map((sentence, index) => (
-                        <div key={index} className="border-l-4 border-blue-400 pl-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-medium">句子 {index + 1}</span>
-                            {sentence.confidence > 0 ? (
-                              <Badge variant="default" className="bg-green-500 text-xs">
-                                优化完成
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs">
-                                保持原句
-                              </Badge>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="font-medium text-gray-700">原句:</span>
-                              <p className="mt-1 p-2 bg-gray-50 rounded">{sentence.original}</p>
-                            </div>
-                            <div>
-                              <span className="font-medium text-gray-700">润色后:</span>
-                              <p className="mt-1 p-2 bg-green-50 rounded text-green-800">{sentence.polished}</p>
-                            </div>
-                          </div>
-
-                          {sentence.explanation && (
-                            <div className="text-sm text-blue-600 mt-2">
-                              <span className="font-medium">说明:</span> {sentence.explanation}
-                            </div>
-                          )}
+              {filteredAssignments.map((assignment) => {
+                const polishedSentences = assignment.polishedSentences || [];
+                
+                return (
+                  <Card key={assignment.id}>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center justify-between">
+                        <span>{assignment.student.name}</span>
+                        <Badge variant="outline">
+                          {polishedSentences.length} 句
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {polishedSentences.length === 0 ? (
+                        <div className="text-center py-6 text-gray-500">
+                          <p className="text-sm">该学生暂无润色结果</p>
+                          <p className="text-xs text-gray-400 mt-2">
+                            请检查第7步是否已完成润色处理
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      ) : (
+                        <div className="space-y-4">
+                          {polishedSentences.map((sentence, index) => (
+                            <div key={index} className="border-l-4 border-blue-400 pl-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-medium">句子 {index + 1}</span>
+                                {sentence.confidence > 0 ? (
+                                  <Badge variant="default" className="bg-green-500 text-xs">
+                                    优化完成
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs">
+                                    保持原句
+                                  </Badge>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <span className="font-medium text-gray-700">原句:</span>
+                                  <p className="mt-1 p-2 bg-gray-50 rounded">{sentence.original || '原句数据缺失'}</p>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-700">润色后:</span>
+                                  <p className="mt-1 p-2 bg-green-50 rounded text-green-800">{sentence.polished || '润色结果缺失'}</p>
+                                </div>
+                              </div>
+
+                              {sentence.explanation && (
+                                <div className="text-sm text-blue-600 mt-2">
+                                  <span className="font-medium">说明:</span> {sentence.explanation}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </CardContent>

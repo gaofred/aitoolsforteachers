@@ -5,7 +5,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { cookies } from 'next/headers'
 
 interface AnalysisRequest {
   text: string
@@ -51,20 +50,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 获取用户信息
-    const cookieStore = await cookies()
-    const accessToken = cookieStore.get('sb-access-token')?.value
+    const supabase = createServerSupabaseClient()
 
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: '未认证，请先登录' },
-        { status: 401 }
-      )
-    }
+    // 使用Supabase标准认证方式
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    const supabase = createServerSupababaseClient()
-    const { data: { user } } = await supabase.auth.getUser(accessToken)
-
-    if (!user) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: '用户认证失败' },
         { status: 401 }

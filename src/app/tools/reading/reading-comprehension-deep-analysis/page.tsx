@@ -455,7 +455,7 @@ export default function ReadingComprehensionDeepAnalysisPage() {
     }
 
     if (!hasEnoughPoints) {
-      toast.error(`积分不足，需要 ${toolCost} 点`)
+      toast.error(`点数不足，需要 ${toolCost} 点`)
       return
     }
 

@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     const currentPointsValue = (currentPoints as any)?.points || 0;
-    const rewardPoints = 20;
+    const rewardPoints = 10;
     const newPoints = currentPointsValue + rewardPoints;
 
     // 更新积分
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `恭喜！获得每日登录奖励 ${rewardPoints} 积分`,
+      message: `恭喜！获得每日登录奖励 ${rewardPoints} 点数`,
       pointsAdded: rewardPoints,
       newPoints: newPoints,
       alreadyClaimed: false
@@ -141,16 +141,8 @@ export async function GET(request: NextRequest) {
   try {
     console.log('每日奖励API GET - 收到请求');
 
-    const cookieStore = await cookies()
-    const accessToken = cookieStore.get('sb-access-token')?.value
-
-    if (!accessToken) {
-      console.log('每日奖励API GET - 无token');
-      return NextResponse.json({ error: '未认证' }, { status: 401 })
-    }
-
     const supabase = createServerSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       console.log('每日奖励API GET - 认证错误:', authError);

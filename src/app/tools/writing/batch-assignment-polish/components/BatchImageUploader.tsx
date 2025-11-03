@@ -21,6 +21,7 @@ interface UploadedImage {
   ocrResult?: OCRResult;
   status: 'pending' | 'processing' | 'completed' | 'error';
   error?: string;
+  retryCount?: number; // 重试次数
 }
 
 export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
@@ -169,24 +170,38 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     });
   };
 
-  // 重新处理图片
+  // 重新处理图片（手动重试）
   const retryImage = async (imageId: string) => {
     const image = images.find(img => img.id === imageId);
     if (!image) return;
 
+    console.log(`手动重试图片: ${image.file.name}`);
+    
     setImages(prev => prev.map(img =>
-      img.id === imageId ? { ...img, status: 'pending', error: undefined } : img
+      img.id === imageId ? { 
+        ...img, 
+        status: 'pending', 
+        error: undefined,
+        retryCount: 0 // 重置重试计数
+      } : img
     ));
 
-    await processSingleImage(image);
+    await processSingleImage(image, 0); // 从0开始重试
   };
 
-  // 处理单个图片OCR
-  const processSingleImage = async (image: UploadedImage): Promise<OCRResult | null> => {
+  // 处理单个图片OCR（带重试机制）
+  const processSingleImage = async (image: UploadedImage, retryCount: number = 0): Promise<OCRResult | null> => {
+    const maxRetries = 1; // 最多重试1次
+    
     try {
       // 更新状态为处理中
       setImages(prev => prev.map(img =>
-        img.id === image.id ? { ...img, status: 'processing' } : img
+        img.id === image.id ? { 
+          ...img, 
+          status: 'processing',
+          error: undefined,
+          retryCount: retryCount
+        } : img
       ));
 
       // 转换图片为base64
@@ -223,31 +238,49 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       }
 
       const ocrText = data.result;
-      console.log('OCR识别原文:', ocrText);
+      console.log(`OCR识别原文 (尝试${retryCount + 1}):`, ocrText);
 
       // 简化处理：直接使用基础解析，不再进行AI提取
       const parsedResult = parseOCRResult(ocrText, image.id);
 
       // 更新图片状态
       setImages(prev => prev.map(img =>
-        img.id === image.id ? { ...img, ocrResult: parsedResult, status: 'completed' } : img
+        img.id === image.id ? { 
+          ...img, 
+          ocrResult: parsedResult, 
+          status: 'completed',
+          retryCount: retryCount
+        } : img
       ));
 
       return parsedResult;
 
     } catch (error) {
-      console.error('OCR处理失败:', error);
+      console.error(`OCR处理失败 (尝试${retryCount + 1}):`, error);
       const errorMessage = error instanceof Error ? error.message : '未知错误';
 
+      // 如果还有重试次数，自动重试
+      if (retryCount < maxRetries) {
+        console.log(`开始第${retryCount + 2}次尝试...`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 延迟2秒后重试
+        return await processSingleImage(image, retryCount + 1);
+      }
+
+      // 重试次数用完，标记为错误
       setImages(prev => prev.map(img =>
-        img.id === image.id ? { ...img, status: 'error', error: errorMessage } : img
+        img.id === image.id ? { 
+          ...img, 
+          status: 'error', 
+          error: `${errorMessage} (已重试${maxRetries}次)`,
+          retryCount: retryCount
+        } : img
       ));
 
       return null;
     }
   };
 
-  // 解析OCR结果 - 简化版，只做基础分割
+  // 解析OCR结果 - 优化中文姓名识别
   const parseOCRResult = (ocrText: string, imageId: string): OCRResult => {
     console.log('OCR识别的原始文本:', ocrText);
 
@@ -258,31 +291,58 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     let studentName = "";
     let englishText = "";
 
-    // 查找中文姓名（假设姓名在第一行或包含中文）
-    const chineseNamePattern = /^[\u4e00-\u9fa5]{2,4}$/;
-    const nameIndex = lines.findIndex(line => chineseNamePattern.test(line.trim()));
-
+    // 优化学生姓名识别逻辑 - 优先识别中文姓名
+    let nameIndex = -1;
+    
+    // 1. 优先查找 "中文姓名." 格式（如 "张三.", "李明."）
+    const chineseNameWithDotPattern = /^[\u4e00-\u9fa5]{2,4}\.$/;
+    nameIndex = lines.findIndex(line => chineseNameWithDotPattern.test(line.trim()));
+    
     if (nameIndex !== -1) {
-      studentName = lines[nameIndex].trim();
+      // 找到了 "中文姓名." 格式，去掉末尾的点
+      studentName = lines[nameIndex].trim().replace(/\.$/, '');
+      console.log(`✅ 识别到中文姓名格式 "XX.": ${studentName}`);
       // 合并姓名之后的所有行作为英文文本
       englishText = lines.slice(nameIndex + 1).join(' ');
     } else {
-      // 如果没找到中文姓名，尝试其他方式识别姓名
-      const mixedNamePattern = /[\u4e00-\u9fa5]+/;
-      const firstLineWithChinese = lines.find(line => mixedNamePattern.test(line));
-
-      if (firstLineWithChinese) {
-        // 提取中文部分作为姓名
-        const chineseMatch = firstLineWithChinese.match(/[\u4e00-\u9fa5]+/);
-        studentName = chineseMatch ? chineseMatch[0] : "未知学生";
-
-        // 去除姓名行，保留剩余文本
-        const nameLineIndex = lines.indexOf(firstLineWithChinese);
-        englishText = lines.slice(nameLineIndex + 1).join(' ');
+      // 2. 查找纯中文姓名（2-4个中文字符，最常见）
+      const chineseNamePattern = /^[\u4e00-\u9fa5]{2,4}$/;
+      nameIndex = lines.findIndex(line => chineseNamePattern.test(line.trim()));
+      
+      if (nameIndex !== -1) {
+        studentName = lines[nameIndex].trim();
+        console.log(`✅ 识别到中文姓名: ${studentName}`);
+        englishText = lines.slice(nameIndex + 1).join(' ');
       } else {
-        // 如果完全没找到中文，使用第一行作为姓名
-        studentName = lines[0]?.trim() || "未知学生";
-        englishText = lines.slice(1).join(' ');
+        // 3. 尝试从包含中文的行中提取姓名（可能是混合格式，如 "姓名: 张三"）
+        const mixedNamePattern = /[\u4e00-\u9fa5]{2,4}/;
+        const firstLineWithChinese = lines.find(line => mixedNamePattern.test(line));
+
+        if (firstLineWithChinese) {
+          // 提取中文部分作为姓名（优先提取2-4个中文字符）
+          const chineseMatch = firstLineWithChinese.match(/[\u4e00-\u9fa5]{2,4}/);
+          if (chineseMatch) {
+            studentName = chineseMatch[0];
+            console.log(`✅ 从混合文本中提取中文姓名: ${studentName}`);
+            
+            // 去除姓名行，保留剩余文本
+            const nameLineIndex = lines.indexOf(firstLineWithChinese);
+            englishText = lines.slice(nameLineIndex + 1).join(' ');
+          } else {
+            // 如果没找到2-4个字符的，尝试提取任何中文
+            const anyChineseMatch = firstLineWithChinese.match(/[\u4e00-\u9fa5]+/);
+            studentName = anyChineseMatch ? anyChineseMatch[0] : "未知学生";
+            console.log(`⚠️ 提取到中文姓名（可能不完整）: ${studentName}`);
+            const nameLineIndex = lines.indexOf(firstLineWithChinese);
+            englishText = lines.slice(nameLineIndex + 1).join(' ');
+          }
+        } else {
+          // 4. 如果完全没找到中文姓名，使用第一行作为姓名（但标注为未知）
+          studentName = lines[0]?.trim() || "未知学生";
+          console.log(`⚠️ 未找到中文姓名，使用第一行: ${studentName}`);
+          console.log(`⚠️ 提示：OCR识别结果中未找到中文姓名，请检查图片或手动匹配`);
+          englishText = lines.slice(1).join(' ');
+        }
       }
     }
 
@@ -300,6 +360,7 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     return {
       imageId,
       studentName,
+      originalText: ocrText, // 保存完整的OCR原文
       sentences: sentences.length > 0 ? sentences : [englishText.trim() || ocrText],
       confidence: 0.8, // 模拟置信度
       processedAt: new Date()
@@ -452,21 +513,8 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     }
   };
 
-  // 测试：在组件顶部显示调试信息
-  console.log('🔧 BatchImageUploader render - start');
-
   return (
     <div className="space-y-6">
-      {/* 调试信息显示 */}
-      <div className="bg-red-100 border border-red-300 rounded p-2 text-xs">
-        <strong>🔧 调试信息：</strong>
-        <br />组件已渲染: ✅
-        <br />图片数量: {images.length}
-        <br />处理中: {isProcessing ? '是' : '否'}
-        <br />按钮点击次数: {buttonClicks}
-        <br />回调函数: {typeof onOCRComplete === 'function' ? '存在' : '不存在'}
-        <br />按钮是否禁用: {images.length === 0 || isProcessing ? '是' : '否'}
-      </div>
 
       {/* 上传区域 */}
       <Card>
@@ -677,7 +725,9 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                       {image.status === 'processing' && (
                         <Badge variant="default" className="bg-blue-500">
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          处理中
+                          {image.retryCount && image.retryCount > 0 
+                            ? `重试中 (${image.retryCount + 1}/2)` 
+                            : '处理中'}
                         </Badge>
                       )}
                       {image.status === 'completed' && (
@@ -772,8 +822,9 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           <ul className="text-sm text-blue-700 space-y-1">
             <li>• <strong>批量上传</strong>：支持拖拽或点击选择多张图片</li>
             <li>• <strong>OCR识别</strong>：专注于图像文字识别，提取原始文本内容</li>
+            <li>• <strong>智能重试</strong>：识别失败时自动重试1次，最终失败可手动重试</li>
             <li>• <strong>并行处理</strong>：同时处理多张图片，提高效率</li>
-            <li>• <strong>错误处理</strong>：识别失败时可重新处理</li>
+            <li>• <strong>错误恢复</strong>：针对具体错误图片可单独重新处理</li>
             <li>• <strong>格式要求</strong>：建议图片清晰，文字大小适中</li>
             <li>• <strong>命名建议</strong>：图片中最好包含学生姓名便于匹配</li>
             <li>• <strong>下一步</strong>：句子提取将在单独步骤中进行智能处理</li>

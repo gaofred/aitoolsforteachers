@@ -113,7 +113,7 @@ export default function TextbookVocabularyOrganisePage() {
         // 成功时更新用户点数
         refreshUser();
       } else {
-        // 检查是否退还了积分
+        // 检查是否退还了点数
         if (data.refunded && data.pointsRefunded) {
           alert(`❌ 词汇整理失败\n\n💰 已退还 ${data.pointsRefunded} 点数到您的账户\n失败原因：${data.error || '系统错误，请稍后重试'}\n\n请检查网络连接后重试`);
           refreshUser();
@@ -252,7 +252,7 @@ export default function TextbookVocabularyOrganisePage() {
         // 成功时更新用户点数
         refreshUser();
       } else {
-        // 检查是否退还了积分
+        // 检查是否退还了点数
         if (data.refunded && data.pointsRefunded) {
           alert(`❌ 词汇成篇失败\n\n💰 已退还 ${data.pointsRefunded} 点数到您的账户\n失败原因：${data.error || '系统错误，请稍后重试'}\n\n请检查网络连接后重试`);
           refreshUser();
@@ -281,7 +281,7 @@ export default function TextbookVocabularyOrganisePage() {
       const data = await response.json();
 
       if (data.points < 4) {
-        alert('点数不足，生成针对性练习需要消耗4个积分');
+        alert('点数不足，生成针对性练习需要消耗4点数');
         return;
       }
     } catch (error) {
@@ -312,7 +312,7 @@ export default function TextbookVocabularyOrganisePage() {
         // 成功时更新用户点数
         refreshUser();
       } else {
-        // 检查是否退还了积分
+        // 检查是否退还了点数
         if (data.refunded && data.pointsRefunded) {
           alert(`❌ 针对性练习生成失败\n\n💰 已退还 ${data.pointsRefunded} 点数到您的账户\n失败原因：${data.error || '系统错误，请稍后重试'}\n\n请检查网络连接后重试`);
           refreshUser();
@@ -685,8 +685,8 @@ export default function TextbookVocabularyOrganisePage() {
                     <li>• AI按子主题分类整理词汇</li>
                     <li>• 为每类词汇生成功能例句</li>
                     <li>• 提供配套译文展示用法</li>
-                    <li>• 生成词汇成篇示范段落 (3积分)</li>
-                    <li>• 创作针对性填空练习 (4积分)</li>
+                    <li>• 生成词汇成篇示范段落 (3点数)</li>
+                    <li>• 创作针对性填空练习 (4点数)</li>
                     <li>• 支持拍照/图片识别词汇</li>
                     <li>• 一键导出TXT文件</li>
                   </ul>
@@ -840,7 +840,7 @@ export default function TextbookVocabularyOrganisePage() {
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
-                              <span className="truncate">词汇成篇 (3积分)</span>
+                              <span className="truncate">词汇成篇 (3点数)</span>
                             </>
                           )}
                         </Button>
@@ -862,7 +862,7 @@ export default function TextbookVocabularyOrganisePage() {
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                               </svg>
-                              <span className="truncate">生成练习 (4积分)</span>
+                              <span className="truncate">生成练习 (4点数)</span>
                             </>
                           )}
                         </Button>

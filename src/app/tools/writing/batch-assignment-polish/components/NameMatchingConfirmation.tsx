@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 // import { Alert, AlertDescription } from "@/components/ui/alert"; // 暂时移除
-import { CheckCircle, AlertCircle, User, Search, RefreshCw } from "lucide-react";
+import { CheckCircle, AlertCircle, User, Search, RefreshCw, Edit3, Plus } from "lucide-react";
 import type { StudentAssignment, Student, NameMatch } from "../types";
 
 interface NameMatchingConfirmationProps {
@@ -25,6 +26,8 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
   const [nameMatches, setNameMatches] = useState<NameMatch[]>([]);
   const [confirmedMatches, setConfirmedMatches] = useState<Set<string>>(new Set());
   const [manualMatches, setManualMatches] = useState<Map<string, string>>(new Map());
+  const [customNames, setCustomNames] = useState<Map<string, string>>(new Map()); // 自定义输入的姓名
+  const [editingName, setEditingName] = useState<string | null>(null); // 正在编辑的作业ID
 
   // 计算字符串相似度（编辑距离算法）
   const calculateSimilarity = (str1: string, str2: string): number => {
@@ -147,6 +150,40 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
     }
   };
 
+  // 手动输入学生姓名
+  const handleCustomNameInput = (matchIndex: string, customName: string) => {
+    const index = parseInt(matchIndex.replace('match_', ''));
+    const match = nameMatches[index];
+    
+    if (match && customName.trim()) {
+      // 创建一个临时学生对象
+      const customStudent: Student = {
+        id: `custom_${Date.now()}_${Math.random()}`,
+        name: customName.trim(),
+        confirmed: true
+      };
+
+      // 更新匹配结果
+      const updatedMatches = [...nameMatches];
+      updatedMatches[index] = {
+        ...match,
+        matchedStudent: customStudent,
+        confidence: 1.0,
+        confirmed: true
+      };
+      
+      setNameMatches(updatedMatches);
+      setCustomNames(prev => new Map(prev).set(matchIndex, customName.trim()));
+      setConfirmedMatches(prev => new Set(prev).add(matchIndex));
+      setEditingName(null);
+    }
+  };
+
+  // 设置默认匿名姓名
+  const setAnonymousName = (matchIndex: string) => {
+    handleCustomNameInput(matchIndex, "匿名");
+  };
+
   // 获取匹配状态颜色
   const getMatchStatusColor = (match: NameMatch, isConfirmed: boolean) => {
     if (!match.matchedStudent) return 'bg-gray-100 border-gray-300';
@@ -225,6 +262,20 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* 操作提示 */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2 text-yellow-800 mb-2">
+              <AlertCircle className="w-4 h-4" />
+              <span className="font-medium text-sm">灵活姓名匹配</span>
+            </div>
+            <div className="text-xs text-yellow-700 space-y-1">
+              <p>• <strong>自动匹配</strong>：系统根据OCR识别结果自动匹配学生姓名</p>
+              <p>• <strong>手动输入</strong>：可以为任何作业手动输入学生姓名</p>
+              <p>• <strong>匿名处理</strong>：不知道学生姓名时可以设置为"匿名"</p>
+              <p>• <strong>选择已有</strong>：从第一步录入的学生名单中选择</p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
@@ -326,9 +377,44 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
                 </div>
               </div>
 
+              {/* 手动输入姓名区域 */}
+              {editingName === `match_${index}` && (
+                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm font-medium text-blue-800 mb-2">手动输入学生姓名</div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="请输入学生姓名"
+                      className="flex-1"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          const target = e.target as HTMLInputElement;
+                          handleCustomNameInput(`match_${index}`, target.value);
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <Button
+                      onClick={() => setAnonymousName(`match_${index}`)}
+                      variant="outline"
+                      size="sm"
+                      className="text-gray-600"
+                    >
+                      使用"匿名"
+                    </Button>
+                    <Button
+                      onClick={() => setEditingName(null)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* 操作按钮 */}
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {match.matchedStudent && !confirmedMatches.has(`match_${index}`) && (
                     <Button
                       size="sm"
@@ -350,12 +436,38 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
                       取消确认
                     </Button>
                   )}
+
+                  {/* 手动输入姓名按钮 */}
+                  {!confirmedMatches.has(`match_${index}`) && (
+                    <Button
+                      onClick={() => setEditingName(`match_${index}`)}
+                      variant="outline"
+                      size="sm"
+                      className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    >
+                      <Edit3 className="w-4 h-4 mr-1" />
+                      手动输入姓名
+                    </Button>
+                  )}
+
+                  {/* 快速设置匿名 */}
+                  {!confirmedMatches.has(`match_${index}`) && (
+                    <Button
+                      onClick={() => setAnonymousName(`match_${index}`)}
+                      variant="outline"
+                      size="sm"
+                      className="text-gray-600 border-gray-200 hover:bg-gray-50"
+                    >
+                      <User className="w-4 h-4 mr-1" />
+                      设为匿名
+                    </Button>
+                  )}
                 </div>
 
                 {/* 手动选择学生 */}
-                {!match.matchedStudent || !confirmedMatches.has(`match_${index}`) ? (
+                {!match.matchedStudent && students.length > 0 && !confirmedMatches.has(`match_${index}`) && (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">手动选择:</span>
+                    <span className="text-sm text-gray-600">选择已有学生:</span>
                     <Select
                       value=""
                       onValueChange={(value) => handleManualMatch(`match_${index}`, value)}
@@ -372,7 +484,7 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
                       </SelectContent>
                     </Select>
                   </div>
-                ) : null}
+                )}
               </div>
             </CardContent>
           </Card>

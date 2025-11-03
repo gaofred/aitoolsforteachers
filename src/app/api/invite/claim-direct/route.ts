@@ -119,9 +119,9 @@ export async function POST(request: NextRequest) {
     console.log('邀请记录创建成功:', (newInvitation as any)?.id)
 
     // 6. 计算奖励
-    let basePoints = 30
+    const basePoints = 30
     let bonusPoints = 0
-    let milestoneRewards: Array<{threshold: number, points: number, description: string}> = []
+    const milestoneRewards: Array<{threshold: number, points: number, description: string}> = []
 
     // 获取当前成功邀请人数
     const { data: successfulInvites, error: countError } = await supabase

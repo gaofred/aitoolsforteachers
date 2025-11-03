@@ -179,21 +179,21 @@ export async function POST(request: NextRequest) {
           console.log('用户记录创建成功');
         }
 
-        // 2. 然后创建用户积分记录（如果不存在）
+        // 2. 然后创建用户点数记录（如果不存在）
         const { error: pointsError } = await supabase
           .from('user_points')
           .upsert({
             user_id: data.user.id,
-            points: 25, // 新用户赠送25积分
+            points: 15, // 新用户赠送15点数
             last_updated: new Date().toISOString()
           } as any, {
             onConflict: 'user_id'
           } as any);
 
         if (pointsError) {
-          console.error('创建用户积分记录失败:', pointsError);
+          console.error('创建用户点数记录失败:', pointsError);
         } else {
-          console.log('用户积分记录创建成功');
+          console.log('用户点数记录创建成功');
         }
 
         // 3. 最后创建用户会员记录（如果不存在）
@@ -266,8 +266,8 @@ export async function POST(request: NextRequest) {
         id: data.user?.id,
         email: data.user?.email,
         name: data.user?.user_metadata?.display_name,
-        initialPoints: 25,
-        note: "新用户赠送25积分，首次每日签到再获得25积分，第一天共50积分"
+        initialPoints: 15,
+        note: "新用户赠送15点数，首次每日签到再获得10点数，第一天共25点数"
       }
     })
 

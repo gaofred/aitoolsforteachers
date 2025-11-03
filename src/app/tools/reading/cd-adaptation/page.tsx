@@ -188,7 +188,7 @@ export default function CDAdaptationPage() {
     // 创建图片的快照，防止在识别过程中被清除
     const imageSnapshot = [...imagesToRecognize]
     setIsRecognizing(true)
-    let allTexts: string[] = []
+    const allTexts: string[] = []
 
     try {
       // 并行识别所有图片（使用快照，防止状态被清除）

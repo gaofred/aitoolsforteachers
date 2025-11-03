@@ -170,7 +170,7 @@ export const RequirementInput: React.FC<RequirementInputProps> = ({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center justify-between">
-            <span>设置润色要求</span>
+            <span>设置润色要求（可选）</span>
             <Button
               variant="outline"
               size="sm"
@@ -183,6 +183,9 @@ export const RequirementInput: React.FC<RequirementInputProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+            💡 提示：如果不设置特殊要求，AI将使用默认的润色规则（修正语法错误、改进词汇选择、优化句式结构）
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* 句子索引 */}
             <div>
@@ -306,10 +309,10 @@ export const RequirementInput: React.FC<RequirementInputProps> = ({
 
           {/* 额外要求 */}
           <div>
-            <label htmlFor="notes" className="text-sm font-medium text-gray-700">额外要求说明</label>
+            <label htmlFor="notes" className="text-sm font-medium text-gray-700">额外要求说明（如固定的句式等...）</label>
             <Textarea
               id="notes"
-              placeholder="例如：保持原意，使用更高级的词汇，确保语法正确等..."
+              placeholder="例如：保持原意，使用更高级的词汇，确保语法正确，使用固定句式结构等..."
               value={newRequirement.notes}
               onChange={(e) => setNewRequirement({
                 ...newRequirement,

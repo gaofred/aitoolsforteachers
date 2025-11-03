@@ -39,6 +39,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 开发环境特殊处理
+    if (process.env.NODE_ENV === 'development' &&
+        (email === 'admin@example.com' && password === 'admin123')) {
+      console.log('🔧 开发环境管理员登录')
+      return NextResponse.json({
+        message: "开发环境登录成功！",
+        user: {
+          id: 'dev-admin',
+          email: 'admin@example.com',
+          name: '开发管理员',
+          emailConfirmed: true
+        },
+        accessToken: `dev-token-${Date.now()}`,
+        refreshToken: `dev-refresh-${Date.now()}`
+      })
+    }
+
     // 使用Supabase进行邮箱登录
     console.log('调用Supabase登录API...')
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -50,11 +67,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Supabase登录失败:', error)
-      
+
       // 提供更详细的错误信息
       let errorMessage = '登录失败'
       if (error.message.includes('Invalid login credentials')) {
         errorMessage = '邮箱或密码错误'
+      } else if (error.message.includes('fetch failed')) {
+        errorMessage = '开发环境Supabase连接失败，请使用管理员账号：admin@example.com / admin123'
       } else {
         errorMessage = `登录失败: ${error.message}`
       }
@@ -63,7 +82,9 @@ export async function POST(request: NextRequest) {
         {
           error: errorMessage,
           details: error,
-          suggestion: "请检查邮箱和密码是否正确，或尝试重置密码。"
+          suggestion: error.message.includes('fetch failed')
+            ? "请在开发环境使用：admin@example.com / admin123"
+            : "请检查邮箱和密码是否正确，或尝试重置密码。"
         },
         { status: 400 }
       )

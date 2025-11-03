@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       }
     ]
 
-    let insertResults = []
+    const insertResults = []
 
     for (const milestone of milestones) {
       try {

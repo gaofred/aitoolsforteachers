@@ -1,0 +1,585 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Upload, Image, X, Eye, Trash2, Camera } from "lucide-react";
+import type { ApplicationBatchTask, ApplicationAssignment, OCRResult, ProcessingStats } from "../types";
+
+interface BatchImageUploaderProps {
+  task: ApplicationBatchTask | null;
+  setTask: (task: ApplicationBatchTask | null) => void;
+  onNext: () => void;
+  onPrev: () => void;
+  processingStats: ProcessingStats;
+  setProcessingStats: (stats: ProcessingStats) => void;
+}
+
+interface UploadedImage {
+  id: string;
+  file: File;
+  preview: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  ocrResult?: OCRResult;
+  error?: string;
+}
+
+const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
+  task,
+  setTask,
+  onNext,
+  onPrev,
+  processingStats,
+  setProcessingStats
+}) => {
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 处理文件上传
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const newImages: UploadedImage[] = Array.from(files).map(file => ({
+      id: `img_${Date.now()}_${Math.random()}`,
+      file,
+      preview: URL.createObjectURL(file),
+      status: 'pending'
+    }));
+
+    setUploadedImages(prev => [...prev, ...newImages]);
+    
+    // 重置文件输入
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // 删除图片
+  const removeImage = (imageId: string) => {
+    setUploadedImages(prev => {
+      const updated = prev.filter(img => img.id !== imageId);
+      // 清理URL对象
+      const imageToRemove = prev.find(img => img.id === imageId);
+      if (imageToRemove) {
+        URL.revokeObjectURL(imageToRemove.preview);
+      }
+      return updated;
+    });
+  };
+
+  // 清空所有图片
+  const clearAllImages = () => {
+    uploadedImages.forEach(img => URL.revokeObjectURL(img.preview));
+    setUploadedImages([]);
+  };
+
+  // OCR识别单张图片
+  const processImage = async (image: UploadedImage): Promise<OCRResult | null> => {
+    try {
+      // 将文件转换为base64
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(image.file);
+      });
+
+      const response = await fetch('/api/ai/image-recognition', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageBase64: base64
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.result) {
+        // 解析OCR结果，同时使用完整原文和纯英文内容
+        return parseOCRResult(data.result, data.englishOnly, image.id);
+      } else {
+        throw new Error(data.error || 'OCR识别失败');
+      }
+    } catch (error) {
+      console.error('OCR处理失败:', error);
+      throw error;
+    }
+  };
+
+  // 智能修复文本分段问题
+  const fixTextParagraphs = (text: string): string => {
+    console.log('🔧 开始智能修复文本分段:', text.substring(0, 100));
+
+    let fixedText = text;
+
+    // 1. 修复常见的段落合并问题
+    fixedText = fixedText
+      // 在句号后换行（如果是段落结束）
+      .replace(/([.!?])\s*([A-Z])/g, '$1\n\n$2')
+      // 在标题后换行
+      .replace(/(Notice|IMPORTANT|PLEASE NOTE)\s*/gi, '$1\n\n')
+      // 在数字编号后换行（如 "1. 2. 3."）
+      .replace(/(\d+\.)\s*/g, '$1\n')
+      // 在冒号后换行（如果是应用文格式）
+      .replace(/(:)\s*(?=[A-Z])/g, '$1\n');
+
+    // 2. 修复错误的换行符
+    fixedText = fixedText
+      // 移除单词中间的错误换行
+      .replace(/([a-zA-Z])-\n([a-zA-Z])/g, '$1$2')
+      // 修复逗号后的错误换行（除非是句子结束）
+      .replace(/,\n(?![A-Z])/g, ', ');
+
+    // 3. 标准化换行符
+    fixedText = fixedText
+      .replace(/\n{3,}/g, '\n\n')  // 多个空行变成两个
+      .replace(/\n\s*\n/g, '\n\n')  // 标准化段落间距
+      .trim();
+
+    // 4. 特殊处理应用文格式
+    fixedText = fixedText
+      // 确保标题独立成行
+      .replace(/\s*(Notice|Dear|Sincerely|Regards|Best wishes)\s*/gi, '\n\n$1\n\n')
+      // 确保时间地点等信息格式正确
+      .replace(/(\d+:\d+\s*(AM|PM|am|pm))\s*/g, '$1\n')
+      // 确保日期格式正确
+      .replace(/(this\s+(Saturday|Sunday|Monday|Tuesday|Wednesday|Thursday|Friday))\s*/gi, '$1\n');
+
+    console.log('✅ 文本分段修复完成');
+    return fixedText;
+  };
+
+  // 解析OCR结果
+  const parseOCRResult = (originalText: string, englishOnlyText: string, imageId: string): OCRResult => {
+    console.log('OCR识别的原始文本:', originalText);
+    console.log('纯英文文本:', englishOnlyText);
+
+    const lines = originalText.split('\n').filter(line => line.trim());
+    console.log('按行分割后的文本:', lines);
+
+    let studentName = "";
+    let content = "";
+
+    // 优化中文姓名识别逻辑
+    let nameIndex = -1;
+
+    // 1. 优先查找 "姓名：XXX" 或 "姓名: XXX" 格式
+    const nameWithColonPattern = /^姓名[：:]\s*([\u4e00-\u9fa5]{2,4})/;
+    for (let i = 0; i < Math.min(3, lines.length); i++) {
+      const line = lines[i].trim();
+      const nameMatch = line.match(nameWithColonPattern);
+      if (nameMatch) {
+        studentName = nameMatch[1];
+        nameIndex = i;
+        console.log(`✅ 识别到"姓名：XXX"格式: ${studentName}`);
+        content = lines.slice(i + 1).join('\n');
+        break;
+      }
+    }
+
+    if (nameIndex === -1) {
+      // 2. 查找 "中文姓名." 格式（如 "张三."）
+      const nameWithDotPattern = /^[\u4e00-\u9fa5]{2,4}\.$/;
+      nameIndex = lines.findIndex(line => nameWithDotPattern.test(line.trim()));
+
+      if (nameIndex !== -1) {
+        studentName = lines[nameIndex].trim().replace(/\.$/, '');
+        console.log(`✅ 识别到姓名格式 "XX.": ${studentName}`);
+        content = lines.slice(nameIndex + 1).join('\n');
+      } else {
+        // 3. 查找纯中文姓名（2-4个中文字符）
+        const pureChineseNamePattern = /^[\u4e00-\u9fa5]{2,4}$/;
+        nameIndex = lines.findIndex(line => pureChineseNamePattern.test(line.trim()));
+
+        if (nameIndex !== -1) {
+          studentName = lines[nameIndex].trim();
+          console.log(`✅ 识别到纯中文姓名: ${studentName}`);
+          content = lines.slice(nameIndex + 1).join('\n');
+        } else {
+          // 4. 从包含中文的行中提取姓名
+          for (let i = 0; i < Math.min(3, lines.length); i++) {
+            const line = lines[i].trim();
+            const chineseNameMatch = line.match(/[\u4e00-\u9fa5]{2,4}/);
+            if (chineseNameMatch) {
+              studentName = chineseNameMatch[0];
+              console.log(`✅ 从混合文本中提取中文姓名: ${studentName}`);
+              content = lines.slice(i + 1).join('\n');
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (!studentName) {
+      console.log('⚠️ 未找到中文姓名，使用默认值');
+      studentName = "未识别";
+      content = originalText;
+    } else {
+      // 智能修复文本分段问题
+      content = fixTextParagraphs(content);
+    }
+
+    console.log('最终解析结果:', { studentName, contentLength: content.length });
+
+    return {
+      imageId,
+      studentName,
+      originalText: originalText, // 完整OCR原文（包含中文姓名）
+      content: englishOnlyText.trim(), // 纯英文作文内容
+      confidence: 0.8,
+      processedAt: new Date()
+    };
+  };
+
+  // 批量处理所有图片（并行处理）
+  const processAllImages = async () => {
+    if (uploadedImages.length === 0) return;
+
+    setIsProcessing(true);
+    setProcessingStats({
+      ...processingStats,
+      totalImages: uploadedImages.length,
+      processedImages: 0,
+      errors: []
+    });
+
+    // 将所有图片状态设置为处理中
+    setUploadedImages(prev => prev.map(img => ({ ...img, status: 'processing' })));
+
+    const assignments: ApplicationAssignment[] = [];
+    const errors: string[] = [];
+    let completedCount = 0;
+
+    // 分批并行处理图片，限制并发数为15
+    const batchSize = 15; // 限制并发数量以提高稳定性
+    const batches = [];
+
+    for (let i = 0; i < uploadedImages.length; i += batchSize) {
+      batches.push(uploadedImages.slice(i, i + batchSize));
+    }
+
+    console.log(`🚀 开始分批处理 ${uploadedImages.length} 张图片，每批最多 ${batchSize} 张`);
+
+    const allAssignments: ApplicationAssignment[] = [];
+    let totalCompletedCount = 0;
+
+    // 分批处理
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      console.log(`处理批次 ${batchIndex + 1}/${batches.length}，包含 ${batch.length} 张图片`);
+
+      const batchPromises = batch.map(async (image, batchLocalIndex) => {
+        const globalIndex = batchIndex * batchSize + batchLocalIndex;
+        let assignment: ApplicationAssignment | null = null;
+
+        try {
+          console.log(`开始并行处理图片 ${globalIndex + 1}/${uploadedImages.length}`);
+
+          const ocrResult = await processImage(image);
+
+          if (ocrResult) {
+            // 创建作业记录
+            assignment = {
+              id: `assignment_${Date.now()}_${Math.random()}_${globalIndex}`,
+              student: {
+                id: `temp_${ocrResult.studentName}_${globalIndex}`,
+                name: ocrResult.studentName,
+                createdAt: new Date()
+              },
+              ocrResult,
+              status: 'pending',
+              createdAt: new Date()
+            };
+
+            // 更新图片状态为完成
+            setUploadedImages(prev => prev.map(img =>
+              img.id === image.id ? { ...img, status: 'completed', ocrResult } : img
+            ));
+
+            console.log(`✅ 图片 ${globalIndex + 1} 处理完成: ${ocrResult.studentName}`);
+          }
+
+          return { success: true, globalIndex, assignment };
+
+        } catch (error) {
+          console.error(`❌ 处理图片 ${globalIndex + 1} 失败:`, error);
+          const errorMsg = `图片 ${globalIndex + 1}: ${error instanceof Error ? error.message : '处理失败'}`;
+          errors.push(errorMsg);
+
+          // 更新图片状态为失败
+          setUploadedImages(prev => prev.map(img =>
+            img.id === image.id ? {
+              ...img,
+              status: 'failed',
+              error: error instanceof Error ? error.message : '处理失败'
+            } : img
+          ));
+
+          return { success: false, globalIndex, error: errorMsg };
+        }
+      });
+
+      // 等待当前批次完成
+      console.log(`⏳ 等待批次 ${batchIndex + 1} 完成...`);
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      // 处理批次结果
+      batchResults.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          const { assignment } = result.value;
+          if (assignment) {
+            allAssignments.push(assignment);
+          }
+        }
+        totalCompletedCount++;
+      });
+
+      // 更新总体进度
+      setProcessingStats(prev => ({
+        ...prev,
+        processedImages: totalCompletedCount
+      }));
+
+      console.log(`✅ 批次 ${batchIndex + 1} 完成，累计完成 ${totalCompletedCount}/${uploadedImages.length}`);
+    }
+
+    console.log(`📊 所有批次处理完成: ${allAssignments.length}/${uploadedImages.length} 成功`);
+
+    // 更新任务
+    if (task) {
+      setTask({
+        ...task,
+        assignments: allAssignments
+      });
+    }
+
+    setProcessingStats(prev => ({
+      ...prev,
+      errors
+    }));
+
+    setIsProcessing(false);
+  };
+
+  const canProceed = uploadedImages.length > 0 && uploadedImages.every(img => img.status === 'completed');
+  const hasProcessedImages = uploadedImages.some(img => img.status === 'completed');
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">批量OCR识别</h2>
+        <p className="text-gray-600 text-sm">
+          上传学生应用文作业图片，系统将自动识别文字内容和学生姓名
+        </p>
+      </div>
+
+      {/* 图片预览弹窗 */}
+      {previewImage && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setPreviewImage(null)}>
+          <div className="max-w-4xl max-h-4xl p-4">
+            <img src={previewImage} alt="预览" className="max-w-full max-h-full object-contain" />
+          </div>
+        </div>
+      )}
+
+      {/* 上传区域 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Upload className="w-5 h-5 text-blue-600" />
+            上传作业图片
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 拖拽上传区域 */}
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-lg font-medium text-gray-700 mb-2">点击上传或拖拽图片到此处</p>
+            <p className="text-sm text-gray-500">
+              支持 JPG、PNG、GIF 格式，单张图片不超过 10MB
+            </p>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+
+          {/* 操作按钮 */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2"
+            >
+              <Image className="w-4 h-4" />
+              选择图片
+            </Button>
+
+            {uploadedImages.length > 0 && (
+              <>
+                <Button
+                  onClick={processAllImages}
+                  disabled={isProcessing || hasProcessedImages}
+                  className="flex items-center gap-2"
+                >
+                  {isProcessing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      处理中...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-4 h-4" />
+                      开始OCR识别
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={clearAllImages}
+                  disabled={isProcessing}
+                  className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  清空全部
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 图片列表 */}
+      {uploadedImages.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>已上传图片 ({uploadedImages.length}张)</span>
+              {isProcessing && (
+                <div className="text-sm text-blue-600">
+                  处理进度: {processingStats.processedImages}/{processingStats.totalImages}
+                </div>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {uploadedImages.map((image) => (
+                <div key={image.id} className="border rounded-lg p-3 space-y-2">
+                  <div className="relative">
+                    <img
+                      src={image.preview}
+                      alt="上传的图片"
+                      className="w-full h-32 object-cover rounded cursor-pointer"
+                      onClick={() => setPreviewImage(image.preview)}
+                    />
+                    <button
+                      onClick={() => removeImage(image.id)}
+                      disabled={isProcessing}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => setPreviewImage(image.preview)}
+                      className="absolute bottom-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
+                    >
+                      <Eye className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 truncate">
+                        {image.file.name}
+                      </span>
+                      <Badge
+                        variant={
+                          image.status === 'completed' ? 'default' :
+                          image.status === 'processing' ? 'secondary' :
+                          image.status === 'failed' ? 'destructive' : 'outline'
+                        }
+                        className="text-xs"
+                      >
+                        {image.status === 'pending' && '待处理'}
+                        {image.status === 'processing' && '处理中'}
+                        {image.status === 'completed' && '已完成'}
+                        {image.status === 'failed' && '失败'}
+                      </Badge>
+                    </div>
+
+                    {image.ocrResult && (
+                      <div className="text-xs space-y-1">
+                        <div className="font-medium text-blue-600">
+                          学生: {image.ocrResult.studentName}
+                        </div>
+                        <div className="text-gray-600 line-clamp-2">
+                          {image.ocrResult.content.substring(0, 50)}...
+                        </div>
+                      </div>
+                    )}
+
+                    {image.error && (
+                      <div className="text-xs text-red-600">
+                        错误: {image.error}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 处理错误显示 */}
+      {processingStats.errors.length > 0 && (
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="text-lg text-red-600">处理错误</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {processingStats.errors.map((error, index) => (
+                <div key={index} className="text-sm text-red-600">
+                  {error}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 操作按钮 */}
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={onPrev} disabled={isProcessing}>
+          上一步
+        </Button>
+        <Button
+          onClick={onNext}
+          disabled={!canProceed || isProcessing}
+          className="px-8"
+        >
+          下一步：学生作文内容确认
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default BatchImageUploader;

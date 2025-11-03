@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/lib/user-context";
+import { SupabasePointsService } from "@/lib/supabase-points-service";
 import { Crown, Star, Gift, Clock, CheckCircle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -42,15 +43,17 @@ export default function MembershipPage() {
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus | null>(null);
   const [isPurchasing, setIsPurchasing] = useState<string | null>(null);
+  const [showRedeemModal, setShowRedeemModal] = useState(false); // 兑换码弹窗状态
+  const [redemptionCode, setRedemptionCode] = useState(""); // 兑换码
+  const [isRedeeming, setIsRedeeming] = useState(false); // 兑换状态
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false); // 购买确认弹窗状态
+  const [selectedPlan, setSelectedPlan] = useState<MembershipPlan | null>(null); // 选中的套餐
 
   useEffect(() => {
-    if (!currentUser) {
-      router.push('/auth/signin');
-      return;
-    }
-
     fetchPlans();
-    fetchMembershipStatus();
+    if (currentUser) {
+      fetchMembershipStatus();
+    }
   }, [currentUser]);
 
   const fetchPlans = async () => {
@@ -58,7 +61,56 @@ export default function MembershipPage() {
       const response = await fetch('/api/membership/plans');
       if (response.ok) {
         const data = await response.json();
-        setPlans(data.plans || []);
+        const rawPlans = data.plans || [];
+
+        // 前端套餐处理：确保显示所有需要的套餐
+        const seenTypes = new Set();
+        const processedPlans = rawPlans.filter((plan: any) => {
+          if (seenTypes.has(plan.plan_type)) {
+            return false;
+          }
+          seenTypes.add(plan.plan_type);
+          return true;
+        });
+
+        // 添加虚拟的Premium II套餐（55元90天期）
+        const virtualPlans = [...processedPlans];
+        if (virtualPlans.some(p => p.plan_type === 'PREMIUM')) {
+          virtualPlans.push({
+            id: 'virtual-premium-ii',
+            plan_type: 'PREMIUM_II',
+            name: 'Premium 会员II',
+            daily_points: 500,
+            points_cost: 5500,
+            duration_days: 90,
+            description: '享受500点数每日重置和更多特权，有效期90天',
+            features: {
+              daily_points: 500,
+              priority_support: true,
+              advanced_tools: true,
+              plan_tier: 'premium_ii'
+            },
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        }
+
+        // 按照完美顺序排列：Premium I → Premium II → Pro
+        const sortedPlans = virtualPlans.sort((a, b) => {
+          const order = ['PREMIUM_I', 'PREMIUM', 'PREMIUM_II', 'PRO'];
+          const aIndex = order.indexOf(a.plan_type);
+          const bIndex = order.indexOf(b.plan_type);
+
+          // 如果都不在order中，保持原顺序
+          if (aIndex === -1 && bIndex === -1) return 0;
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+
+          return aIndex - bIndex;
+        });
+
+        setPlans(sortedPlans);
       }
     } catch (error) {
       console.error('获取会员套餐失败:', error);
@@ -86,8 +138,20 @@ export default function MembershipPage() {
       return;
     }
 
+    // 外部购买会员的处理 - 显示精美的确认对话框
+    if (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM' || plan.plan_type === 'PREMIUM_II' || plan.plan_type === 'PRO') {
+      handlePurchaseConfirmation(plan);
+      return;
+    }
+
+    // 其他套餐的原始购买逻辑
     if (userPoints < plan.points_cost) {
-      toast.error(`点数不足，需要 ${plan.points_cost} 点数，当前剩余 ${userPoints} 点数`);
+      const priceInYuan = (() => {
+        if (plan.plan_type === 'PRO') return 169;
+        if (plan.plan_type === 'PREMIUM_II') return 55; // Premium会员II 55元（90天期）
+        return plan.points_cost / 100;
+      })();
+      toast.error(`点数不足，需要 ${plan.points_cost} 点数（${priceInYuan}元），当前剩余 ${userPoints} 点数`);
       return;
     }
 
@@ -108,7 +172,7 @@ export default function MembershipPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success(`成功购买 ${plan.name}！`);
+        toast.success(`成功购买 ${getDisplayName(plan)}！`);
         await refreshUser();
         await fetchMembershipStatus();
       } else {
@@ -122,11 +186,77 @@ export default function MembershipPage() {
     }
   };
 
+  const handleRedeemCode = async () => {
+    if (!redemptionCode.trim()) {
+      toast.error('请输入兑换码');
+      return;
+    }
+    if (!currentUser) {
+      toast.error('请先登录后再使用兑换码');
+      router.push('/auth/signin');
+      return;
+    }
+    setIsRedeeming(true);
+
+    try {
+      // 使用Supabase点数服务进行兑换
+      const result = await SupabasePointsService.redeemCode(currentUser.id, redemptionCode);
+      if (result.success) {
+        // 如果是积分兑换，直接更新点数，避免查询失败
+        if (result.type === 'POINTS' && result.value) {
+          await refreshUser();
+        }
+        // 如果是会员兑换，更新会员状态
+        if (result.type === 'MEMBERSHIP') {
+          await fetchMembershipStatus();
+        }
+        setRedemptionCode("");
+        setShowRedeemModal(false);
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      console.error('兑换失败:', error);
+      toast.error('兑换失败，请重试');
+    } finally {
+      setIsRedeeming(false);
+    }
+  };
+
+  const handlePurchaseConfirmation = (plan: MembershipPlan) => {
+    setSelectedPlan(plan);
+    setShowPurchaseModal(true);
+  };
+
+  const confirmPurchase = () => {
+    if (!selectedPlan) return;
+
+    // 获取购买链接
+    let purchaseUrl = '';
+    if (selectedPlan.plan_type === 'PRO') {
+      purchaseUrl = 'https://appsryewio94072.h5.xiaoeknow.com/p/course/ecourse/course_34xD5WzLU4DEVmW6ZR9vuYAC5M9';
+    } else if (selectedPlan.plan_type === 'PREMIUM_I' || selectedPlan.plan_type === 'PREMIUM' || selectedPlan.plan_type === 'PREMIUM_II') {
+      purchaseUrl = 'https://appsryewio94072.h5.xiaoeknow.com/p/course/ecourse/course_34xCqjfakZ402KhSqBgkJj3hjNF';
+    }
+
+    if (purchaseUrl) {
+      // 在新标签页打开购买链接
+      window.open(purchaseUrl, '_blank', 'noopener,noreferrer');
+      toast.success('已打开购买页面，请在新页面完成购买');
+    }
+
+    setShowPurchaseModal(false);
+    setSelectedPlan(null);
+  };
+
   const getPlanColor = (planType: string) => {
     switch (planType) {
       case 'PRO':
         return 'purple';
       case 'PREMIUM':
+      case 'PREMIUM_I':
+      case 'PREMIUM_II':
         return 'blue';
       default:
         return 'gray';
@@ -234,6 +364,30 @@ export default function MembershipPage() {
           </Card>
         )}
 
+        {/* 兑换码入口 - 移动到套餐上方 */}
+        <Card className="mb-8">
+          <CardContent className="py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Gift className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">拥有兑换码？</h3>
+                  <p className="text-sm text-gray-600">使用兑换码获得会员或点数</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setShowRedeemModal(true)}
+                variant="outline"
+                className="border-purple-200 text-purple-600 hover:bg-purple-50"
+              >
+                兑换码兑换
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 会员套餐展示 */}
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">选择您的会员套餐</h2>
@@ -241,10 +395,19 @@ export default function MembershipPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          {plans.map((plan) => {
+          {plans.map((plan, index) => {
             const color = getPlanColor(plan.plan_type);
             const isCurrentPlan = membershipStatus?.plan_type === plan.plan_type;
             const canAfford = userPoints >= plan.points_cost;
+
+            // 根据套餐类型确定显示名称
+            const getDisplayName = (plan: any) => {
+              if (plan.plan_type === 'PRO') return 'Pro会员';
+              if (plan.plan_type === 'PREMIUM_I') return 'Premium 会员I';
+              if (plan.plan_type === 'PREMIUM_II') return 'Premium 会员 II';
+              if (plan.plan_type === 'PREMIUM') return 'Premium 会员'; // 原始的PREMIUM套餐
+              return plan.name;
+            };
 
             return (
               <Card
@@ -266,7 +429,7 @@ export default function MembershipPage() {
                     <Crown className={`w-8 h-8 text-${color}-600`} />
                   </div>
                   <CardTitle className="text-xl font-bold text-gray-900">
-                    {plan.name}
+                    {getDisplayName(plan)}
                   </CardTitle>
                   <div className="mt-2">
                     <span className="text-3xl font-bold text-gray-900">
@@ -274,19 +437,80 @@ export default function MembershipPage() {
                     </span>
                     <span className="text-gray-600 ml-2">点数/天</span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-2">
-                    有效期：{plan.duration_days} 天
-                  </p>
                 </CardHeader>
 
                 <CardContent className="pt-0">
-                  <div className="text-center mb-6">
+                          <div className="text-center mb-6">
                     <div className="text-sm text-gray-500 mb-2">购买价格</div>
                     <div className="flex items-center justify-center gap-2">
-                      <span className="text-2xl font-bold text-gray-900">
-                        {plan.points_cost}
-                      </span>
-                      <span className="text-gray-600">点数</span>
+                      {/* Premium会员I 显示折扣价格 */}
+                      {(plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM') ? (
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-baseline">
+                            <span className="text-3xl font-bold text-red-600">¥21</span>
+                            <span className="text-lg text-gray-400 line-through ml-2">¥25</span>
+                          </div>
+                          <div className="relative">
+                            <div className="bg-gradient-to-r from-red-500 to-red-600 text-white text-sm px-2 py-1 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                              </svg>
+                              <span>直降16%</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                              </svg>
+                            </div>
+                            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-red-500"></div>
+                          </div>
+                        </div>
+                      ) : plan.plan_type === 'PREMIUM_II' ? (
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl font-bold text-blue-600">¥55</span>
+                          <div className="relative">
+                            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm px-2 py-1 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span>超值之选</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-blue-500"></div>
+                          </div>
+                        </div>
+                      ) : plan.plan_type === 'PRO' ? (
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl font-bold text-purple-600">¥169</span>
+                          <div className="relative">
+                            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white text-sm px-2 py-1 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 3v4M3 5h4M6 17v4m-2 2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21" />
+                              </svg>
+                              <span>尊享体验</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 3v4M3 5h4M6 17v4m-2 2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21" />
+                              </svg>
+                            </div>
+                            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-purple-500"></div>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-2xl font-bold text-gray-900">
+                            {plan.points_cost / 100}
+                          </span>
+                          <span className="text-gray-600">元</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-full inline-block">
+                      {(() => {
+                        if (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM') return '30天期';
+                        if (plan.plan_type === 'PREMIUM_II') return '90天期';
+                        if (plan.plan_type === 'PRO') return '365天期';
+                        return '';
+                      })()}
                     </div>
                   </div>
 
@@ -300,7 +524,7 @@ export default function MembershipPage() {
                     {plan.features.priority_support && (
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-gray-700">优先客服支持</span>
+                        <span className="text-sm text-gray-700">专属微信群</span>
                       </div>
                     )}
                     {plan.features.advanced_tools && (
@@ -323,10 +547,10 @@ export default function MembershipPage() {
 
                   <Button
                     onClick={() => handlePurchase(plan)}
-                    disabled={isPurchasing === plan.plan_type || !canAfford || isCurrentPlan}
+                    disabled={isPurchasing === plan.plan_type}
                     className={`w-full ${
-                      isCurrentPlan
-                        ? 'bg-gray-300 cursor-not-allowed'
+                      (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM' || plan.plan_type === 'PREMIUM_II' || plan.plan_type === 'PRO')
+                        ? `bg-${color}-600 hover:bg-${color}-700`
                         : canAfford
                         ? `bg-${color}-600 hover:bg-${color}-700`
                         : 'bg-gray-300 cursor-not-allowed'
@@ -338,14 +562,34 @@ export default function MembershipPage() {
                         购买中...
                       </span>
                     ) : isCurrentPlan ? (
-                      '当前套餐'
+                      <span className="flex items-center gap-2">
+                        续期购买
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </span>
+                    ) : (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM' || plan.plan_type === 'PREMIUM_II' || plan.plan_type === 'PRO') ? (
+                      <span className="flex items-center gap-2">
+                        购买
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </span>
                     ) : canAfford ? (
                       <span className="flex items-center gap-2">
                         立即购买
                         <ArrowRight className="w-4 h-4" />
                       </span>
                     ) : (
-                      `点数不足 (需要 ${plan.points_cost} 点)`
+                      (() => {
+                        const priceInYuan = (() => {
+                        if (plan.plan_type === 'PRO') return 169;
+                        if (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM') return 21; // Premium会员I 21元（30天期）
+                        if (plan.plan_type === 'PREMIUM_II') return 55; // Premium会员II 55元（90天期）
+                        return plan.points_cost / 100;
+                      })();
+                        return `点数不足 (需要${plan.points_cost}点/${priceInYuan}元)`;
+                      })()
                     )}
                   </Button>
                 </CardContent>
@@ -368,7 +612,8 @@ export default function MembershipPage() {
                   <tr className="border-b">
                     <th className="text-left py-3 px-4">特权</th>
                     <th className="text-center py-3 px-4">FREE</th>
-                    <th className="text-center py-3 px-4">PREMIUM</th>
+                    <th className="text-center py-3 px-4">Premium I</th>
+                    <th className="text-center py-3 px-4">Premium II</th>
                     <th className="text-center py-3 px-4">PRO</th>
                   </tr>
                 </thead>
@@ -377,11 +622,27 @@ export default function MembershipPage() {
                     <td className="py-3 px-4">每日点数</td>
                     <td className="text-center py-3 px-4">25 点</td>
                     <td className="text-center py-3 px-4">500 点</td>
+                    <td className="text-center py-3 px-4">500 点</td>
                     <td className="text-center py-3 px-4">800 点</td>
                   </tr>
                   <tr className="border-b">
-                    <td className="py-3 px-4">优先客服支持</td>
+                    <td className="py-3 px-4">有效期</td>
+                    <td className="text-center py-3 px-4">永久</td>
+                    <td className="text-center py-3 px-4">30 天</td>
+                    <td className="text-center py-3 px-4">90 天</td>
+                    <td className="text-center py-3 px-4">365 天</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-3 px-4">购买价格</td>
+                    <td className="text-center py-3 px-4">免费</td>
+                    <td className="text-center py-3 px-4">21元</td>
+                    <td className="text-center py-3 px-4">55元</td>
+                    <td className="text-center py-3 px-4">169元</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-3 px-4">专属微信群</td>
                     <td className="text-center py-3 px-4">❌</td>
+                    <td className="text-center py-3 px-4">✅</td>
                     <td className="text-center py-3 px-4">✅</td>
                     <td className="text-center py-3 px-4">✅</td>
                   </tr>
@@ -390,9 +651,11 @@ export default function MembershipPage() {
                     <td className="text-center py-3 px-4">❌</td>
                     <td className="text-center py-3 px-4">✅</td>
                     <td className="text-center py-3 px-4">✅</td>
+                    <td className="text-center py-3 px-4">✅</td>
                   </tr>
                   <tr>
                     <td className="py-3 px-4">Beta功能抢先体验</td>
+                    <td className="text-center py-3 px-4">❌</td>
                     <td className="text-center py-3 px-4">❌</td>
                     <td className="text-center py-3 px-4">❌</td>
                     <td className="text-center py-3 px-4">✅</td>
@@ -403,29 +666,220 @@ export default function MembershipPage() {
           </CardContent>
         </Card>
 
-        {/* 兑换码入口 */}
-        <Card>
-          <CardContent className="py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                  <Gift className="w-5 h-5 text-purple-600" />
-                </div>
+        {/* 兑换码弹窗 */}
+        {showRedeemModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-6 w-full max-w-md mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">兑换码兑换</h3>
+                <button
+                  onClick={() => setShowRedeemModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-gray-900">拥有兑换码？</h3>
-                  <p className="text-sm text-gray-600">使用兑换码获得会员或点数</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    兑换码
+                  </label>
+                  <input
+                    type="text"
+                    value={redemptionCode}
+                    onChange={(e) => setRedemptionCode(e.target.value)}
+                    placeholder="请输入兑换码"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    disabled={isRedeeming}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowRedeemModal(false)}
+                    disabled={isRedeeming}
+                    className="flex-1"
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    onClick={handleRedeemCode}
+                    disabled={isRedeeming || !redemptionCode.trim()}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    {isRedeeming ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        兑换中
+                      </>
+                    ) : (
+                      '兑换'
+                    )}
+                  </Button>
                 </div>
               </div>
-              <Button
-                onClick={() => router.push('/redeem')}
-                variant="outline"
-                className="border-purple-200 text-purple-600 hover:bg-purple-50"
-              >
-                兑换码兑换
-              </Button>
+
+              <div className="text-xs text-gray-500 text-center mt-4">
+                兑换成功后点数或会员权益将自动添加到您的账户
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        )}
+
+        {/* 购买确认弹窗 */}
+        {showPurchaseModal && selectedPlan && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-8 w-full max-w-md mx-4 transform transition-all">
+              <div className="text-center mb-6">
+                <div className={`w-20 h-20 bg-gradient-to-br from-${getPlanColor(selectedPlan.plan_type)}-100 to-${getPlanColor(selectedPlan.plan_type)}-50 rounded-full flex items-center justify-center mx-auto mb-4`}>
+                  <Crown className={`w-10 h-10 text-${getPlanColor(selectedPlan.plan_type)}-600`} />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  确认购买
+                </h3>
+                <p className="text-gray-600">
+                  {selectedPlan.plan_type === 'PRO' ? 'Pro会员' :
+                   selectedPlan.plan_type === 'PREMIUM_I' ? 'Premium会员I' :
+                   selectedPlan.plan_type === 'PREMIUM_II' ? 'Premium 会员 II' :
+                   selectedPlan.plan_type === 'PREMIUM' ? 'Premium会员' : selectedPlan.name}
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-gray-600">套餐价格</span>
+                  {/* Premium会员I 显示折扣价格 */}
+                  {selectedPlan.plan_type === 'PREMIUM_I' || selectedPlan.plan_type === 'PREMIUM' ? (
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-baseline">
+                        <span className="text-2xl font-bold text-red-600">¥21</span>
+                        <span className="text-base text-gray-400 line-through ml-2">¥25</span>
+                      </div>
+                      <div className="relative">
+                        <div className="bg-gradient-to-r from-red-500 to-red-600 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          </svg>
+                          <span>直降16%</span>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          </svg>
+                        </div>
+                        <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-6 border-r-6 border-t-6 border-l-transparent border-r-transparent border-t-red-500"></div>
+                      </div>
+                    </div>
+                  ) : selectedPlan.plan_type === 'PREMIUM_II' ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl font-bold text-blue-600">¥55</span>
+                      <div className="relative">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>超值之选</span>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-6 border-r-6 border-t-6 border-l-transparent border-r-transparent border-t-blue-500"></div>
+                      </div>
+                    </div>
+                  ) : selectedPlan.plan_type === 'PRO' ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl font-bold text-purple-600">¥169</span>
+                      <div className="relative">
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 3v4M3 5h4M6 17v4m-2 2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21" />
+                          </svg>
+                          <span>尊享体验</span>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 3v4M3 5h4M6 17v4m-2 2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21" />
+                          </svg>
+                        </div>
+                        <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-6 border-r-6 border-t-6 border-l-transparent border-r-transparent border-t-purple-500"></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-xl font-bold text-gray-900">
+                      0元
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-gray-600">有效期</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {selectedPlan.plan_type === 'PRO' ? '365天' :
+                     selectedPlan.plan_type === 'PREMIUM_I' || selectedPlan.plan_type === 'PREMIUM' ? '30天' :
+                     selectedPlan.plan_type === 'PREMIUM_II' ? '90天' : '永久'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">每日点数</span>
+                  <span className="text-sm font-medium text-gray-900">{selectedPlan.daily_points}点</span>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span className="text-sm text-gray-700">每日点数自动重置</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span className="text-sm text-gray-700">专属微信群支持</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span className="text-sm text-gray-700">高级工具特权</span>
+                </div>
+                {selectedPlan.plan_type === 'PRO' && (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-sm text-gray-700">Beta功能抢先体验</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-amber-800">
+                    即将跳转到官方购买页面完成支付
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowPurchaseModal(false);
+                    setSelectedPlan(null);
+                  }}
+                  className="flex-1"
+                >
+                  取消
+                </Button>
+                <Button
+                  onClick={confirmPurchase}
+                  className={`flex-1 bg-${getPlanColor(selectedPlan.plan_type)}-600 hover:bg-${getPlanColor(selectedPlan.plan_type)}-700 text-white`}
+                >
+                  确认购买
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

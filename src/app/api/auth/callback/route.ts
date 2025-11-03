@@ -59,12 +59,39 @@ export async function GET(request: NextRequest) {
           })
         }
 
-        // 重定向到原始页面或首页，Supabase会自动处理cookie
-        // 使用URL对象确保正确的重定向
+        // 手动设置Edge浏览器兼容的认证cookies
         const redirectUrl = new URL(next, requestUrl.origin)
         redirectUrl.searchParams.set('signed_in', 'true')
-        
-        return NextResponse.redirect(redirectUrl)
+        redirectUrl.searchParams.set('accessToken', data.session?.access_token || '')
+        redirectUrl.searchParams.set('refreshToken', data.session?.refresh_token || '')
+
+        const response = NextResponse.redirect(redirectUrl)
+
+        // 设置sb-access-token cookie（整个项目都在使用这个名称）
+        if (data.session?.access_token) {
+          response.cookies.set('sb-access-token', data.session.access_token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: data.session.expires_in || 60 * 60 * 24 * 7 // 7天
+          })
+        }
+
+        // 设置sb-refresh-token cookie
+        if (data.session?.refresh_token) {
+          response.cookies.set('sb-refresh-token', data.session.refresh_token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 60 * 60 * 24 * 30 // 30天
+          })
+        }
+
+        console.log('Google OAuth回调 - 已设置Edge浏览器兼容的认证cookies')
+
+        return response
       }
     }
 

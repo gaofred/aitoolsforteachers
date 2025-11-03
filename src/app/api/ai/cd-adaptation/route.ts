@@ -358,23 +358,10 @@ ${curriculumWords}
 // 优化功能的API处理
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-
-    // 获取Supabase认证相关的cookies
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    const refreshToken = cookieStore.get('sb-refresh-token')?.value;
-
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: '未认证 - 请先登录' },
-        { status: 401 }
-      );
-    }
-
     const supabase = createServerSupabaseClient();
 
-    // 使用access token获取用户信息
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    // 使用Supabase标准认证方式
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       console.error('认证错误:', authError);
@@ -654,14 +641,10 @@ ${adaptedText}
 
     // 尝试退回积分
     try {
-      const cookieStore = await cookies();
-      const accessToken = cookieStore.get('sb-access-token')?.value;
-      if (accessToken) {
-        const supabase = createServerSupabaseClient();
-        const { data: { user } } = await supabase.auth.getUser(accessToken);
-        if (user) {
-          await refundPoints(supabase, user.id, 2, 'CD篇改编优化异常退回');
-        }
+      const supabase = createServerSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await refundPoints(supabase, user.id, 2, 'CD篇改编优化异常退回');
       }
     } catch (refundError) {
       console.error('积分退回异常:', refundError);

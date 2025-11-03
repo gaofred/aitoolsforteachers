@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { cookies } from 'next/headers';
 
 // 退还点数的辅助函数
 async function refundPoints(supabase: any, user_id: string, amount: number, reason: string) {
@@ -277,15 +276,10 @@ function normalizeQuestions(rawQuestions: any[]): any[] {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    if (!accessToken) {
-      return NextResponse.json({ error: '未认证 - 请先登录' }, { status: 401 });
-    }
-
     const supabase = createServerSupabaseClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    // 使用Supabase标准认证方式
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json({ error: '认证失败 - 请重新登录' }, { status: 401 });

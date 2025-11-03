@@ -147,7 +147,7 @@ export function UserMenu() {
               <div className="flex items-center gap-2 px-2 py-1 bg-yellow-50 rounded-lg border border-yellow-200">
                 <Star className="h-4 w-4 text-yellow-500" />
                 <span className="text-sm font-medium text-yellow-700">
-                  {user.user_points?.points || 0} 积分
+                  {user.user_points?.points || 0} 点数
                 </span>
               </div>
 

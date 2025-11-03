@@ -1,52 +1,14 @@
 import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 // 诊断API：检查用户认证状态和菜单可见性
 export async function GET(request: Request) {
   try {
     console.log('🔍 用户菜单诊断API被调用');
 
-    // 检查请求头中的认证信息
-    const authHeader = request.headers.get('authorization');
-    const cookieHeader = request.headers.get('cookie');
-
-    console.log('📋 请求头信息:');
-    console.log('- Authorization:', authHeader ? '存在' : '不存在');
-    console.log('- Cookie:', cookieHeader ? '存在' : '不存在');
-
-    // 尝试从cookie获取访问令牌
-    let accessToken = null;
-    if (cookieHeader) {
-      const cookies = cookieHeader.split(';').map(c => c.trim());
-      for (const cookie of cookies) {
-        if (cookie.startsWith('access_token=')) {
-          accessToken = cookie.substring('access_token='.length);
-          break;
-        }
-      }
-    }
-
-    console.log('🔑 访问令牌:', accessToken ? '存在' : '不存在');
-
-    if (!accessToken) {
-      return NextResponse.json({
-        success: false,
-        error: "未找到访问令牌",
-        diagnostics: {
-          authHeader: !!authHeader,
-          cookieHeader: !!cookieHeader,
-          accessToken: !!accessToken
-        }
-      }, { status: 401 });
-    }
-
-    // 验证用户身份
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    // 使用Supabase标准认证方式
+    const supabase = createServerSupabaseClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       console.log('❌ 用户认证失败:', authError);
@@ -54,9 +16,6 @@ export async function GET(request: Request) {
         success: false,
         error: "用户认证失败: " + (authError?.message || '未知错误'),
         diagnostics: {
-          authHeader: !!authHeader,
-          cookieHeader: !!cookieHeader,
-          accessToken: !!accessToken,
           authError: authError?.message
         }
       }, { status: 401 });
@@ -106,10 +65,8 @@ export async function GET(request: Request) {
         menuShouldShow,
         menuItems,
         diagnostics: {
-          authHeader: !!authHeader,
-          cookieHeader: !!cookieHeader,
-          accessToken: !!accessToken,
-          supabaseUserId: user.id
+          supabaseUserId: user.id,
+          usingStandardAuth: true
         }
       }
     });

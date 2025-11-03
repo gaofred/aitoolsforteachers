@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { cookies } from 'next/headers';
 
 // 火山引擎API配置
 const VOLCENGINE_API_KEY = process.env.VOLCENGINE_API_KEY;
@@ -47,97 +46,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cookieStore = await cookies();
-
-    // 获取Supabase认证相关的cookies
-    const accessToken = cookieStore.get('sb-access-token')?.value;
-    const refreshToken = cookieStore.get('sb-refresh-token')?.value;
-
-    // 同时检查Authorization头（为Edge浏览器提供备用认证方式）
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-
-    console.log('连环画生成API - 认证检查:', {
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-      hasBearerToken: !!bearerToken,
-      accessTokenLength: accessToken?.length || 0,
-      bearerTokenLength: bearerToken?.length || 0,
-      allCookies: cookieStore.getAll().map(c => c.name)
-    });
-
-    // 优先使用Cookie，如果没有则使用Authorization头
-    const finalToken = accessToken || bearerToken;
-
-    if (!finalToken) {
-      console.error('连环画生成API - 未找到认证token');
-      return NextResponse.json(
-        { success: false, error: '未认证 - 请先登录' },
-        { status: 401 }
-      );
-    }
-
     const supabase = createServerSupabaseClient();
 
-    // 首先尝试标准的session认证
-    let user, authError;
-    try {
-      const result = await supabase.auth.getUser();
-      user = result.data.user;
-      authError = result.error;
-
-      console.log('连环画生成API - 标准认证结果:', {
-        hasUser: !!user,
-        authError: authError?.message
-      });
-    } catch (networkError) {
-      console.error('连环画生成网络错误:', networkError);
-    }
-
-    // 如果标准认证失败，尝试使用直接token认证
-    if (!user || authError) {
-      console.log('连环画生成API - 标准认证失败，尝试直接token认证');
-      try {
-        const result = await supabase.auth.getUser(finalToken);
-        user = result.data.user;
-        authError = result.error;
-
-        console.log('连环画生成API - 直接token认证结果:', {
-          hasUser: !!user,
-          authError: authError?.message
-        });
-      } catch (tokenError) {
-        console.error('连环画生成API - 直接token认证错误:', tokenError);
-        authError = tokenError as any;
-      }
-    }
-
-    // 如果所有认证都失败，尝试重试机制
-    let retryCount = 0;
-    const maxRetries = 3;
-
-    while ((!user || authError) && retryCount < maxRetries) {
-      retryCount++;
-      console.log(`连环画生成API - 重试认证 (尝试 ${retryCount}/${maxRetries})`);
-
-      try {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒
-        const result = await supabase.auth.getUser(finalToken);
-        user = result.data.user;
-        authError = result.error;
-
-        if (user && !authError) {
-          console.log('连环画生成API - 重试认证成功');
-          break;
-        }
-      } catch (retryError) {
-        console.error(`连环画生成API - 重试 ${retryCount} 失败:`, retryError);
-        authError = retryError as any;
-      }
-    }
+    // 使用Supabase标准认证方式
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      console.error('连环画生成API - 所有认证方式都失败:', authError);
+      console.error('连环画生成API - 认证失败:', authError);
       return NextResponse.json(
         { success: false, error: '认证失败 - 请重新登录' },
         { status: 401 }
@@ -222,8 +137,8 @@ export async function POST(request: NextRequest) {
 
       // 根据风格生成对应的提示词
       let stagePrompt = '';
-      let imageSize = globalImageSize;
-      let apiStyle = globalApiStyle;
+      const imageSize = globalImageSize;
+      const apiStyle = globalApiStyle;
 
       if (styleConfig && styleConfig.prompt) {
         // 使用预定义的风格提示词模板
@@ -427,36 +342,28 @@ Color tone and emotional style should match the ${stage.stage} of this story sta
       const refundReason = `连环画生成系统错误补偿`;
       // 重新创建 supabase 客户端和获取用户信息
       const supabase = createServerSupabaseClient();
-      const cookieStore = await cookies();
-      const accessToken = cookieStore.get('sb-access-token')?.value;
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (!accessToken) {
-        refundMessage = '点数退还处理中，';
-      } else {
-        const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
-        if (!authError && user) {
-          const refundSuccess = await refundPoints(supabase, user.id, pointsCost, refundReason);
+      if (!authError && user) {
+        const refundSuccess = await refundPoints(supabase, user.id, pointsCost, refundReason);
 
-          if (refundSuccess) {
-            await supabase
-              .from('point_transactions')
-              .insert({
-                user_id: user.id,
-                amount: pointsCost,
-                type: 'REFUND',
-                description: refundReason,
-                metadata: {
-                  error: error instanceof Error ? error.message : 'Unknown error',
-                  failureType: 'system_error'
-                },
-                created_at: new Date().toISOString()
-              } as any);
-          }
-
-          refundMessage = refundSuccess ? `已为您退还${pointsCost}点数，` : '点数退还处理中，';
-        } else {
-          refundMessage = '点数退还处理中，';
+        if (refundSuccess) {
+          await supabase
+            .from('point_transactions')
+            .insert({
+              user_id: user.id,
+              amount: pointsCost,
+              type: 'REFUND',
+              description: refundReason,
+              metadata: {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                failureType: 'system_error'
+              },
+              created_at: new Date().toISOString()
+            } as any);
         }
+
+        refundMessage = refundSuccess ? `已为您退还${pointsCost}点数，` : '点数退还处理中，';
       }
     } catch (refundError) {
       console.error('退款处理失败:', refundError);

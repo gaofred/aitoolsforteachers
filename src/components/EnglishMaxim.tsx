@@ -7,7 +7,11 @@ interface MaximData {
   zh: string;
 }
 
-export function EnglishMaxim() {
+interface EnglishMaximProps {
+  theme?: 'default' | 'white';
+}
+
+export function EnglishMaxim({ theme = 'default' }: EnglishMaximProps = {}) {
   const [maxim, setMaxim] = useState<MaximData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +62,18 @@ export function EnglishMaxim() {
     fetchMaxim();
   };
 
+  // 根据主题设置颜色类和字号
+  const textSizeClass = theme === 'white' ? 'text-lg' : 'text-sm';
+  const textClass = theme === 'white' ? 'text-white/90' : 'text-gray-600';
+  const subTextClass = theme === 'white' ? 'text-white/80' : 'text-gray-500';
+  const subSubTextClass = theme === 'white' ? 'text-white/70' : 'text-gray-400';
+  const hoverClass = theme === 'white' ? 'hover:text-white' : 'hover:text-purple-600';
+  const hoverSubClass = theme === 'white' ? 'group-hover:text-white/90' : 'group-hover:text-purple-700';
+  const hoverSubSubClass = theme === 'white' ? 'group-hover:text-white/80' : 'group-hover:text-purple-500';
+
   if (loading) {
     return (
-      <div className="text-sm text-gray-600 animate-pulse">
+      <div className={`${textSizeClass} ${textClass} animate-pulse`}>
         <span className="hidden lg:inline">加载格言中...</span>
         <span className="lg:hidden">格言...</span>
       </div>
@@ -69,7 +82,7 @@ export function EnglishMaxim() {
 
   if (error && !maxim) {
     return (
-      <div className="text-sm text-gray-500 italic">
+      <div className={`${textSizeClass} ${subTextClass} italic`}>
         <span className="hidden lg:inline">格言加载失败</span>
         <span className="lg:hidden">格言...</span>
       </div>
@@ -81,11 +94,11 @@ export function EnglishMaxim() {
   }
 
   return (
-    <div className="text-sm text-gray-600 group cursor-pointer" onClick={handleRefresh}>
+    <div className={`${textSizeClass} ${textClass} group cursor-pointer`} onClick={handleRefresh}>
       {/* 桌面端完整显示 */}
-      <div className="hidden lg:flex items-center gap-2 transition-all duration-200 hover:text-purple-600">
+      <div className={`hidden lg:flex items-center gap-2 transition-all duration-200 ${hoverClass}`}>
         <svg
-          className="w-4 h-4 text-gray-400 group-hover:text-purple-600 transition-colors duration-200 flex-shrink-0"
+          className={`w-5 h-5 ${subSubTextClass} group-hover:text-white transition-colors duration-200 flex-shrink-0`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -98,10 +111,10 @@ export function EnglishMaxim() {
           />
         </svg>
         <div className="max-w-2xl">
-          <div className="italic text-gray-700 group-hover:text-purple-700 transition-colors duration-200">
+          <div className={`italic ${subTextClass} ${hoverSubClass} transition-colors duration-200 leading-relaxed`}>
             "{maxim.en}"
           </div>
-          <div className="text-xs text-gray-500 group-hover:text-purple-500 transition-colors duration-200 mt-1">
+          <div className={`text-base ${subSubTextClass} ${hoverSubSubClass} transition-colors duration-200 mt-2`}>
             {maxim.zh}
           </div>
         </div>
@@ -113,7 +126,7 @@ export function EnglishMaxim() {
         handleRefresh();
       }}>
         <svg
-          className="w-3 h-3 text-gray-400 group-hover:text-purple-600 transition-colors duration-200 flex-shrink-0"
+          className={`w-4 h-4 ${subSubTextClass} group-hover:text-white transition-colors duration-200 flex-shrink-0`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -126,7 +139,7 @@ export function EnglishMaxim() {
           />
         </svg>
         <div className="max-w-[120px] sm:max-w-[200px]">
-          <div className="italic text-gray-600 text-xs leading-tight line-clamp-1">
+          <div className={`italic ${textClass} text-sm leading-tight line-clamp-1`}>
             {maxim.en.length > 30 ? maxim.en.substring(0, 30) + '...' : maxim.en}
           </div>
         </div>

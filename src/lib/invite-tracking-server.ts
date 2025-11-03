@@ -160,7 +160,7 @@ export async function getInviteStatsServer(userId: string): Promise<{
     }
 
     // 统计数据
-    let totalInvitations = invitations.length;
+    const totalInvitations = invitations.length;
     let successfulInvitations = 0;
     let totalRewardsEarned = 0;
     let pendingRegistrations = 0;

@@ -44,11 +44,11 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6, route: "/tools/reading/reading-comprehension-deep-analysis" },
-      { id: "text-generator", title: "阅读文本生成神器", cost: 4, route: "/tools/reading/reading-generator" },
+        { id: "text-generator", title: "阅读文本生成神器", cost: 4, route: "/tools/reading/reading-generator" },
       { id: "textbook-passage-analysis", title: "课文文章分析", cost: 5, route: "/tools/reading/textbook_passage_analysis" },
-      { id: "cd-adaptation", title: "CD篇改编", cost: 5, route: "/tools/reading/cd-adaptation" },
+      { id: "cd-adaptation", title: "外刊文章改编为CD篇", cost: 5, route: "/tools/reading/cd-adaptation" },
       { id: "cd-creator", title: "CD篇命题", active: true, cost: 4, route: "/tools/reading/cd-creator" },
+        { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6, route: "/tools/reading/reading-comprehension-deep-analysis", disabled: true },
         { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true },
         { id: "gap-filling-exercise-analysis", title: "语法填空解析", active: true, cost: 4, route: "/tools/reading/gap-filling-exercise-analysis" },
         { id: "reading-comprehension-analysis", title: "阅读理解解析", cost: 2, route: "/tools/reading/reading-comprehension-analysis" },
@@ -112,7 +112,8 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "batch-assignment-polish", title: "批量润色学生作业 (开发中)", cost: 0, disabled: true, route: "/tools/writing/batch-assignment-polish" },
+      { id: "batch-assignment-polish", title: "批量润色学生句子", active: true, cost: 0, route: "/tools/writing/batch-assignment-polish" },
+      { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 0, route: "/tools/writing/batch-applicationwriting-polish" },
       { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
       { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
       { id: "continuation-writing", title: "读后续写范文", cost: 6, route: "/tools/writing/continuation_writing_model_essay" },
@@ -182,7 +183,7 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "tense-practice", title: "时态练习游戏", active: true, cost: 0, route: "/tools/games/tense-practice-game" }
+      { id: "tense-practice", title: "时态练习游戏 (开发中)", active: true, cost: 0, disabled: true, route: "/tools/games/tense-practice-game" }
     ]
   }
 ];
@@ -226,14 +227,14 @@ const toolConfig = {
     analysisText: "AI正在创作中..."
   },
   "cd-adaptation": {
-    title: "CD篇改编",
-    description: "将英文文章改编成适合中国高中生阅读的文本，符合特定字数、词汇和难度要求",
+    title: "外刊文章改编为CD篇",
+    description: "将外刊英文文章改编成适合中国高中生阅读理解CD篇的文本，符合高考CD篇的字数、词汇和难度要求，保持文章内容准确性同时降低语言复杂度",
     icon: (
       <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
         <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
       </svg>
     ),
-    placeholder: "请粘贴您要改编的英文文章...",
+    placeholder: "请粘贴您要改编的外刊英文文章...",
     analysisOptions: [
       { value: "basic", label: "基础版（豆包驱动）" },
       { value: "advanced", label: "进阶版（Gemini-2.5-Pro驱动）" }
@@ -346,6 +347,7 @@ export default function Home() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState("all"); // 分类筛选状态
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -1312,11 +1314,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
               <span className="text-white font-bold text-sm">AI</span>
             </div>
 
-            {/* 英语格言组件 - 放在Logo右边 */}
-            <div className="ml-2 lg:max-w-2xl flex-1">
-              <EnglishMaxim />
-            </div>
-          </div>
+              </div>
 
           {/* 右侧：作者链接 + 点数兑换 + 点数记录 + 点数显示 + 用户按钮 */}
         <div className="flex items-center gap-1 md:gap-3">
@@ -1334,17 +1332,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
             </svg>
           </a>
 
-          {/* 邀请有礼按钮 - 移动端使用图标模式 */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/invite')}
-            className="border-purple-200 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
-          >
-            <Gift className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">邀请有礼</span>
-          </Button>
-
+  
           {/* 每日奖励按钮 - 移动端使用图标模式 */}
           {currentUser && !dailyRewardClaimed && (
             <Button
@@ -1436,16 +1424,16 @@ The future of AI depends on our ability to balance innovation with responsibilit
       <div className="flex">
         {/* 侧边栏 */}
         <aside className={`${
-          sidebarCollapsed ? 'w-16' : 'w-64'
-        } transition-all duration-300 border-r border-gray-200 bg-gradient-to-b from-white via-gray-50 to-gray-100 flex flex-col h-[calc(100vh-4rem)] sticky top-16 hidden md:flex z-40 flex-shrink-0`}>
+          sidebarCollapsed ? 'w-20' : 'w-72'
+        } transition-all duration-300 border-r border-gray-200 bg-gradient-to-b from-white via-gray-50 to-gray-100 flex flex-col h-[calc(100vh-4rem)] fixed top-16 left-0 hidden md:flex z-[60] flex-shrink-0`}>
           {!sidebarCollapsed && (
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 h-full max-h-[calc(100vh-200px)] sidebar-scrollbar">
-                <nav className="space-y-1">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 h-full sidebar-scrollbar">
+                <nav className="space-y-2">
                   {navigationData.map((category) => (
-                    <div key={category.id} className="mb-1">
+                    <div key={category.id} className="mb-3">
                       <button
                         onClick={() => toggleCategory(category.id)}
-                        className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 hover:bg-gray-100 group"
+                        className="w-full text-left px-3 py-3 rounded-lg text-sm transition-all duration-200 hover:bg-gray-100 group"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -1453,7 +1441,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                               {category.icon}
                             </span>
                             <div>
-                              <h3 className="font-medium text-foreground text-sm">{category.title}</h3>
+                              <h3 className="font-medium text-purple-600 text-sm">{category.title}</h3>
                             </div>
                           </div>
                           <svg
@@ -1470,32 +1458,36 @@ The future of AI depends on our ability to balance innovation with responsibilit
 
                       {/* 二级菜单 */}
                       <div className={`ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
-                        expandedCategories.includes(category.id) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                        expandedCategories.includes(category.id) ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
                       }`}>
                         {category.items.map((item) => {
-                          const isAvailable = !(item as any).disabled;
+                          const isAvailable = !(item as any).disabled || item.id === "text-analysis";
                           return (
-                          <button
-                            key={item.id}
-                            onClick={() => isAvailable && handleItemClick(category.id, item.id)}
-                            disabled={!isAvailable}
-                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                              isAvailable
-                                ? 'text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 hover:text-purple-700 hover:font-medium border border-transparent hover:border-purple-200'
-                                : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
-                            }`}
-                          >
-                            <span>{item.title}</span>
-                            <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                              isAvailable
-                                ? 'bg-gray-100 text-gray-600 group-hover:bg-purple-100 group-hover:text-purple-700'
-                                : 'bg-gray-300 text-gray-500'
-                            }`}>
-                              {isAvailable ? `${item.cost}点` : '敬请期待'}
-                            </span>
-                          </button>
-                        );
-                      })}
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                if (isAvailable) {
+                                  handleItemClick(category.id, item.id);
+                                }
+                              }}
+                              disabled={!isAvailable}
+                              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
+                                isAvailable
+                                  ? 'text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 hover:text-purple-700 hover:font-medium border border-transparent hover:border-purple-200'
+                                  : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
+                              }`}
+                            >
+                              <span>{item.title}</span>
+                              <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
+                                isAvailable
+                                  ? 'bg-gray-100 text-gray-600 group-hover:bg-purple-100 group-hover:text-purple-700'
+                                  : 'bg-gray-300 text-gray-500'
+                              }`}>
+                                {isAvailable ? `${item.cost}点` : '敬请期待'}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -1523,7 +1515,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
         {/* 移动端侧边栏覆盖层 */}
         {!sidebarCollapsed && (
           <div className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarCollapsed(true)}>
-            <aside className="w-64 bg-white h-full shadow-xl transform transition-transform duration-300 flex flex-col">
+            <aside className="w-72 bg-white h-full shadow-xl transform transition-transform duration-300 flex flex-col">
               {/* 移动端侧边栏内容与桌面端相同 */}
               <div className="flex-1 overflow-y-auto overflow-x-hidden mobile-scrollbar">
                 <div className="p-4">
@@ -1541,7 +1533,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                     <div key={category.id} className="mb-1">
                       <button
                         onClick={() => toggleCategory(category.id)}
-                        className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 hover:bg-gray-100 group"
+                        className="w-full text-left px-3 py-3 rounded-lg text-sm transition-all duration-200 hover:bg-gray-100 group"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -1549,7 +1541,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                               {category.icon}
                             </span>
                             <div>
-                              <h3 className="font-medium text-foreground text-sm">{category.title}</h3>
+                              <h3 className="font-medium text-purple-600 text-sm">{category.title}</h3>
                             </div>
                           </div>
                           <svg
@@ -1565,10 +1557,10 @@ The future of AI depends on our ability to balance innovation with responsibilit
                       </button>
 
                       <div className={`ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
-                        expandedCategories.includes(category.id) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                        expandedCategories.includes(category.id) ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
                       }`}>
                         {category.items.map((item) => {
-                          const isAvailable = !(item as any).disabled;
+                          const isAvailable = !(item as any).disabled || item.id === "text-analysis";
                           return (
                             <button
                               key={item.id}
@@ -1606,98 +1598,223 @@ The future of AI depends on our ability to balance innovation with responsibilit
           </div>
         )}
 
-        {/* 主内容区 */}
-        <main className="flex-1 bg-white transition-all duration-300 lg:min-h-0">
-          <div className="min-h-[calc(100vh-4rem)] flex flex-col lg:flex-row lg:overflow-hidden gap-0 lg:h-[calc(100vh-4rem)]">
-            {/* 左半部分：工具配置区 */}
-            <div className="w-full lg:w-5/12 bg-white lg:border-r border-gray-200 flex flex-col lg:overflow-hidden min-h-[60vh]">
-              {/* 工具信息卡片 */}
-              <div className="p-2 md:p-3 border-b border-gray-200">
-                <div className="flex items-start gap-2">
-                  <div className="w-8 h-8 rounded bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0 mt-1 border border-purple-200">
-                    {currentTool.icon}
+        {/* 主内容区 - 网格化布局 */}
+        <main className="flex-1 bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-100 transition-all duration-300 lg:min-h-0 relative z-30 md:ml-72">
+          <div className="min-h-[calc(100vh-4rem)] p-4 md:p-6 lg:p-8">
+            {/* 顶部标题区域 */}
+
+            {/* 信息通告和名人名言区域 - 3:1比例 */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+              {/* 信息通告区域 - 占3份 */}
+              <div className="lg:col-span-3 bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg p-5 border border-blue-500 shadow-md relative">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-blue-200 rounded-full animate-ping"></div>
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <h2 className="text-base font-semibold text-gray-900">
-                        {currentTool.title}
-                      </h2>
-                      <span className="bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 text-xs px-1.5 py-0.5 rounded-full border border-purple-200 font-medium">
-                        {toolCost} 点数
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-tight">
-                      {currentTool.description}
-                    </p>
+                  <span className="text-base font-semibold text-white">📢 系统通告</span>
+                  <div className="ml-auto flex items-center gap-1">
+                    <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-1 h-1 bg-blue-200 rounded-full animate-pulse delay-75"></div>
+                    <div className="w-1 h-1 bg-white rounded-full animate-pulse delay-150"></div>
                   </div>
-                  <button className="p-1 rounded hover:bg-gray-100 transition-colors duration-200">
-                    <svg className="w-4 h-4 text-muted-foreground" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                    </svg>
+                </div>
+                <p className="text-sm text-blue-100 leading-relaxed mb-4">
+                  🚀 欢迎使用AI英语教学助手！我新增了多项智能教学工具，包括阅读理解解析、语法填空分析等功能，助力您的英语教学更加高效。
+                </p>
+
+                {/* 会员通道按钮 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-blue-200 font-medium">✨ 会员特权</span>
+                    <span className="text-xs text-blue-300">无限使用所有工具</span>
+                  </div>
+                  <button
+                    onClick={() => router.push('/membership')}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    🎯 网站会员通道开启
                   </button>
                 </div>
               </div>
 
-              {/* 参数配置区 */}
-              <div className="flex-1 p-3 md:p-4 lg:p-6 overflow-y-auto lg:max-h-[calc(100vh-12rem)] lg:min-h-0">
-                <div className="space-y-4 md:space-y-6">
-                  
-                  {/* 文本输入 */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      {activeItem === "text-generator" ? "输入要求" :
-                       activeItem === "cd-questions" ? "开始改编" : "文章内容"}
-                    </label>
-                    
-                    {/* CD篇改编的特殊提示 */}
-                    {activeItem === "cd-adaptation" && (
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 mb-3">
-                        <div className="flex items-start gap-2">
-                          <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-sm font-medium text-blue-900 mb-1">💡 使用提示</h4>
-                            <div className="text-xs text-blue-700 space-y-1">
-                              <p>• 请粘贴完整的英文文章内容</p>
-                              <p>• 支持各种类型的英文文章（新闻、学术、科普等）</p>
-                              <p>• AI将自动改编为适合中国高中生阅读的版本</p>
-                              <p>• 改编后的文章将符合课标词汇和语法要求</p>
+              {/* 名人名言区域 - 占1份 */}
+              <div className="lg:col-span-1">
+                <EnglishMaxim />
+              </div>
+            </div>
+
+            {/* 网格化工具区域 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
+              {navigationData.map((category) =>
+                category.items
+                  .filter((item) => {
+                    const isAvailable = !(item as any).disabled;
+                    return isAvailable;
+                  })
+                  .map((item) => {
+                    // 为每个工具配置对应的颜色主题
+                    const getColorTheme = (categoryId: string) => {
+                      const themes = {
+                        reading: {
+                          bg: "from-purple-500 to-purple-600",
+                          hover: "from-purple-600 to-purple-700",
+                          overlay: "from-purple-500/10 to-blue-500/10",
+                          text: "text-purple-600"
+                        },
+                        vocabulary: {
+                          bg: "from-green-500 to-emerald-600",
+                          hover: "from-green-600 to-emerald-700",
+                          overlay: "from-green-500/10 to-emerald-500/10",
+                          text: "text-green-600"
+                        },
+                        image: {
+                          bg: "from-pink-500 to-rose-600",
+                          hover: "from-pink-600 to-rose-700",
+                          overlay: "from-pink-500/10 to-rose-500/10",
+                          text: "text-pink-600"
+                        },
+                        writing: {
+                          bg: "from-blue-500 to-cyan-600",
+                          hover: "from-blue-600 to-cyan-700",
+                          overlay: "from-blue-500/10 to-cyan-500/10",
+                          text: "text-blue-600"
+                        },
+                        games: {
+                          bg: "from-amber-500 to-orange-600",
+                          hover: "from-amber-600 to-orange-700",
+                          overlay: "from-amber-500/10 to-orange-500/10",
+                          text: "text-amber-600"
+                        },
+                        invite: {
+                          bg: "from-red-500 to-pink-600",
+                          hover: "from-red-600 to-pink-700",
+                          overlay: "from-red-500/10 to-pink-500/10",
+                          text: "text-red-600"
+                        }
+                      };
+                      return themes[categoryId as keyof typeof themes] || themes.reading;
+                    };
+
+                    const theme = getColorTheme(category.id);
+
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          if ((item as any).route) {
+                            router.push((item as any).route);
+                          } else {
+                            handleItemClick(category.id, item.id);
+                          }
+                        }}
+                        className="group relative bg-white/60 backdrop-blur-lg rounded-xl p-3.5 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border border-white/50 w-full text-left hover:bg-white/70"
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-r ${theme.overlay} rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+                        <div className="relative z-0 flex items-center gap-3.5">
+                          <div className={`w-11 h-11 bg-gradient-to-br ${theme.bg} rounded-lg flex items-center justify-center shadow-md relative overflow-hidden flex-shrink-0`}>
+                            <span className="text-white text-lg">
+                              {category.id === "reading" && "📖"}
+                              {category.id === "vocabulary" && "📝"}
+                              {category.id === "image" && "🎨"}
+                              {category.id === "writing" && "✍️"}
+                              {category.id === "games" && "🎮"}
+                              {category.id === "invite" && "🎁"}
+                              {category.id === "grammar" && "📋"}
+                              {category.id === "translation" && "🌐"}
+                              {category.id === "media" && "🎵"}
+                              {category.id === "paper" && "📄"}
+                              {category.id === "correction" && "✅"}
+                            </span>
+                            {/* 点数标签 - 图标内部右下角 */}
+                            <div className={`absolute bottom-0 right-0 px-1 py-0.5 ${item.cost === 0 ? 'bg-green-600' : 'bg-black/30'} text-white text-[9px] font-bold rounded-tl-lg backdrop-blur-sm`}>
+                              {item.cost === 0 ? "免费" : `${item.cost}点`}
                             </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-0.5 line-clamp-1">{item.title}</h3>
+                            <p className="text-xs text-gray-600 line-clamp-1">{category.subtitle}</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+              )}
+            </div>
+
+            {/* 底部快速输入区域 */}
+            {activeItem && activeItem !== "text-analysis" && (
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0 border border-purple-200">
+                      {currentTool.icon}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {currentTool.title}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {currentTool.description}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 text-sm px-3 py-1 rounded-full border border-purple-200 font-medium">
+                        {toolCost} 点数
+                      </span>
+                      <button
+                        onClick={() => setActiveItem("")}
+                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                      >
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* 输入区域 */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          {activeItem === "text-generator" ? "输入要求" :
+                           activeItem === "cd-adaptation" ? "文章内容" :
+                           activeItem === "image-generator" ? "提示词" : "输入内容"}
+                        </label>
+                        <div className="relative">
+                          <Textarea
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            placeholder={currentTool.placeholder}
+                            className="min-h-[200px] text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500 resize-none transition-all duration-200"
+                            maxLength={maxChars}
+                          />
+                          <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-white px-2 py-1 rounded border">
+                            {charCount}/{maxChars}
                           </div>
                         </div>
                       </div>
-                    )}
-                    
-                    <div className="relative">
-                      <Textarea
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        placeholder={currentTool.placeholder}
-                        className={`${activeItem === "cd-adaptation" ? "min-h-[450px] md:min-h-[550px]" : "min-h-[350px] md:min-h-[450px]"} text-sm border-gray-300 focus:border-purple-500 focus:ring-purple-500 resize-none transition-all duration-200`}
-                        maxLength={maxChars}
-                      />
-                      {/* OCR小按钮 */}
-                      <div className="absolute top-2 right-2 flex gap-2">
+
+                      {/* OCR功能 */}
+                      <div className="flex gap-2">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 sm:h-6 sm:w-6 opacity-70 hover:opacity-100 touch-manipulation"
+                          variant="outline"
+                          size="sm"
                           onClick={() => imageInputRef.current?.click()}
-                          title="上传图片"
+                          className="flex items-center gap-2"
                         >
-                          📁
+                          📁 上传图片
                         </Button>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 sm:h-6 sm:w-6 opacity-70 hover:opacity-100 touch-manipulation"
+                          variant="outline"
+                          size="sm"
                           onClick={() => setIsCameraOpen(true)}
-                          title="拍照识别"
+                          className="flex items-center gap-2"
                         >
-                          📷
+                          📷 拍照识别
                         </Button>
                         <input
                           type="file"
@@ -1708,346 +1825,72 @@ The future of AI depends on our ability to balance innovation with responsibilit
                           className="hidden"
                         />
                       </div>
-                      <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-white px-2 py-1 rounded border">
-                        {charCount}/{maxChars}
-                      </div>
                     </div>
 
-                    {/* 文本分析功能的特殊提示 */}
-                    {activeItem === "text-analysis" && (
-                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                        <div className="flex items-start space-x-2">
-                          <span className="text-amber-600 text-lg">📝</span>
-                          <div className="text-xs text-amber-700">
-                            <p className="font-medium mb-1">重要提醒：</p>
-                            <ul className="list-disc list-inside space-y-1 text-amber-600">
-                              <li>请只输入英文文章原文，不要包含题干和ABCD选项</li>
-                              <li>Fred老师原创提示词需要纯文本才能生成最佳分析效果</li>
-                              <li>如果检测到题干选项，系统会自动提醒您修改</li>
-                            </ul>
-                            <div className="mt-2 pt-2 border-t border-amber-200">
-                              <p className="text-amber-700 font-medium">
-                                <span className="text-amber-600">⚠️</span> 该功能只适用于全国卷、北京卷、天津卷、上海卷等风格的阅读题
-                              </p>
-                              <p className="text-amber-600 mt-1">
-                                不适合段落较多的课文文章，如需剖析课文，请访问
-                                <a
-                                  href="/tools/reading/textbook_passage_analysis"
-                                  className="text-blue-600 hover:text-blue-800 underline ml-1"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  课本文章分析
-                                </a>
-                              </p>
+                    {/* 结果展示区域 */}
+                    <div className="space-y-4">
+                      <div className="bg-gray-50 rounded-xl p-4 min-h-[200px] max-h-[300px] overflow-y-auto">
+                        {!analysisResult && !isAnalyzing ? (
+                          <div className="h-full flex items-center justify-center text-center">
+                            <div className="text-muted-foreground">
+                              <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3">
+                                <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.5 4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-9a.5.5 0 01-.5-.5v-4a.5.5 0 01.5-.5h9z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <p className="text-sm">等待AI处理结果...</p>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    )}
-
-                                      </div>
-
-  
-                  {/* CD篇改编的图片识别功能 */}
-                  {activeItem === "cd-adaptation" && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        图片文字识别 (最多3张)
-                      </label>
-                      
-                      {/* 图片上传区域 */}
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-                        <div className="flex flex-col items-center justify-center space-y-3">
-                          <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full">
-                            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-sm text-gray-600 mb-2">点击上传图片或拖拽图片到此处</p>
-                            <p className="text-xs text-gray-500">支持 JPG、PNG、GIF 格式，每张图片不超过 10MB</p>
-                            <p className="text-xs text-blue-600 mt-1">📝 功能：识别图片中的文字内容</p>
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={handleImageUpload}
-                            className="hidden"
-                            id="image-upload"
-                            ref={imageInputRef}
-                          />
-                          <label
-                            htmlFor="image-upload"
-                            className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
-                          >
-                            选择图片
-                          </label>
-                        </div>
-                        
-                        {/* 已上传的图片预览 */}
-                        {uploadedImages.length > 0 && (
-                          <div className="mt-4">
-                            <div className="grid grid-cols-3 gap-2">
-                              {uploadedImages.map((image, index) => (
-                                <div key={index} className="relative group">
-                                  <img
-                                    src={image.preview}
-                                    alt={`Uploaded image ${index + 1}`}
-                                    className="w-full h-20 object-cover rounded-lg border border-gray-200"
-                                  />
-                                  <button
-                                    onClick={() => removeImage(index)}
-                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors duration-200"
-                                  >
-                                    ×
-                                  </button>
-                                </div>
-                              ))}
+                        ) : isAnalyzing ? (
+                          <div className="h-full flex items-center justify-center text-center">
+                            <div className="space-y-3">
+                              <div className="animate-spin w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full mx-auto"></div>
+                              <p className="text-sm text-muted-foreground">AI正在处理中...</p>
                             </div>
-                            
-                            {/* 识别按钮 */}
-                            <div className="mt-3 flex justify-end">
-                              <button
-                                onClick={handleImageRecognition}
-                                disabled={isRecognizing || uploadedImages.length === 0}
-                                className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-                              >
-                                {isRecognizing ? (
-                                  <>
-                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    文字识别中... ({uploadedImages.length}张)
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                    识别文字 ({uploadedImages.length}张)
-                                  </>
-                                )}
-                              </button>
-                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm leading-relaxed">
+                            {activeItem === "image-generator" ? (
+                              <div dangerouslySetInnerHTML={{ __html: analysisResult || '' }} />
+                            ) : (
+                              <div dangerouslySetInnerHTML={{
+                                __html: (analysisResult || '')
+                                  .replace(/\n/g, '<br>')
+                                  .replace(/# (.*)/g, '<div class="font-semibold text-gray-900 mb-2">$1</div>')
+                                  .replace(/## (.*)/g, '<div class="font-medium text-gray-800 mb-1">$1</div>')
+                                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                              }} />
+                            )}
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
 
-                  </div>
-              </div>
-
-              {/* 底部操作区 */}
-              <div className="p-2 md:p-3 border-t border-gray-200 bg-gray-50">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2">
-                      {canAnalyze ? (
-                        hasEnoughPoints ? (
-                          <div className="flex items-center gap-1 text-green-600">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            <span className="font-medium">准备就绪</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-orange-600">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                            <span>需要 {toolCost} 点数</span>
-                          </div>
-                        )
-                      ) : (
-                        <div className="flex items-center gap-1 text-gray-500">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                          <span>需要至少 {minChars} 个字符</span>
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={loadSampleText}
-                      className="flex items-center gap-1 text-purple-600 hover:text-purple-700 font-medium transition-colors duration-200"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      加载示例
-                    </button>
-                  </div>
-
-                  {!hasEnoughPoints && canAnalyze && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
-                      <div className="flex items-center gap-2 text-amber-700 text-sm">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        <span>点数不足，需要 {toolCost} 点数</span>
-                        <button
-                          onClick={handlePurchasePoints}
-                          className="ml-auto text-amber-600 hover:text-amber-700 font-medium underline"
+                      {/* 操作按钮 */}
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={handleAnalyze}
+                          disabled={!canAnalyze || isAnalyzing || !hasEnoughPoints}
+                          className={`flex-1 ${
+                            canAnalyze && !isAnalyzing && hasEnoughPoints
+                              ? 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          } text-white`}
                         >
-                          立即充值
-                        </button>
+                          {isAnalyzing ? '处理中...' : currentTool.buttonText}
+                        </Button>
+                        <Button
+                          onClick={loadSampleText}
+                          variant="outline"
+                          className="px-4"
+                        >
+                          示例
+                        </Button>
                       </div>
                     </div>
-                  )}
-
-                  <Button
-                    onClick={handleAnalyze}
-                    disabled={!canAnalyze || isAnalyzing || !hasEnoughPoints}
-                    className={`w-full h-11 font-medium text-base transition-all duration-300 ${
-                      canAnalyze && !isAnalyzing && hasEnoughPoints
-                        ? 'evolink-button'
-                        : 'bg-secondary text-muted-foreground cursor-not-allowed'
-                    }`}
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        {currentTool.analysisText}
-                      </>
-                    ) : canAnalyze ? (hasEnoughPoints ? currentTool.buttonText : `需要 ${toolCost} 点数`) : (activeItem === "text-generator" ? '输入生成要求' : activeItem === "cd-questions" ? '开始改编' : activeItem === "image-generator" ? '输入提示词' : '输入文章内容')}
-                  </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* 右半部分：结果展示区 */}
-            <div className="flex-1 flex flex-col lg:overflow-hidden bg-gray-50 min-h-[40vh]">
-              {/* 结果展示内容 */}
-              <div className="flex-1 overflow-y-auto">
-                {!analysisResult && !isAnalyzing ? (
-                  <div className="h-full flex items-center justify-center p-4 md:p-6 lg:p-8">
-                    <div className="text-center max-w-md animate-fade-in">
-                      <div className="w-24 h-24 rounded-full bg-card flex items-center justify-center mx-auto mb-6 border border-border shadow-lg">
-                        <svg className="w-12 h-12 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.5 4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-9a.5.5 0 01-.5-.5v-4a.5.5 0 01.5-.5h9z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl evolink-heading text-foreground mb-3">
-                        {activeItem === "cd-adaptation" ? "准备开始改编" : activeItem === "image-generator" ? "准备开始生成连环画" : "准备开始分析"}
-                      </h3>
-                      <p className="text-muted-foreground leading-relaxed">
-                        {activeItem === "cd-adaptation" ? (
-                          <>在左侧输入您要改编的英文文章，选择大语言模型，点击"开始改编"按钮，
-                          AI将为您生成适合中国高中生阅读的改编版本。</>
-                        ) : activeItem === "image-generator" ? (
-                          <>在左侧输入详细的提示词，描述您想要生成的连环画内容，点击"开始生成连环画"按钮，
-                          AI将为您生成一组精美的连贯插画。</>
-                        ) : (
-                          <>在左侧输入您的英语文章，选择分析参数，点击"开始神奇分析"按钮，
-                          AI将为您生成详细的语言分析报告。</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                ) : isAnalyzing ? (
-                  <div className="h-full flex items-center justify-center p-4 md:p-6 lg:p-8">
-                    <div className="text-center animate-pulse">
-                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center mx-auto mb-6 border border-purple-200 shadow-lg">
-                        <svg className="animate-spin w-12 h-12 text-purple-600" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-semibold text-foreground mb-3">AI正在深度分析中</h3>
-                      <div className="text-center space-y-2">
-                        <p className="text-muted-foreground">
-                          Fred老师正在进行详细的文本分析...
-                        </p>
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                          <p className="text-amber-800 text-sm font-medium">
-                            ⏱️ 预计需要约3分钟，请耐心等待
-                          </p>
-                          <p className="text-amber-700 text-xs mt-1">
-                            AI正在生成全文解读、文章中心思想、段落分析等详细内容
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 md:p-4 lg:p-6 animate-slide-up flex flex-col lg:h-[calc(100vh-6rem)] min-h-[50vh]">
-                    {/* 结果展示区域 */}
-                    <div className="flex-1 min-h-0">
-                      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 lg:p-8 h-full overflow-hidden">
-                        <div className="max-w-none max-h-[calc(100vh-10rem)] overflow-y-auto text-sm leading-relaxed" style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>
-                          {activeItem === "image-generator" ? (
-                            // AI图片生成工具 - 直接渲染HTML
-                            <div dangerouslySetInnerHTML={{
-                              __html: analysisResult || ''
-                            }} />
-                          ) : (
-                            // 其他工具 - 保持原有的格式化逻辑
-                            <div dangerouslySetInnerHTML={{
-                              __html: (analysisResult || '')
-                                .replace(/\n/g, '<br>')
-                                .replace(/# (.*)/g, '<div style="color: #1f2937; font-size: 0.875rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.6;">$1</div>')
-                                .replace(/## (.*)/g, '<div style="color: #374151; font-size: 0.875rem; font-weight: 600; margin: 1rem 0 0.5rem 0; line-height: 1.6;">$1</div>')
-                                .replace(/### (.*)/g, '<div style="color: #6b7280; font-size: 0.875rem; font-weight: 600; margin: 0.75rem 0 0.25rem 0; line-height: 1.6;">$1</div>')
-                                .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1f2937; font-weight: 600;">$1</strong>')
-                                .replace(/- (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">• $1</div>')
-                                .replace(/(\d+)\. (.*)/g, '<div style="margin: 0.25rem 0; padding-left: 1rem; line-height: 1.6;">$1. $2</div>')
-                                .replace(/\u2705/g, '<span style="color: #10b981;">✅</span>')
-                                .replace(/\u26a0\ufe0f/g, '<span style="color: #f59e0b;">⚠️</span>')
-                            }} />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 复制和导出按钮 - 固定在底部 */}
-                    {["text-analysis", "cd-adaptation", "text-generator"].includes(activeItem) && (
-                      <div className="mt-3 md:mt-4 flex flex-wrap gap-2 md:gap-3 justify-center flex-shrink-0">
-                        <Button
-                          onClick={copyToClipboard}
-                          disabled={isCopying}
-                          className="evolink-button flex items-center gap-2"
-                        >
-                          {isCopying ? (
-                            <>
-                              <svg className="animate-spin -ml-1 mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              复制中...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                              </svg>
-                              一键复制
-                            </>
-                          )}
-                        </Button>
-
-                        <Button
-                          onClick={exportToTxt}
-                          className="evolink-button flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          导出TXT
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </div>
         </main>
       </div>
@@ -2172,16 +2015,6 @@ The future of AI depends on our ability to balance innovation with responsibilit
         </div>
       )}
 
-      {/* 移动端浮动邀请按钮 */}
-      <div className="fixed bottom-6 right-6 md:hidden z-40">
-        <button
-          onClick={() => router.push('/invite')}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center gap-2"
-        >
-          <Gift className="w-5 h-5" />
-          <span className="text-sm font-medium">邀请有礼</span>
-        </button>
-        </div>
-    </div>
+          </div>
   );
 }
