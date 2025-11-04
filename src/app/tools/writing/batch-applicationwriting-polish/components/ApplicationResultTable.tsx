@@ -25,6 +25,9 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
   const [expandedResults, setExpandedResults] = useState<{[key: string]: boolean}>({});
   const [showImprovedVersions, setShowImprovedVersions] = useState<{[key: string]: boolean}>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [editableScores, setEditableScores] = useState<{[key: string]: string}>({});
+  const [editableFeedback, setEditableFeedback] = useState<{[key: string]: string}>({});
+  const [isEditing, setIsEditing] = useState<{[key: string]: boolean}>({});
 
   if (!task) return null;
 
@@ -61,15 +64,26 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
       return;
     }
 
-    const data = completedAssignments.map((assignment, index) => ({
-      '序号': index + 1,
-      '学生姓名': assignment.student.name,
-      '得分': assignment.gradingResult?.score || 0,
-      '原文内容': assignment.ocrResult.editedText || assignment.ocrResult.content,
-      '批改意见': assignment.gradingResult?.feedback || '',
-      '高分范文': assignment.gradingResult?.improvedVersion || '',
-      '批改时间': assignment.gradingResult?.gradedAt ? new Date(assignment.gradingResult.gradedAt).toLocaleString() : ''
-    }));
+    const data = completedAssignments.map((assignment, index) => {
+      const content = assignment.ocrResult.editedText || assignment.ocrResult.content;
+      console.log(`📋 Excel导出数据调试 - ${assignment.student.name}:`, {
+        hasEditedText: !!assignment.ocrResult.editedText,
+        hasOriginalText: !!assignment.ocrResult.content,
+        contentLength: content?.length || 0,
+        contentPreview: content?.substring(0, 100),
+        isFromEditedText: !!assignment.ocrResult.editedText
+      });
+
+      return {
+        '序号': index + 1,
+        '学生姓名': assignment.student.name,
+        '得分': editableScores[assignment.id] || assignment.gradingResult?.score || 0,
+        '原文内容': content,
+        '批改意见': editableFeedback[assignment.id] || assignment.gradingResult?.feedback || '',
+        '高分范文': assignment.gradingResult?.improvedVersion || '',
+        '批改时间': assignment.gradingResult?.gradedAt ? new Date(assignment.gradingResult.gradedAt).toLocaleString() : ''
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -90,66 +104,274 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
     XLSX.writeFile(wb, `应用文批改结果_${new Date().toLocaleDateString()}.xlsx`);
   };
 
-  // 导出为txt文件（每个学生单独一个文件）
-  const exportToTxtFiles = () => {
+  // 导出为Word文件（每个学生单独一个文件）
+  const exportToWordFiles = async () => {
     if (completedAssignments.length === 0) {
       alert('没有可导出的数据');
       return;
     }
 
-    completedAssignments.forEach((assignment, index) => {
+    console.log('开始生成单独的Word文件...');
+
+    // 并行生成所有学生的Word文档
+    const promises = completedAssignments.map(async (assignment, index) => {
       const studentName = assignment.student.name;
-      const score = assignment.gradingResult?.score || 0;
+      const score = editableScores[assignment.id] || assignment.gradingResult?.score || 0;
       const originalText = assignment.ocrResult.editedText || assignment.ocrResult.content;
-      const feedback = assignment.gradingResult?.feedback || '';
+      const feedback = editableFeedback[assignment.id] || assignment.gradingResult?.feedback || '';
       const improvedVersion = assignment.gradingResult?.improvedVersion || '';
       const gradedTime = assignment.gradingResult?.gradedAt ? new Date(assignment.gradingResult.gradedAt).toLocaleString() : '';
 
-      // 构建txt文件内容
-      const content = `＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
-应用文批改报告
-＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+      console.log(`📄 单个Word文件导出调试 - ${assignment.student.name}:`, {
+        hasEditedText: !!assignment.ocrResult.editedText,
+        hasOriginalText: !!assignment.ocrResult.content,
+        textLength: originalText?.length || 0,
+        textPreview: originalText?.substring(0, 100),
+        isFromEditedText: !!assignment.ocrResult.editedText
+      });
 
-学生姓名：${studentName}
-得分：${score}分
-批改时间：${gradedTime}
+      // 创建文档内容
+      const children: any[] = [];
 
-─────────────────────────────────────
-【学生原文】
-─────────────────────────────────────
+      // 标题
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "应用文批改报告",
+              bold: true,
+              size: 32,
+              color: "2E74B5"
+            })
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 }
+        })
+      );
 
-${originalText}
+      // 基本信息
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "学生姓名: ",
+              bold: true,
+              size: 18
+            }),
+            new TextRun({
+              text: studentName,
+              size: 18
+            })
+          ],
+          spacing: { after: 200 }
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "得分: ",
+              bold: true,
+              size: 18
+            }),
+            new TextRun({
+              text: `${score}分`,
+              size: 18,
+              color: score >= 10 ? "FF0000" : "000000"
+            })
+          ],
+          spacing: { after: 200 }
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "批改时间: ",
+              bold: true,
+              size: 18
+            }),
+            new TextRun({
+              text: gradedTime,
+              size: 18
+            })
+          ],
+          spacing: { after: 400 }
+        })
+      );
 
-─────────────────────────────────────
-【详细批改意见】
-─────────────────────────────────────
+      // 学生原文
+      const originalTextParagraphs = originalText.split('\n').filter(line => line.trim());
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "【学生原文】",
+              bold: true,
+              size: 20,
+              color: "2E74B5"
+            })
+          ],
+          spacing: { after: 300 },
+          border: {
+            bottom: {
+              color: "E0E0E0",
+              size: 1,
+              style: BorderStyle.SINGLE
+            }
+          }
+        })
+      );
 
-${feedback}
+      originalTextParagraphs.forEach((paragraph, pIndex) => {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: paragraph.trim(),
+                size: 18,  // 9号字体 = 18磅
+                font: "宋体"
+              })
+            ],
+            spacing: {
+              line: 220,  // 11磅行距
+              after: pIndex < originalTextParagraphs.length - 1 ? 120 : 200
+            },
+            indent: {
+              firstLine: 400  // 首行缩进2字符
+            }
+          })
+        );
+      });
 
-─────────────────────────────────────
-【高分范文】
-─────────────────────────────────────
+      // 详细批改意见
+      if (feedback) {
+        const feedbackParagraphs = feedback.split('\n').filter(line => line.trim());
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "【详细批改意见】",
+                bold: true,
+                size: 20,
+                color: "2E74B5"
+              })
+            ],
+            spacing: { after: 300 },
+            border: {
+              bottom: {
+                color: "E0E0E0",
+                size: 1,
+                style: BorderStyle.SINGLE
+              }
+            }
+          })
+        );
 
-${improvedVersion}
+        feedbackParagraphs.forEach((paragraph, pIndex) => {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: paragraph.trim(),
+                  size: 18,  // 9号字体 = 18磅
+                  font: "宋体"
+                })
+              ],
+              spacing: {
+                line: 220,  // 11磅行距
+                after: pIndex < feedbackParagraphs.length - 1 ? 120 : 200
+              },
+              indent: {
+                firstLine: 400  // 首行缩进2字符
+              }
+            })
+          );
+        });
+      }
 
-＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
-批改完成 - 由AI英语教学助手生成
-＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
-`;
+      // 高分范文
+      if (improvedVersion) {
+        const improvedParagraphs = improvedVersion.split('\n').filter(line => line.trim());
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "【高分范文】",
+                bold: true,
+                size: 20,
+                color: "2E74B5"
+              })
+            ],
+            spacing: { after: 300 },
+            border: {
+              bottom: {
+                color: "E0E0E0",
+                size: 1,
+                style: BorderStyle.SINGLE
+              }
+            }
+          })
+        );
 
-      // 创建Blob并下载
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${studentName}_应用文批改报告_${new Date().toLocaleDateString().replace(/\//g, '-')}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+        improvedParagraphs.forEach((paragraph, pIndex) => {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: paragraph.trim(),
+                  size: 18,  // 9号字体 = 18磅
+                  font: "宋体"
+                })
+              ],
+              spacing: {
+                line: 220,  // 11磅行距
+                after: pIndex < improvedParagraphs.length - 1 ? 120 : 200
+              },
+              indent: {
+                firstLine: 400  // 首行缩进2字符
+              }
+            })
+          );
+        });
+      }
+
+      // 创建文档
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: children
+        }]
+      });
+
+      try {
+        const buffer = await Packer.toBuffer(doc);
+        const fileName = `${studentName}_应用文批改报告_${new Date().toLocaleDateString().replace(/\//g, '-')}.docx`;
+
+        // 创建Blob并下载
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        console.log(`已生成并下载: ${fileName}`);
+        return fileName;
+      } catch (error) {
+        console.error(`生成${studentName}的Word文档失败:`, error);
+        throw error;
+      }
     });
 
-    alert(`已导出${completedAssignments.length}个学生的批改报告txt文件`);
+    try {
+      // 等待所有文档生成完成
+      const fileNames = await Promise.all(promises);
+      alert(`已成功导出${fileNames.length}个学生的Word批改报告文件`);
+      console.log('所有Word文件导出完成');
+    } catch (error) {
+      console.error('批量导出Word文件失败:', error);
+      alert('部分文件导出失败，请稍后重试');
+    }
   };
 
   // 导出Word文档（每页一个学生）
@@ -216,9 +438,9 @@ ${improvedVersion}
     // 为每个学生创建一页
     completedAssignments.forEach((assignment, index) => {
       const studentName = assignment.student.name;
-      const score = assignment.gradingResult?.score || 0;
+      const score = editableScores[assignment.id] || assignment.gradingResult?.score || 0;
       const originalText = assignment.ocrResult.editedText || assignment.ocrResult.content;
-      const feedback = assignment.gradingResult?.feedback || '';
+      const feedback = editableFeedback[assignment.id] || assignment.gradingResult?.feedback || '';
       const improvedVersion = assignment.gradingResult?.improvedVersion || '';
       const gradedTime = assignment.gradingResult?.gradedAt ? new Date(assignment.gradingResult.gradedAt).toLocaleString() : '';
 
@@ -279,7 +501,7 @@ ${improvedVersion}
             }),
             new TextRun({
               text: `${score}分`,
-              size: 22,
+              size: 18,  // 9号字体 = 18磅
               color: score >= 10 ? "FF0000" : "000000"
             })
           ],
@@ -331,12 +553,13 @@ ${improvedVersion}
             children: [
               new TextRun({
                 text: paragraph.trim(),
-                size: 22,
+                size: 18,  // 9号字体 = 18磅
                 font: "宋体"
               })
             ],
             spacing: {
-              after: pIndex < originalTextParagraphs.length - 1 ? 240 : 400
+              line: 220,  // 11磅行距
+              after: pIndex < originalTextParagraphs.length - 1 ? 120 : 200
             },
             indent: {
               firstLine: 400  // 首行缩进2字符
@@ -376,12 +599,13 @@ ${improvedVersion}
               children: [
                 new TextRun({
                   text: paragraph.trim(),
-                  size: 22,
+                  size: 18,  // 9号字体 = 18磅
                   font: "宋体"
                 })
               ],
               spacing: {
-                after: pIndex < feedbackParagraphs.length - 1 ? 240 : 400
+                line: 220,  // 11磅行距
+                after: pIndex < feedbackParagraphs.length - 1 ? 120 : 200
               },
               indent: {
                 firstLine: 400  // 首行缩进2字符
@@ -422,12 +646,13 @@ ${improvedVersion}
               children: [
                 new TextRun({
                   text: paragraph.trim(),
-                  size: 22,
+                  size: 18,  // 9号字体 = 18磅
                   font: "宋体"
                 })
               ],
               spacing: {
-                after: pIndex < improvedParagraphs.length - 1 ? 240 : 400
+                line: 220,  // 11磅行距
+                after: pIndex < improvedParagraphs.length - 1 ? 120 : 200
               },
               indent: {
                 firstLine: 400  // 首行缩进2字符
@@ -481,9 +706,41 @@ ${improvedVersion}
   };
 
   // 计算平均分
-  const averageScore = completedAssignments.length > 0 
-    ? completedAssignments.reduce((sum, a) => sum + (a.gradingResult?.score || 0), 0) / completedAssignments.length 
+  const averageScore = completedAssignments.length > 0
+    ? completedAssignments.reduce((sum, a) => sum + (parseInt(editableScores[a.id]) || a.gradingResult?.score || 0), 0) / completedAssignments.length
     : 0;
+
+  // 切换编辑状态
+  const toggleEdit = (assignmentId: string) => {
+    setIsEditing(prev => ({
+      ...prev,
+      [assignmentId]: !prev[assignmentId]
+    }));
+  };
+
+  // 保存编辑
+  const saveEdit = (assignmentId: string) => {
+    setIsEditing(prev => ({
+      ...prev,
+      [assignmentId]: false
+    }));
+  };
+
+  // 更新得分
+  const updateScore = (assignmentId: string, newScore: string) => {
+    setEditableScores(prev => ({
+      ...prev,
+      [assignmentId]: newScore
+    }));
+  };
+
+  // 更新批改意见
+  const updateFeedback = (assignmentId: string, newFeedback: string) => {
+    setEditableFeedback(prev => ({
+      ...prev,
+      [assignmentId]: newFeedback
+    }));
+  };
 
   return (
     <div className="space-y-6">
@@ -541,13 +798,13 @@ ${improvedVersion}
               导出Excel
             </Button>
             <Button
-              onClick={exportToTxtFiles}
+              onClick={exportToWordFiles}
               disabled={completedAssignments.length === 0}
               className="flex items-center gap-2"
               variant="outline"
             >
-              <FileDown className="w-4 h-4" />
-              一键导出TXT文件（每个学生单独一份）
+              <FileText className="w-4 h-4" />
+              一键导出Word文件（每个学生单独一份）
             </Button>
             <Button
               onClick={exportToWord}
@@ -625,9 +882,50 @@ ${improvedVersion}
                     {assignment.student.name}
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                      {assignment.gradingResult?.score}分
-                    </Badge>
+                    {isEditing[assignment.id] ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          max="15"
+                          value={editableScores[assignment.id] || assignment.gradingResult?.score || ''}
+                          onChange={(e) => updateScore(assignment.id, e.target.value)}
+                          className="w-16 px-2 py-1 border border-gray-300 rounded text-center"
+                          placeholder="得分"
+                        />
+                        <span className="text-sm text-gray-600">分</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => saveEdit(assignment.id)}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          保存调整
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleEdit(assignment.id)}
+                          className="text-gray-600 hover:text-gray-700"
+                        >
+                          取消调整
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                          {editableScores[assignment.id] || assignment.gradingResult?.score}分
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleEdit(assignment.id)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          调整
+                        </Button>
+                      </>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -656,7 +954,16 @@ ${improvedVersion}
                     学生作文
                   </label>
                   <div className="bg-gray-50 p-3 rounded border text-sm whitespace-pre-wrap max-h-32 overflow-y-auto">
-                    {assignment.ocrResult.editedText || assignment.ocrResult.content}
+                    {(() => {
+                      const text = assignment.ocrResult.editedText || assignment.ocrResult.content;
+                      console.log(`🔍 学生作文显示调试 - ${assignment.student.name}:`, {
+                        hasEditedText: !!assignment.ocrResult.editedText,
+                        hasOriginalText: !!assignment.ocrResult.content,
+                        textLength: text?.length || 0,
+                        textPreview: text?.substring(0, 50)
+                      });
+                      return text;
+                    })()}
                   </div>
                 </div>
 
@@ -665,14 +972,53 @@ ${improvedVersion}
                   <div className="space-y-4 border-t pt-4">
                     {/* 批改意见 */}
                     <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
-                        详细批改意见
-                      </label>
-                      <Textarea
-                        value={assignment.gradingResult.feedback}
-                        readOnly
-                        className="min-h-[400px] text-sm"
-                      />
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                          批改的详细内容及自行调整
+                        </label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleEdit(assignment.id + '_feedback')}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          {isEditing[assignment.id + '_feedback'] ? '取消调整' : '调整'}
+                        </Button>
+                      </div>
+                      {isEditing[assignment.id + '_feedback'] ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editableFeedback[assignment.id] || assignment.gradingResult?.feedback || ''}
+                            onChange={(e) => updateFeedback(assignment.id, e.target.value)}
+                            className="min-h-[400px] text-sm"
+                            placeholder="请输入详细批改意见..."
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => saveEdit(assignment.id + '_feedback')}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              保存调整
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => toggleEdit(assignment.id + '_feedback')}
+                              className="text-gray-600 hover:text-gray-700"
+                            >
+                              取消调整
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Textarea
+                          value={editableFeedback[assignment.id] || assignment.gradingResult?.feedback || ''}
+                          readOnly
+                          className="min-h-[400px] text-sm"
+                        />
+                      )}
                     </div>
 
                     {/* 高分范文 */}

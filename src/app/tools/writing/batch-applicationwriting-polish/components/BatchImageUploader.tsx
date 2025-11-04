@@ -4,8 +4,9 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Image, X, Eye, Trash2, Camera } from "lucide-react";
+import { Upload, Image, X, Eye, Trash2, Camera, Loader2 } from "lucide-react";
 import type { ApplicationBatchTask, ApplicationAssignment, OCRResult, ProcessingStats } from "../types";
+import { compressImageForOCR } from "@/lib/image-compressor";
 
 interface BatchImageUploaderProps {
   task: ApplicationBatchTask | null;
@@ -19,10 +20,16 @@ interface BatchImageUploaderProps {
 interface UploadedImage {
   id: string;
   file: File;
+  originalFile: File; // 保存原始文件
   preview: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'compressing' | 'processing' | 'completed' | 'failed';
   ocrResult?: OCRResult;
   error?: string;
+  compressionInfo?: {
+    originalSize: number;
+    compressedSize: number;
+    compressionRatio: number;
+  };
 }
 
 const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
@@ -36,25 +43,91 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [ocrProgressMessage, setOcrProgressMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 处理文件上传
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
     const newImages: UploadedImage[] = Array.from(files).map(file => ({
       id: `img_${Date.now()}_${Math.random()}`,
-      file,
+      originalFile: file,
+      file, // 临时设置为原文件，压缩后会更新
       preview: URL.createObjectURL(file),
       status: 'pending'
     }));
 
     setUploadedImages(prev => [...prev, ...newImages]);
-    
+
     // 重置文件输入
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+
+    // 自动压缩新上传的图片
+    await compressNewImages(newImages);
+  };
+
+  // 压缩新上传的图片
+  const compressNewImages = async (images: UploadedImage[]) => {
+    for (const image of images) {
+      try {
+        // 更新状态为压缩中
+        setUploadedImages(prev =>
+          prev.map(img =>
+            img.id === image.id
+              ? { ...img, status: 'compressing' }
+              : img
+          )
+        );
+
+        const compressedFile = await compressImageForOCR(image.originalFile);
+
+        // 计算压缩信息
+        const compressionInfo = {
+          originalSize: image.originalFile.size,
+          compressedSize: compressedFile.size,
+          compressionRatio: Math.round((1 - compressedFile.size / image.originalFile.size) * 100)
+        };
+
+        // 更新图片信息
+        setUploadedImages(prev =>
+          prev.map(img =>
+            img.id === image.id
+              ? {
+                  ...img,
+                  file: compressedFile,
+                  status: 'pending',
+                  compressionInfo
+                }
+              : img
+          )
+        );
+
+        console.log(`图片压缩完成: ${image.originalFile.name}`, {
+          原始大小: `${(image.originalFile.size / 1024 / 1024).toFixed(2)}MB`,
+          压缩后大小: `${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`,
+          压缩率: `${compressionInfo.compressionRatio}%`
+        });
+
+      } catch (error) {
+        console.error(`压缩图片失败: ${image.originalFile.name}`, error);
+
+        // 压缩失败，使用原文件
+        setUploadedImages(prev =>
+          prev.map(img =>
+            img.id === image.id
+              ? {
+                  ...img,
+                  status: 'pending',
+                  error: '压缩失败，使用原文件'
+                }
+              : img
+          )
+        );
+      }
     }
   };
 
@@ -252,6 +325,14 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     // 将所有图片状态设置为处理中
     setUploadedImages(prev => prev.map(img => ({ ...img, status: 'processing' })));
 
+    // 显示进度提醒
+    const estimatedMinutes = Math.ceil(uploadedImages.length / 4); // 4张图片约1分钟
+    const message = `AI加速识图中，请耐心等待... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟。`;
+    console.log(`🎯 ${message}`);
+
+    // 设置进度消息
+    setOcrProgressMessage(message);
+
     const assignments: ApplicationAssignment[] = [];
     const errors: string[] = [];
     let completedCount = 0;
@@ -364,11 +445,16 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       errors
     }));
 
+    // 清除进度消息
+    setOcrProgressMessage('');
+
     setIsProcessing(false);
   };
 
   const canProceed = uploadedImages.length > 0 && uploadedImages.every(img => img.status === 'completed');
   const hasProcessedImages = uploadedImages.some(img => img.status === 'completed');
+  const canStartOCR = uploadedImages.length > 0 && uploadedImages.every(img => img.status === 'pending');
+  const hasCompressingImages = uploadedImages.some(img => img.status === 'compressing');
 
   return (
     <div className="space-y-6">
@@ -405,7 +491,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
             <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-lg font-medium text-gray-700 mb-2">点击上传或拖拽图片到此处</p>
             <p className="text-sm text-gray-500">
-              支持 JPG、PNG、GIF 格式，单张图片不超过 10MB
+              支持 JPG、PNG、GIF 格式，单张图片不超过 10MB。系统会自动压缩大图片以优化OCR识别质量。
             </p>
           </div>
 
@@ -433,13 +519,18 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
               <>
                 <Button
                   onClick={processAllImages}
-                  disabled={isProcessing || hasProcessedImages}
+                  disabled={isProcessing || hasProcessedImages || !canStartOCR || hasCompressingImages}
                   className="flex items-center gap-2"
                 >
                   {isProcessing ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       处理中...
+                    </>
+                  ) : hasCompressingImages ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      压缩中...
                     </>
                   ) : (
                     <>
@@ -511,16 +602,40 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                       <Badge
                         variant={
                           image.status === 'completed' ? 'default' :
-                          image.status === 'processing' ? 'secondary' :
+                          image.status === 'processing' || image.status === 'compressing' ? 'secondary' :
                           image.status === 'failed' ? 'destructive' : 'outline'
                         }
                         className="text-xs"
                       >
+                        {image.status === 'compressing' && (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            压缩中
+                          </>
+                        )}
                         {image.status === 'pending' && '待处理'}
                         {image.status === 'processing' && '处理中'}
                         {image.status === 'completed' && '已完成'}
                         {image.status === 'failed' && '失败'}
                       </Badge>
+                    </div>
+
+                    {/* 压缩信息显示 */}
+                    {image.compressionInfo && (
+                      <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                        压缩率: {image.compressionInfo.compressionRatio}%
+                        ({(image.compressionInfo.originalSize / 1024 / 1024).toFixed(2)}MB → {(image.compressionInfo.compressedSize / 1024 / 1024).toFixed(2)}MB)
+                      </div>
+                    )}
+
+                    {/* 文件大小信息 */}
+                    <div className="text-xs text-gray-500">
+                      {(image.file.size / 1024 / 1024).toFixed(2)}MB
+                      {image.compressionInfo && (
+                        <span className="text-green-600 ml-1">
+                          (已优化)
+                        </span>
+                      )}
                     </div>
 
                     {image.ocrResult && (
@@ -560,6 +675,25 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                   {error}
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* OCR进度提醒 */}
+      {ocrProgressMessage && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-800">
+                  {ocrProgressMessage}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  为了确保识别准确性，系统正在使用AI技术对每张图片进行深度分析，请耐心等待处理完成。
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

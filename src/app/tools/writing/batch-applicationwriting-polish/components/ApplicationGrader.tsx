@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, AlertCircle, Clock, Star, FileText, Coins, RefreshCw } from "lucide-react";
+import { CheckCircle, AlertCircle, Clock, Star, FileText, Coins, RefreshCw, Eye, EyeOff, Maximize2 } from "lucide-react";
 import { useUser } from "@/lib/user-context";
 import type { ApplicationBatchTask, ApplicationGradingResult, ProcessingStats } from "../types";
 
@@ -41,6 +41,7 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
     totalInBatch: number;
   } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedPreviews, setExpandedPreviews] = useState<{[key: string]: boolean}>({});
   const { userPoints, refreshUser } = useUser();
 
   if (!task) return null;
@@ -63,6 +64,14 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
 
   const totalPointsNeeded = calculateTotalPoints();
   const hasEnoughPoints = userPoints >= totalPointsNeeded;
+
+  // 切换预览展开状态
+  const togglePreview = (assignmentId: string) => {
+    setExpandedPreviews(prev => ({
+      ...prev,
+      [assignmentId]: !prev[assignmentId]
+    }));
+  };
 
   // 批改单个作文
   const gradeApplication = async (assignmentId: string) => {
@@ -872,13 +881,50 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
                 <CardContent className="space-y-3">
                   {/* 作文内容预览 */}
                   <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">
-                      作文内容
-                    </label>
-                    <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 max-h-20 overflow-y-auto">
-                      {(assignment.ocrResult.editedText || assignment.ocrResult.content).substring(0, 150)}
-                      {(assignment.ocrResult.editedText || assignment.ocrResult.content).length > 150 && '...'}
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-gray-700">
+                        作文内容
+                      </label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => togglePreview(assignment.id)}
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                      >
+                        {expandedPreviews[assignment.id] ? (
+                          <>
+                            <EyeOff className="w-3 h-3" />
+                            收起
+                          </>
+                        ) : (
+                          <>
+                            <Maximize2 className="w-3 h-3" />
+                            展开预览
+                          </>
+                        )}
+                      </Button>
                     </div>
+                    <div className={`bg-gray-50 p-3 rounded text-sm text-gray-700 border transition-all duration-200 ${
+                      expandedPreviews[assignment.id]
+                        ? 'max-h-96 overflow-y-auto'
+                        : 'max-h-20 overflow-y-auto'
+                    }`}>
+                      {expandedPreviews[assignment.id] ? (
+                        <div className="whitespace-pre-wrap">
+                          {assignment.ocrResult.editedText || assignment.ocrResult.content}
+                        </div>
+                      ) : (
+                        <div>
+                          {(assignment.ocrResult.editedText || assignment.ocrResult.content).substring(0, 150)}
+                          {(assignment.ocrResult.editedText || assignment.ocrResult.content).length > 150 && '...'}
+                        </div>
+                      )}
+                    </div>
+                    {!expandedPreviews[assignment.id] && (assignment.ocrResult.editedText || assignment.ocrResult.content).length > 150 && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        共 {(assignment.ocrResult.editedText || assignment.ocrResult.content).length} 字符，点击展开预览查看完整内容
+                      </div>
+                    )}
                   </div>
 
                   {/* 批改结果 */}

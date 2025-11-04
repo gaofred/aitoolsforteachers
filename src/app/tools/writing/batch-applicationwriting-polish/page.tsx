@@ -239,6 +239,7 @@ const BatchApplicationWritingPolish = () => {
                 setTask={setTask}
                 onNext={handleNextStep}
                 onPrev={handlePrevStep}
+                editedTexts={editedTexts}
               />
             )}
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, AlertCircle, User } from "lucide-react";
+import { CheckCircle, AlertCircle, User, Eye, EyeOff, Maximize2 } from "lucide-react";
 import type { ApplicationBatchTask, Student } from "../types";
 
 interface NameMatchingConfirmationProps {
@@ -13,15 +13,18 @@ interface NameMatchingConfirmationProps {
   setTask: (task: ApplicationBatchTask | null) => void;
   onNext: () => void;
   onPrev: () => void;
+  editedTexts?: {[key: string]: string};
 }
 
 const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> = ({
   task,
   setTask,
   onNext,
-  onPrev
+  onPrev,
+  editedTexts = {}
 }) => {
   const [manualMatches, setManualMatches] = useState<{[key: string]: string}>({});
+  const [expandedPreviews, setExpandedPreviews] = useState<{[key: string]: boolean}>({});
 
   if (!task) return null;
 
@@ -74,6 +77,14 @@ const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> = ({
     setManualMatches(prev => ({
       ...prev,
       [assignmentId]: studentId
+    }));
+  };
+
+  // 切换预览展开状态
+  const togglePreview = (assignmentId: string) => {
+    setExpandedPreviews(prev => ({
+      ...prev,
+      [assignmentId]: !prev[assignmentId]
     }));
   };
 
@@ -189,13 +200,50 @@ const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> = ({
 
                   {/* 作文预览 */}
                   <div className="pt-2 border-t">
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      作文内容预览
-                    </label>
-                    <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 max-h-24 overflow-y-auto">
-                      {(assignment.ocrResult.editedText || assignment.ocrResult.content).substring(0, 200)}
-                      {(assignment.ocrResult.editedText || assignment.ocrResult.content).length > 200 && '...'}
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        作文内容预览
+                      </label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => togglePreview(assignment.id)}
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                      >
+                        {expandedPreviews[assignment.id] ? (
+                          <>
+                            <EyeOff className="w-3 h-3" />
+                            收起
+                          </>
+                        ) : (
+                          <>
+                            <Maximize2 className="w-3 h-3" />
+                            展开预览
+                          </>
+                        )}
+                      </Button>
                     </div>
+                    <div className={`bg-gray-50 p-3 rounded text-sm text-gray-700 border transition-all duration-200 ${
+                      expandedPreviews[assignment.id]
+                        ? 'max-h-96 overflow-y-auto'
+                        : 'max-h-24 overflow-y-auto'
+                    }`}>
+                      {expandedPreviews[assignment.id] ? (
+                        <div className="whitespace-pre-wrap">
+                          {editedTexts[assignment.id] || assignment.ocrResult.editedText || assignment.ocrResult.content}
+                        </div>
+                      ) : (
+                        <div>
+                          {(editedTexts[assignment.id] || assignment.ocrResult.editedText || assignment.ocrResult.content).substring(0, 200)}
+                          {(editedTexts[assignment.id] || assignment.ocrResult.editedText || assignment.ocrResult.content).length > 200 && '...'}
+                        </div>
+                      )}
+                    </div>
+                    {!expandedPreviews[assignment.id] && (editedTexts[assignment.id] || assignment.ocrResult.editedText || assignment.ocrResult.content).length > 200 && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        共 {(editedTexts[assignment.id] || assignment.ocrResult.editedText || assignment.ocrResult.content).length} 字符，点击展开预览查看完整内容
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

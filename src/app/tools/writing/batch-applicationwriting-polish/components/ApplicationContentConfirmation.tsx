@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Save, X, User, Wand2 } from "lucide-react";
+import { Edit, Save, X, User, Wand2, Sparkles, Eye, EyeOff } from "lucide-react";
 import type { ApplicationBatchTask } from "../types";
+import { formatEssayText, intelligentParagraphFormatting, needsFormatting, previewFormatting } from "@/lib/text-formatter";
 
 interface ApplicationContentConfirmationProps {
   task: ApplicationBatchTask | null;
@@ -31,6 +32,47 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
 }) => {
   const assignments = task?.assignments || [];
   const [currentPage, setCurrentPage] = useState(1);
+  const [showFormattingSuggestions, setShowFormattingSuggestions] = useState<{[key: string]: boolean}>({});
+  const [formattedPreviews, setFormattedPreviews] = useState<{[key: string]: string}>({});
+  const [batchFormattingInProgress, setBatchFormattingInProgress] = useState(false);
+  const [formattingInProgress, setFormattingInProgress] = useState<{[key: string]: boolean}>({});
+
+  // 在进入下一步前保存所有编辑的内容
+  const handleNextWithSave = () => {
+    if (!task) {
+      onNext();
+      return;
+    }
+
+    // 将editedTexts中的内容保存到task.assignments中
+    const updatedAssignments = task.assignments.map(assignment => {
+      const editedText = editedTexts[assignment.id];
+      if (editedText !== undefined) {
+        return {
+          ...assignment,
+          ocrResult: {
+            ...assignment.ocrResult,
+            editedText: editedText,
+            content: editedText
+          }
+        };
+      }
+      return assignment;
+    });
+
+    // 更新任务数据
+    setTask({
+      ...task,
+      assignments: updatedAssignments
+    });
+
+    console.log('✅ 已保存编辑后的文本内容到任务数据中，准备进入下一步', {
+      totalAssignments: updatedAssignments.length,
+      assignmentsWithEditedText: updatedAssignments.filter(a => a.ocrResult.editedText).length,
+      assignmentsWithOriginalOnly: updatedAssignments.filter(a => !a.ocrResult.editedText).length
+    });
+    onNext();
+  };
 
   // 分页设置：每页7个学生
   const itemsPerPage = 7;
@@ -47,7 +89,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
   const handleSave = (assignmentId: string) => {
     if (!task) return;
 
-    const newText = editedTexts[assignmentId];
+    const newText = editedTexts[assignment.id];
     if (newText !== undefined) {
       const updatedAssignments = task.assignments.map(assignment => {
         if (assignment.id === assignmentId) {
@@ -63,7 +105,10 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
         return assignment;
       });
 
-      setTask({ ...task, assignments: updatedAssignments });
+      setTask({
+        ...task,
+        assignments: updatedAssignments
+      });
     }
 
     setEditingAssignments({ ...editingAssignments, [assignmentId]: false });
@@ -71,16 +116,134 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
 
   const handleCancel = (assignmentId: string) => {
     setEditingAssignments({ ...editingAssignments, [assignmentId]: false });
-    const { [assignmentId]: _, ...rest } = editedTexts;
-    setEditedTexts(rest);
+    // 恢复原始文本
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (assignment) {
+      setEditedTexts({
+        ...editedTexts,
+        [assignmentId]: assignment.ocrResult.editedText || assignment.ocrResult.content
+      });
+    }
   };
 
-  // 智能姓名提取功能
-  const extractNameFromText = async (assignmentId: string, text: string) => {
-    console.log('🔍 开始智能提取学生姓名...', { assignmentId, textLength: text.length });
+  // AI排版功能
+  const applyAIFormatting = async (assignmentId: string, originalText: string) => {
+    setFormattingInProgress(prev => ({ ...prev, [assignmentId]: true }));
 
     try {
-      const response = await fetch('/api/ai/name-extraction', {
+      const response = await fetch('/api/ai/text-formatting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: originalText })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('✨ AI排版成功:', { assignmentId, originalLength: originalText.length, formattedLength: data.formattedText.length });
+        return data.formattedText;
+      } else {
+        console.warn('⚠️ AI排版失败，使用规则排版:', data.error);
+        // 使用本地规则排版作为备选
+        const fallbackFormatted = intelligentParagraphFormatting(originalText);
+        return fallbackFormatted;
+      }
+    } catch (error) {
+      console.error('❌ AI排版请求失败:', error);
+      // 使用本地规则排版作为备选
+      const fallbackFormatted = intelligentParagraphFormatting(originalText);
+      return fallbackFormatted;
+    } finally {
+      // 清除加载状态
+      setFormattingInProgress(prev => ({ ...prev, [assignmentId]: false }));
+    }
+  };
+
+  // 预览格式化效果
+  const previewFormattingEffect = async (assignmentId: string, originalText: string) => {
+    console.log('🔍 开始预览AI排版效果...', { assignmentId, textLength: originalText.length });
+
+    try {
+      const formatted = await applyAIFormatting(assignmentId, originalText);
+
+      // 显示格式化建议
+      setShowFormattingSuggestions(prev => ({
+        ...prev,
+        [assignmentId]: true
+      }));
+
+    } catch (error) {
+      console.error('预览失败:', error);
+      // 预览失败时使用本地排版
+      const localFormatted = intelligentParagraphFormatting(originalText);
+      setFormattedPreviews(prev => ({
+        ...prev,
+        [assignmentId]: localFormatted
+      }));
+      setShowFormattingSuggestions(prev => ({
+        ...prev,
+        [assignmentId]: true
+      }));
+    }
+  };
+
+  // 应用格式化
+  const applyFormatting = async (assignmentId: string, originalText: string) => {
+    console.log('🎯 应用AI排版...', { assignmentId });
+
+    try {
+      const formatted = await applyAIFormatting(assignmentId, originalText);
+
+      // 更新编辑文本
+      setEditedTexts({ ...editedTexts, [assignmentId]: formatted });
+
+      // 同时更新任务数据（确保立即生效）
+      if (task) {
+        const updatedAssignments = task.assignments.map(assignment => {
+          if (assignment.id === assignmentId) {
+            return {
+              ...assignment,
+              ocrResult: {
+                ...assignment.ocrResult,
+                editedText: formatted,
+                content: formatted
+              }
+            };
+          }
+          return assignment;
+        });
+
+        setTask({
+          ...task,
+          assignments: updatedAssignments
+        });
+
+        console.log('✅ AI排版已应用到任务数据', { assignmentId, textLength: formatted.length });
+      }
+
+      // 隐藏格式化建议
+      setShowFormattingSuggestions(prev => ({
+        ...prev,
+        [assignmentId]: false
+      }));
+      setFormattedPreviews(prev => ({
+        ...prev,
+        [assignmentId]: ''
+      }));
+
+      console.log('✅ AI排版已应用', { assignmentId, textLength: formatted.length });
+
+    } catch (error) {
+      console.error('应用排版失败:', error);
+    }
+  };
+
+  // 智能提取姓名
+  const extractNameFromText = async (assignmentId: string, text: string) => {
+    if (!text || text.trim().length === 0) return;
+
+    try {
+      const response = await fetch('/api/ai/extract-name', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
@@ -106,27 +269,24 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
             return assignment;
           });
 
-          setTask({ ...task, assignments: updatedAssignments });
-          alert(`已提取学生姓名: ${data.name}`);
+          setTask({
+            ...task,
+            assignments: updatedAssignments
+          });
         }
       } else {
-        console.log('❌ 姓名提取失败:', data.error);
-        alert('未能提取到学生姓名，请手动输入');
+        console.warn('姓名提取失败:', data.error);
       }
     } catch (error) {
-      console.error('姓名提取错误:', error);
-      alert('姓名提取失败，请手动输入');
+      console.error('姓名提取失败:', error);
     }
   };
 
   // 批量智能提取姓名
   const batchExtractNames = async () => {
-    console.log('🔄 开始批量智能提取姓名...');
+    if (!task || assignments.length === 0) return;
 
-    if (!task || assignments.length === 0) {
-      alert('没有可提取姓名的作文');
-      return;
-    }
+    console.log('🎯 开始批量智能提取姓名...');
 
     try {
       // 构建批量提取的数据
@@ -161,17 +321,17 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
           return assignment;
         });
 
-        setTask({ ...task, assignments: updatedAssignments });
+        setTask({
+          ...task,
+          assignments: updatedAssignments
+        });
 
-        const successCount = data.results.filter((r: any) => r.name).length;
-        alert(`批量姓名提取完成！成功提取 ${successCount}/${assignments.length} 个学生姓名`);
+        console.log(`✅ 成功更新 ${data.results.filter((r: any) => r.name).length} 个学生姓名`);
       } else {
-        console.log('❌ 批量姓名提取失败:', data.error);
-        alert('批量姓名提取失败，请手动输入');
+        console.warn('批量姓名提取失败:', data.error);
       }
     } catch (error) {
-      console.error('批量姓名提取错误:', error);
-      alert('批量姓名提取失败，请手动输入');
+      console.error('批量姓名提取失败:', error);
     }
   };
 
@@ -192,7 +352,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
           )}
         </div>
         <p className="text-gray-600 text-sm">
-          请检查OCR识别的作文内容，如有错误可点击编辑进行修正。支持智能提取学生姓名功能。
+          请检查OCR识别的作文内容，如有错误可点击编辑进行修正。支持智能提取学生姓名和智能排版功能。
         </p>
       </div>
 
@@ -249,132 +409,204 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
           )}
 
           <div className="space-y-4">
-            {currentAssignments.map((assignment, index) => {
-              const globalIndex = assignments.findIndex(a => a.id === assignment.id) + 1;
-              return (
-              <Card key={assignment.id} className="border border-gray-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">
-                      作文 {globalIndex}
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      {assignment.ocrResult.editedText && (
-                        <Badge variant="secondary" className="text-xs">
-                          已编辑
-                        </Badge>
-                      )}
-                      {!editingAssignments[assignment.id] && (
+            {currentAssignments.map((assignment, index) => (
+            <Card key={assignment.id} className="border border-gray-200">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <User className="w-5 h-5 text-blue-600" />
+                    作文 {startIndex + index + 1} - {assignment.student.name}
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    {showFormattingSuggestions[assignment.id] && (
+                      <div className="flex items-center gap-2">
                         <Button
-                          variant="outline"
                           size="sm"
-                          onClick={() => handleEdit(assignment.id, assignment.ocrResult.editedText || assignment.ocrResult.content)}
-                          className="flex items-center gap-1"
+                          onClick={() => applyFormatting(assignment.id, assignment.ocrResult.editedText || assignment.ocrResult.content)}
+                          className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white"
+                          disabled={formattingInProgress[assignment.id]}
                         >
-                          <Edit className="w-3 h-3" />
-                          编辑
+                          {formattingInProgress[assignment.id] ? (
+                            <>
+                              <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                              应用中...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3 h-3" />
+                              应用AI排版
+                            </>
+                          )}
                         </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* 学生信息 */}
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <User className="w-4 h-4 text-blue-600" />
-                      <div>
-                        <div className="font-medium text-blue-600 text-sm">
-                          识别学生: {assignment.student.name}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          原文长度: {assignment.ocrResult.originalText.length} 字符
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => extractNameFromText(
-                        assignment.id,
-                        assignment.ocrResult.originalText
-                      )}
-                      className="flex items-center gap-1"
-                      variant="outline"
-                    >
-                      <Wand2 className="w-3 h-3" />
-                      提取姓名
-                    </Button>
-                  </div>
-
-                  {/* 作文内容 */}
-                  <div>
-                    <div className="font-medium text-gray-700 mb-2 text-sm">作文内容:</div>
-                    {editingAssignments[assignment.id] ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          value={editedTexts[assignment.id] || ''}
-                          onChange={(e) => setEditedTexts({ ...editedTexts, [assignment.id]: e.target.value })}
-                          className="min-h-[200px] text-sm"
-                          placeholder="请输入作文内容..."
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleSave(assignment.id)}
-                            className="flex items-center gap-1"
-                          >
-                            <Save className="w-3 h-3" />
-                            保存
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCancel(assignment.id)}
-                            className="flex items-center gap-1"
-                          >
-                            <X className="w-3 h-3" />
-                            取消
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-4 rounded border border-gray-300 text-sm text-gray-800 whitespace-pre-wrap break-words max-h-96 overflow-y-auto">
-                        {assignment.ocrResult.editedText || assignment.ocrResult.content || '未识别到作文内容'}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setShowFormattingSuggestions(prev => ({ ...prev, [assignment.id]: false }));
+                            setFormattedPreviews(prev => ({ ...prev, [assignment.id]: '' }));
+                          }}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
                       </div>
                     )}
+                    {!editingAssignments[assignment.id] && !showFormattingSuggestions[assignment.id] && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(assignment.id, assignment.ocrResult.editedText || assignment.ocrResult.content)}
+                        className="flex items-center gap-1"
+                      >
+                        <Edit className="w-3 h-3" />
+                        编辑
+                      </Button>
+                    )}
                   </div>
-
-                  {/* 完整原文显示 */}
-                  <details className="text-sm">
-                    <summary className="cursor-pointer text-gray-600 hover:text-gray-800">
-                      查看完整OCR原文
-                    </summary>
-                    <div className="mt-2 bg-gray-50 p-3 rounded border border-gray-300 text-gray-700 whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
-                      {assignment.ocrResult.originalText}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 学生信息 */}
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <div className="font-medium text-blue-600 text-sm">
+                        识别学生: {assignment.student.name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        原文长度: {assignment.ocrResult.originalText.length} 字符
+                      </div>
                     </div>
-                  </details>
-                </CardContent>
-              </Card>
-              );
-            })}
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => extractNameFromText(
+                      assignment.id,
+                      assignment.ocrResult.editedText || assignment.ocrResult.content
+                    )}
+                    variant="outline"
+                    className="flex items-center gap-1"
+                  >
+                    <Wand2 className="w-3 h-3" />
+                    提取姓名
+                  </Button>
+                </div>
+
+                {/* 作文内容 */}
+                <div>
+                  <div className="font-medium text-gray-700 mb-2 text-sm">作文内容:</div>
+                  {editingAssignments[assignment.id] ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editedTexts[assignment.id] || ''}
+                        onChange={(e) => setEditedTexts({ ...editedTexts, [assignment.id]: e.target.value })}
+                        className="min-h-[200px] text-sm"
+                        placeholder="请输入作文内容..."
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave(assignment.id)}
+                          className="flex items-center gap-1"
+                        >
+                          <Save className="w-3 h-3" />
+                          保存
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCancel(assignment.id)}
+                        >
+                          <X className="w-3 h-3" />
+                          取消
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => previewFormattingEffect(
+                            assignment.id,
+                            editedTexts[assignment.id] || assignment.ocrResult.content
+                          )}
+                          className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white"
+                          disabled={formattingInProgress[assignment.id]}
+                        >
+                          {formattingInProgress[assignment.id] ? (
+                            <>
+                              <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                              排版中...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3 h-3" />
+                              AI排版
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {/* 非编辑模式：显示内容并添加AI排版按钮 */}
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="text-xs text-gray-500">
+                          {needsFormatting(assignment.ocrResult.editedText || assignment.ocrResult.content) ? (
+                            <span className="flex items-center gap-1 text-orange-600">
+                              <Sparkles className="w-3 h-3" />
+                              建议使用AI排版优化格式
+                            </span>
+                          ) : (
+                            <span className="text-green-600">格式良好</span>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => previewFormattingEffect(
+                            assignment.id,
+                            assignment.ocrResult.editedText || assignment.ocrResult.content
+                          )}
+                          className="flex items-center gap-1"
+                          disabled={formattingInProgress[assignment.id]}
+                        >
+                          {formattingInProgress[assignment.id] ? (
+                            <>
+                              <div className="w-3 h-3 border border-gray-500 border-t-transparent rounded-full animate-spin" />
+                              排版中...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3 h-3" />
+                              AI排版
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* 作文内容显示 */}
+                      <div className="bg-gray-50 p-4 rounded border border-gray-300 text-sm text-gray-800 whitespace-pre-wrap break-words max-h-96 overflow-y-auto">
+                        {(formattedPreviews[assignment.id] && showFormattingSuggestions[assignment.id])
+                          ? formattedPreviews[assignment.id]
+                          : (assignment.ocrResult.editedText || assignment.ocrResult.content || '未识别到作文内容')
+                        }
+                      </div>
+
+                      {/* AI排版预览提示 */}
+                      {showFormattingSuggestions[assignment.id] && formattedPreviews[assignment.id] && (
+                        <div className="p-2 bg-green-50 border border-green-200 rounded">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-green-600" />
+                            <span className="text-xs text-green-700">这是AI排版预览（火山引擎豆包模型），点击"应用AI排版"保存更改</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
           </div>
         </>
-      )}
-
-      {/* 统计信息 */}
-      {assignments.length > 0 && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-blue-700">
-                共识别 {assignments.length} 份作文
-              </span>
-              <span className="text-blue-600">
-                {assignments.filter(a => a.ocrResult.editedText).length} 份已编辑
-              </span>
-            </div>
-          </CardContent>
-        </Card>
       )}
 
       {/* 操作按钮 */}
@@ -382,17 +614,131 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
         <Button variant="outline" onClick={onPrev}>
           上一步
         </Button>
-        <Button
-          onClick={onNext}
-          disabled={assignments.length === 0}
-          className="px-8"
-        >
-          下一步：姓名匹配确认
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* 批量AI排版按钮 */}
+          {currentAssignments.length > 0 && (
+            <Button
+              onClick={async () => {
+                console.log('🎯 开始批量AI排版检测...');
+                setBatchFormattingInProgress(true);
+
+                try {
+                  // 显示提示信息
+                  const needsFormattingCount = currentAssignments.filter(assignment => {
+                    const text = assignment.ocrResult.editedText || assignment.ocrResult.content;
+                    return needsFormatting(text);
+                  }).length;
+
+                  if (needsFormattingCount > 0) {
+                    const proceed = confirm(`检测到 ${needsFormattingCount} 篇作文可能需要AI排版优化。是否使用AI批量排版（统一消耗2积分）？`);
+                    if (!proceed) {
+                      setBatchFormattingInProgress(false);
+                      return;
+                    }
+                  } else {
+                    alert('当前所有作文格式良好，无需AI排版优化！');
+                    setBatchFormattingInProgress(false);
+                    return;
+                  }
+
+                  let successful = 0;
+
+                  // 逐个进行AI排版
+                  for (const assignment of currentAssignments) {
+                    const text = assignment.ocrResult.editedText || assignment.ocrResult.content;
+
+                    if (needsFormatting(text)) {
+                      try {
+                        const formatted = await applyAIFormatting(assignment.id, text);
+
+                        // 保存格式化结果
+                        setEditedTexts(prev => ({
+                          ...prev,
+                          [assignment.id]: formatted
+                        }));
+
+                        successful++;
+
+                        // 更新任务数据
+                        if (task) {
+                          const updatedAssignments = task.assignments.map(a => {
+                            if (a.id === assignment.id) {
+                              return {
+                                ...a,
+                                ocrResult: {
+                                  ...a.ocrResult,
+                                  editedText: formatted,
+                                  content: formatted
+                                }
+                              };
+                            }
+                            return a;
+                          });
+
+                          setTask({
+                            ...task,
+                            assignments: updatedAssignments
+                          });
+                        }
+
+                        console.log(`✨ 批量排版成功: ${assignment.student.name}`, {
+                          textLength: formatted.length,
+                          savedToEditedText: true,
+                          preview: formatted.substring(0, 50)
+                        });
+
+                        // 短暂延迟避免API限制
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+
+                      } catch (error) {
+                        console.error(`❌ 批量排版失败: ${assignment.student.name}`, error);
+                      }
+                    }
+                  }
+
+                  // 显示完成提示
+                  if (successful > 0) {
+                    console.log(`✨ 成功检测到 ${successful} 篇作文需要AI排版`);
+                    alert(`✅ 批量AI排版完成！\n\n已成功为 ${successful} 篇作文进行AI排版优化。\n\n请点击"下一步：姓名匹配确认"保存更改。`);
+                  } else {
+                    console.log('✨ 没有作文需要AI排版');
+                    alert('✅ 所有作文格式良好，无需AI排版优化！');
+                  }
+                } catch (error) {
+                  console.error('❌ 批量AI排版检测失败:', error);
+                } finally {
+                  setBatchFormattingInProgress(false);
+                }
+              }}
+              disabled={batchFormattingInProgress}
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
+            >
+              {batchFormattingInProgress ? (
+                <>
+                  <div className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin" />
+                  批量检测中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  批量AI排版检测（2积分）
+                </>
+              )}
+            </Button>
+          )}
+
+          <Button
+            onClick={handleNextWithSave}
+            disabled={assignments.length === 0}
+            className="px-8"
+          >
+            下一步：姓名匹配确认
+          </Button>
+        </div>
       </div>
     </div>
   );
 };
 
+// 紫色按钮样式已应用
 export default ApplicationContentConfirmation;
-
