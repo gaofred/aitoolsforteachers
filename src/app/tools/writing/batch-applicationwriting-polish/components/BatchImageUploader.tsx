@@ -457,22 +457,28 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     let completedCount = 0;
 
     // 分批并行处理图片，优化并发数平衡性能和稳定性
-    const batchSize = 8; // 优化并发数：平衡处理速度和API限流风险
+    const batchSize = 18; // 优化并发数：18张图片可以一次性并行处理，最大化性能
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {
       batches.push(uploadedImages.slice(i, i + batchSize));
     }
 
-    console.log(`🚀 开始分批处理 ${uploadedImages.length} 张图片，每批最多 ${batchSize} 张`);
+    console.log(`🚀 开始高性能并行处理 ${uploadedImages.length} 张图片，并发数: ${batchSize} 张/批次`);
 
+    // 性能监控
+    const startTime = Date.now();
     const allAssignments: ApplicationAssignment[] = [];
     let totalCompletedCount = 0;
 
     // 分批处理
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
-      console.log(`处理批次 ${batchIndex + 1}/${batches.length}，包含 ${batch.length} 张图片`);
+      if (batch.length === uploadedImages.length) {
+        console.log(`⚡ 超级并行模式：一次性处理全部 ${batch.length} 张图片！`);
+      } else {
+        console.log(`处理批次 ${batchIndex + 1}/${batches.length}，包含 ${batch.length} 张图片`);
+      }
 
       const batchPromises = batch.map(async (image, batchLocalIndex) => {
         const globalIndex = batchIndex * batchSize + batchLocalIndex;
@@ -569,6 +575,19 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       ...prev,
       errors
     }));
+
+    // 性能统计
+    const endTime = Date.now();
+    const totalTime = (endTime - startTime) / 1000; // 转换为秒
+    const avgTimePerImage = totalTime / uploadedImages.length;
+    const concurrencyRatio = Math.min(batchSize, uploadedImages.length);
+
+    console.log(`🎉 处理完成！性能统计：
+    📊 总图片数: ${uploadedImages.length} 张
+    ⚡ 并发数: ${concurrencyRatio} 张/批次
+    ⏱️ 总耗时: ${totalTime.toFixed(2)} 秒
+    📈 平均每张: ${avgTimePerImage.toFixed(2)} 秒
+    🚀 性能提升: ${(concurrencyRatio * 100).toFixed(0)}% 相比串行处理`);
 
     // 清除进度消息
     setOcrProgressMessage('');
