@@ -28,6 +28,8 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [recognitionMessage, setRecognitionMessage] = useState<string>("");
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -136,36 +138,93 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
     if (images.length === 0) return;
 
     setIsRecognizing(true);
-    alert('识图中，请稍等...');
+    setRecognitionMessage("正在识别图片内容...");
+
+    // 创建图片的快照，防止在识别过程中被清除
+    const imageSnapshot = [...images];
 
     try {
-      const texts: string[] = [];
-      for (const img of images) {
-        const res = await fetch('/api/ai/image-recognition', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: img })
-        });
-        const d = await res.json();
-        if (d.success && d.result) {
-          texts.push(d.result);
-        }
-      }
+      // 并行识别所有图片（使用快照，防止状态被清除）
+      const recognitionPromises = imageSnapshot.map(async (imageBase64, index) => {
+        try {
+          setRecognitionMessage(`正在识别第${index + 1}张图片...`);
 
-      if (texts.length > 0) {
-        const recognizedText = texts.join('\n\n').trim();
-        handleTopicChange(recognizedText);
-        alert('识别成功！题目内容已自动填入');
+          const response = await fetch('/api/ai/image-recognition', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              imageBase64: imageBase64
+            })
+          })
+
+          const data = await response.json()
+
+          if (data.success && data.result) {
+            console.log(`第${index + 1}张图片识别成功`)
+            return { success: true, text: data.result, index }
+          } else {
+            console.warn(`第${index + 1}张图片识别失败:`, data.error)
+            return { success: false, error: data.error, index }
+          }
+        } catch (error) {
+          console.error(`第${index + 1}张图片识别错误:`, error)
+          return { success: false, error: (error as Error).message, index }
+        }
+      })
+
+      setRecognitionMessage("正在处理识别结果...");
+
+      // 等待所有识别任务完成
+      const results = await Promise.all(recognitionPromises)
+
+      // 按原始顺序过滤成功的结果
+      const successfulResults = results
+        .filter(result => result.success)
+        .sort((a, b) => a.index - b.index)
+        .map(result => result.text)
+
+      if (successfulResults.length > 0) {
+        // 合并所有识别的文本，保持上传顺序
+        const combinedText = successfulResults.join('\n\n').trim();
+        handleTopicChange(combinedText);
+
+        // 延迟清除图片状态，确保文本已经成功添加
+        setTimeout(() => {
+          setPhoto(null);
+          setUploadedImages([]);
+          setRecognitionMessage("");
+          setShowSuccessMessage(true);
+
+          // 显示成功信息
+          const failedCount = imageSnapshot.length - successfulResults.length;
+          if (failedCount > 0) {
+            setRecognitionMessage(`成功识别${successfulResults.length}张图片，${failedCount}张图片识别失败`);
+          } else {
+            setRecognitionMessage("识别成功！题目内容已自动填入");
+          }
+
+          // 3秒后隐藏成功消息
+          setTimeout(() => {
+            setShowSuccessMessage(false);
+            setRecognitionMessage("");
+          }, 3000);
+        }, 100);
       } else {
-        alert('识别失败，请重试或手动输入');
+        setRecognitionMessage("所有图片识别都失败了，请重试");
+        setTimeout(() => {
+          setRecognitionMessage("");
+        }, 3000);
       }
-    } catch (e) {
-      console.error('OCR识别错误:', e);
-      alert('识别错误，请重试或手动输入');
+    } catch (error) {
+      console.error('文字识别错误:', error);
+      setRecognitionMessage("文字识别失败，请重试");
+      setTimeout(() => {
+        setRecognitionMessage("");
+      }, 3000);
     } finally {
       setIsRecognizing(false);
-      setPhoto(null);
-      setUploadedImages([]);
     }
   };
 
@@ -178,19 +237,83 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
       return;
     }
 
-    const readers = files.map(file => {
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-    });
+    // 验证并压缩图片
+    const validFiles: string[] = [];
+    let processedCount = 0;
 
-    Promise.all(readers).then(imageDataUrls => {
-      setUploadedImages(imageDataUrls);
-      if (imageDataUrls.length > 0) {
-        recognizeText(imageDataUrls);
+    Array.from(files).forEach((file, index) => {
+      // 验证文件类型
+      if (!file.type.startsWith('image/')) {
+        alert(`第${index + 1}个文件不是图片格式`);
+        return;
       }
+
+      // 验证文件大小 (10MB限制)
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`第${index + 1}个图片文件过大，请选择小于10MB的图片`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result;
+        if (typeof result === 'string') {
+          // 压缩图片
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            if (!ctx) {
+              validFiles.push(result);
+              processedCount++;
+              if (processedCount === files.length) {
+                if (validFiles.length > 0) {
+                  setUploadedImages(validFiles);
+                  recognizeText(validFiles);
+                }
+              }
+              return;
+            }
+
+            // 计算压缩后的尺寸
+            const maxWidth = 1920;
+            const maxHeight = 1080;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxWidth || height > maxHeight) {
+              const ratio = Math.min(maxWidth / width, maxHeight / height);
+              width *= ratio;
+              height *= ratio;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            // 绘制压缩后的图片
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // 转换为base64，质量设置为0.8
+            const compressedResult = canvas.toDataURL('image/jpeg', 0.8);
+            validFiles.push(compressedResult);
+
+            processedCount++;
+            if (processedCount === files.length) {
+              if (validFiles.length > 0) {
+                setUploadedImages(validFiles);
+                recognizeText(validFiles);
+              }
+            }
+          };
+          img.src = result;
+        }
+      };
+      reader.onerror = () => {
+        alert(`第${index + 1}个图片读取失败，请重试`);
+        processedCount++;
+      };
+      reader.readAsDataURL(file);
     });
   };
 
@@ -336,8 +459,60 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
         </div>
       )}
 
+      {/* 识别进度提示 */}
+      {isRecognizing && recognitionMessage && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold">智能识别中</h3>
+              <p className="text-sm text-gray-600 mt-2">
+                {recognitionMessage}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center py-6">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <div className="absolute inset-0 w-12 h-12 border-4 border-purple-600 border-r-transparent rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+                </div>
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+                  <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center text-xs text-gray-500">
+              AI正在努力识别图片内容，请稍候...
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 成功提示 */}
+      {showSuccessMessage && recognitionMessage && !isRecognizing && (
+        <div className="fixed top-4 right-4 z-50 animate-pulse">
+          <div className="bg-green-50 border border-green-200 rounded-lg shadow-lg p-4 max-w-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-800">
+                  {recognitionMessage}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 上传图片识别覆盖层 */}
-      {uploadedImages.length > 0 && (
+      {uploadedImages.length > 0 && !isRecognizing && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-4 space-y-4">
             <div className="text-center">
@@ -348,12 +523,10 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
             </div>
 
             <div className="flex items-center justify-center py-8">
-              {isRecognizing && (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm text-blue-600">正在识别图片内容...</span>
-                </div>
-              )}
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-blue-600">正在识别图片内容...</span>
+              </div>
             </div>
 
             <div className="text-center text-sm text-gray-500">
