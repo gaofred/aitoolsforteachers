@@ -457,7 +457,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     let completedCount = 0;
 
     // 分批并行处理图片，优化并发数平衡性能和稳定性
-    const batchSize = 18; // 优化并发数：18张图片可以一次性并行处理，最大化性能
+    const batchSize = 26; // 超级并发数：26张图片可以一次性并行处理，极限性能优化
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {
