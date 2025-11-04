@@ -138,22 +138,15 @@ export default function MembershipPage() {
       return;
     }
 
-    // 外部购买会员的处理 - 显示精美的确认对话框
-    if (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM' || plan.plan_type === 'PREMIUM_II' || plan.plan_type === 'PRO') {
-      handlePurchaseConfirmation(plan);
-      return;
-    }
+    // 所有会员都通过数据库函数处理，支持重复购买
+    // 注释掉外部链接跳转，改为调用数据库函数
+    // if (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM' || plan.plan_type === 'PREMIUM_II' || plan.plan_type === 'PRO') {
+    //   handlePurchaseConfirmation(plan);
+    //   return;
+    // }
 
-    // 其他套餐的原始购买逻辑
-    if (userPoints < plan.points_cost) {
-      const priceInYuan = (() => {
-        if (plan.plan_type === 'PRO') return 169;
-        if (plan.plan_type === 'PREMIUM_II') return 55; // Premium会员II 55元（90天期）
-        return plan.points_cost / 100;
-      })();
-      toast.error(`点数不足，需要 ${plan.points_cost} 点数（${priceInYuan}元），当前剩余 ${userPoints} 点数`);
-      return;
-    }
+    // 所有会员现在都免费激活，不需要检查点数
+    // 积分检查逻辑已移除，因为购买不再消耗积分
 
     setIsPurchasing(plan.plan_type);
 
@@ -172,7 +165,12 @@ export default function MembershipPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success(`成功购买 ${getDisplayName(plan)}！`);
+        const result = data.data;
+        if (result.isRenewal) {
+          toast.success(`${getDisplayName(plan)}续费成功！积分增加${result.bonusPoints}，有效期延长${result.daysAdded}天`);
+        } else {
+          toast.success(`${getDisplayName(plan)}购买成功！积分增加${result.bonusPoints}，获得${result.totalDays}天会员资格`);
+        }
         await refreshUser();
         await fetchMembershipStatus();
       } else {
@@ -399,7 +397,6 @@ export default function MembershipPage() {
           {plans.map((plan, index) => {
             const color = getPlanColor(plan.plan_type);
             const isCurrentPlan = membershipStatus?.plan_type === plan.plan_type;
-            const canAfford = userPoints >= plan.points_cost;
 
             // 根据套餐类型确定显示名称
             const getDisplayName = (plan: any) => {
@@ -549,13 +546,7 @@ export default function MembershipPage() {
                   <Button
                     onClick={() => handlePurchase(plan)}
                     disabled={isPurchasing === plan.plan_type}
-                    className={`w-full text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2.5 ${
-                      (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM' || plan.plan_type === 'PREMIUM_II' || plan.plan_type === 'PRO')
-                        ? `bg-${color}-600 hover:bg-${color}-700`
-                        : canAfford
-                        ? `bg-${color}-600 hover:bg-${color}-700`
-                        : 'bg-gray-300 cursor-not-allowed'
-                    } text-white`}
+                    className={`w-full text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2.5 bg-${color}-600 hover:bg-${color}-700 text-white`}
                   >
                     {isPurchasing === plan.plan_type ? (
                       <span className="flex items-center gap-2">
@@ -564,33 +555,18 @@ export default function MembershipPage() {
                       </span>
                     ) : isCurrentPlan ? (
                       <span className="flex items-center gap-1.5 sm:gap-2">
-                        续期购买
+                        再次购买
                         <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
-                      </span>
-                    ) : (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM' || plan.plan_type === 'PREMIUM_II' || plan.plan_type === 'PRO') ? (
-                      <span className="flex items-center gap-1.5 sm:gap-2">
-                        购买
-                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </span>
-                    ) : canAfford ? (
-                      <span className="flex items-center gap-1.5 sm:gap-2">
-                        立即购买
-                        <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </span>
                     ) : (
-                      (() => {
-                        const priceInYuan = (() => {
-                        if (plan.plan_type === 'PRO') return 169;
-                        if (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM') return 20; // Premium会员I 20元（30天期）
-                        if (plan.plan_type === 'PREMIUM_II') return 52; // Premium会员II 52元（90天期）
-                        return plan.points_cost / 100;
-                      })();
-                        return `点数不足 (需要${plan.points_cost}点/${priceInYuan}元)`;
-                      })()
+                      <span className="flex items-center gap-1.5 sm:gap-2">
+                        立即购买
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </span>
                     )}
                   </Button>
                 </CardContent>
