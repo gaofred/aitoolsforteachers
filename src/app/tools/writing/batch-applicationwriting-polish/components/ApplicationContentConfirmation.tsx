@@ -89,7 +89,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
   const handleSave = (assignmentId: string) => {
     if (!task) return;
 
-    const newText = editedTexts[assignment.id];
+    const newText = editedTexts[assignmentId];
     if (newText !== undefined) {
       const updatedAssignments = task.assignments.map(assignment => {
         if (assignment.id === assignmentId) {
