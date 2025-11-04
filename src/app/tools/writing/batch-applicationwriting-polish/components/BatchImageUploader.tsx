@@ -46,6 +46,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [ocrProgressMessage, setOcrProgressMessage] = useState<string>('');
+  const [skipCompression, setSkipCompression] = useState(false); // 新增：跳过压缩选项
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 处理文件上传
@@ -71,8 +72,22 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       fileInputRef.current.value = '';
     }
 
-    // 自动压缩新上传的图片
-    await compressNewImages(newImages);
+    // 根据设置压缩或跳过压缩新上传的图片
+    if (skipCompression) {
+      console.log('⚠️ 跳过图片压缩，使用原始文件进行OCR识别');
+      // 标记为已压缩（实际未压缩）
+      setUploadedImages(prev => prev.map(img => ({
+        ...img,
+        status: 'pending' as const,
+        compressionInfo: {
+          originalSize: img.originalFile.size,
+          compressedSize: img.originalFile.size,
+          compressionRatio: 0
+        }
+      })));
+    } else {
+      await compressNewImages(newImages);
+    }
   };
 
   // 压缩新上传的图片
@@ -613,6 +628,20 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
             onChange={handleFileUpload}
             className="hidden"
           />
+
+          {/* 压缩选项设置 */}
+          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded border border-blue-200">
+            <input
+              type="checkbox"
+              id="skipCompression"
+              checked={skipCompression}
+              onChange={(e) => setSkipCompression(e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="skipCompression" className="text-sm text-blue-700">
+              跳过压缩（测试用）- 使用原图进行OCR识别，可能影响速度但提升识别准确度
+            </label>
+          </div>
 
           {/* 操作按钮 */}
           <div className="flex flex-wrap gap-2">
