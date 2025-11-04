@@ -109,40 +109,7 @@ export default function AdminLoginPage() {
             </div>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">提示</span>
-              </div>
-            </div>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                可用账号:
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                用户名: <code className="bg-gray-100 px-1 py-0.5 rounded">fredgao_dhsl</code> | 密码: <code className="bg-gray-100 px-1 py-0.5 rounded">Seu10286</code>
-              </p>
-              <p className="text-xs text-gray-500">
-                用户名: <code className="bg-gray-100 px-1 py-0.5 rounded">admin</code> | 密码: <code className="bg-gray-100 px-1 py-0.5 rounded">admin-7654</code>
-              </p>
-              <div className="mt-4 p-3 bg-green-50 rounded-md">
-                <p className="text-sm font-medium text-green-800 mb-2">
-                  ✅ 配置更新完成
-                </p>
-                <p className="text-xs text-green-600">
-                  管理员账号已关联邮箱: <code className="bg-green-100 px-1 py-0.5 rounded">17687027169@163.com</code>
-                </p>
-                <p className="text-xs text-green-600 mt-1">
-                  邮箱在用户系统中尚未创建，需要手动注册
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
+          </Card>
       </div>
     </div>
   );

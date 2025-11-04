@@ -48,7 +48,7 @@ const navigationData = [
       { id: "textbook-passage-analysis", title: "课文文章分析", cost: 5, route: "/tools/reading/textbook_passage_analysis" },
       { id: "cd-adaptation", title: "外刊文章改编为CD篇", cost: 5, route: "/tools/reading/cd-adaptation" },
       { id: "cd-creator", title: "CD篇命题", active: true, cost: 4, route: "/tools/reading/cd-creator" },
-        { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6, route: "/tools/reading/reading-comprehension-deep-analysis", disabled: true },
+        { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6, route: "/tools/reading/reading-comprehension-deep-analysis", disabled: false },
         { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true },
         { id: "gap-filling-exercise-analysis", title: "语法填空解析", active: true, cost: 4, route: "/tools/reading/gap-filling-exercise-analysis" },
         { id: "reading-comprehension-analysis", title: "阅读理解解析", cost: 2, route: "/tools/reading/reading-comprehension-analysis" },
@@ -1250,22 +1250,30 @@ The future of AI depends on our ability to balance innovation with responsibilit
     }
 
     setIsRedeeming(true);
-    
+
     try {
-      // 使用Supabase服务进行兑换
-      const result = await SupabasePointsService.redeemCode(currentUser.id, redemptionCode);
+      // 使用API进行兑换，直接调用后端API而不是Supabase服务
+      const response = await fetch('/api/redemption-codes/use', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: redemptionCode.trim() }),
+      });
+
+      const result = await response.json();
 
       if (result.success) {
-        // 如果是积分兑换，直接更新点数，避免查询失败
-        if (result.type === 'POINTS' && result.value) {
+        // 如果是积分兑换，直接更新点数
+        if (result.data?.type === 'POINTS' && result.data?.value) {
           await refreshUser();
         }
 
         setRedemptionCode("");
         setShowRedeemModal(false); // 关闭弹窗
-        alert(result.message);
+        alert(result.message || '兑换成功！');
       } else {
-        alert(result.message);
+        alert(result.error || result.message || '兑换失败，请检查兑换码是否正确');
       }
     } catch (error) {
       console.error('兑换失败:', error);

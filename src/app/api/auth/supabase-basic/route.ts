@@ -111,6 +111,9 @@ export async function POST(request: NextRequest) {
     const clientIP = getClientIP(request)
     console.log('注册请求IP地址:', clientIP)
 
+    // 临时禁用IP注册限制逻辑，排查注册问题
+    console.log('IP地址:', clientIP, '（临时跳过IP限制检查）');
+    /*
     // 检查该IP今天的注册次数限制
     const ipCheckResult = await checkIPRegistrationLimit(clientIP)
     if (!ipCheckResult.allowed) {
@@ -122,6 +125,7 @@ export async function POST(request: NextRequest) {
         { status: 429 }
       )
     }
+    */
 
     const supabase = createServerSupabaseClient()
 
@@ -217,19 +221,10 @@ export async function POST(request: NextRequest) {
 
         console.log('用户业务数据记录创建完成');
 
-        // 处理邀请奖励（如果有邀请码）
+        // 临时禁用邀请奖励处理逻辑，排查注册问题
         if (inviteCode && data.user?.id) {
-          console.log('检测到邀请码，开始处理邀请奖励:', inviteCode);
-          
-          // 创建一个包含invite_code的请求URL用于processInviteForNewUserServer
-          const inviteRequestUrl = new URL('/api/auth/supabase-basic', process.env.NEXTAUTH_URL || 'http://localhost:3007');
-          inviteRequestUrl.searchParams.set('invite_code', inviteCode);
-          
-          const mockRequest = new Request(inviteRequestUrl.toString());
-          
-          await processInviteForNewUserServer(data.user.id, mockRequest).catch((error) => {
-            console.error('处理邀请奖励失败:', error);
-          });
+          console.log('检测到邀请码，但暂时禁用邀请奖励处理:', inviteCode);
+          // TODO: 恢复邀请奖励处理
         }
 
       } catch (createError) {
