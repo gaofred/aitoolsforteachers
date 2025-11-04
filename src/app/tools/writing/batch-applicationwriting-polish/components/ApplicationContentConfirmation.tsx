@@ -630,7 +630,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                   }).length;
 
                   if (needsFormattingCount > 0) {
-                    const proceed = confirm(`检测到 ${needsFormattingCount} 篇作文可能需要AI排版优化。是否使用AI批量排版（统一消耗2积分）？`);
+                    const proceed = confirm(`检测到 ${needsFormattingCount} 篇作文可能需要AI排版优化。是否使用AI批量排版（统一消耗1积分）？`);
                     if (!proceed) {
                       setBatchFormattingInProgress(false);
                       return;
@@ -721,7 +721,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  批量AI排版检测（2积分）
+                  批量AI排版检测（仅对当前页）（1积分）
                 </>
               )}
             </Button>

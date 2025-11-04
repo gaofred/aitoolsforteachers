@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Image, X, Eye, Trash2, Camera, Loader2 } from "lucide-react";
+import { Upload, Image, X, Eye, Trash2, Camera, Loader2, RefreshCw } from "lucide-react";
 import type { ApplicationBatchTask, ApplicationAssignment, OCRResult, ProcessingStats } from "../types";
 import { compressImageForOCR } from "@/lib/image-compressor";
 
@@ -22,7 +22,7 @@ interface UploadedImage {
   file: File;
   originalFile: File; // 保存原始文件
   preview: string;
-  status: 'pending' | 'compressing' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'compressing' | 'processing' | 'completed' | 'failed' | 'retrying';
   ocrResult?: OCRResult;
   error?: string;
   compressionInfo?: {
@@ -30,6 +30,8 @@ interface UploadedImage {
     compressedSize: number;
     compressionRatio: number;
   };
+  retryCount?: number; // 重试次数
+  maxRetries: number; // 最大重试次数
 }
 
 const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
@@ -51,12 +53,15 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     const files = event.target.files;
     if (!files) return;
 
+    // 学生作文无图片数量限制
     const newImages: UploadedImage[] = Array.from(files).map(file => ({
       id: `img_${Date.now()}_${Math.random()}`,
       originalFile: file,
       file, // 临时设置为原文件，压缩后会更新
       preview: URL.createObjectURL(file),
-      status: 'pending'
+      status: 'pending',
+      retryCount: 0,
+      maxRetries: 1 // 最多重试1次
     }));
 
     setUploadedImages(prev => [...prev, ...newImages]);
@@ -152,35 +157,134 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
   // OCR识别单张图片
   const processImage = async (image: UploadedImage): Promise<OCRResult | null> => {
+    const attemptOCR = async (): Promise<OCRResult | null> => {
+      try {
+        // 将文件转换为base64
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(image.file);
+        });
+
+        const response = await fetch('/api/ai/image-recognition', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageBase64: base64
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.result) {
+          // 解析OCR结果，同时使用完整原文和纯英文内容
+          return parseOCRResult(data.result, data.englishOnly, image.id);
+        } else {
+          throw new Error(data.error || 'OCR识别失败');
+        }
+      } catch (error) {
+        console.error(`OCR处理失败 (尝试 ${image.retryCount ? image.retryCount + 1 : 1}):`, error);
+        throw error;
+      }
+    };
+
     try {
-      // 将文件转换为base64
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(image.file);
-      });
+      return await attemptOCR();
+    } catch (error) {
+      // 如果还有重试次数，则重试
+      if (image.retryCount! < image.maxRetries) {
+        console.log(`🔄 图片 ${image.id} 开始重试 (${image.retryCount! + 1}/${image.maxRetries})`);
 
-      const response = await fetch('/api/ai/image-recognition', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageBase64: base64
-        })
-      });
+        // 更新重试状态
+        setUploadedImages(prev =>
+          prev.map(img =>
+            img.id === image.id
+              ? { ...img, status: 'retrying', retryCount: img.retryCount! + 1 }
+              : img
+          )
+        );
 
-      const data = await response.json();
+        // 延迟1秒后重试
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (data.success && data.result) {
-        // 解析OCR结果，同时使用完整原文和纯英文内容
-        return parseOCRResult(data.result, data.englishOnly, image.id);
+        try {
+          const result = await attemptOCR();
+          console.log(`✅ 图片 ${image.id} 重试成功`);
+          return result;
+        } catch (retryError) {
+          console.error(`❌ 图片 ${image.id} 重试失败:`, retryError);
+          throw retryError;
+        }
       } else {
-        throw new Error(data.error || 'OCR识别失败');
+        // 重试次数用尽，直接抛出错误
+        throw error;
+      }
+    }
+  };
+
+  // 手动重试单个图片
+  const retrySingleImage = async (imageId: string) => {
+    const image = uploadedImages.find(img => img.id === imageId);
+    if (!image) {
+      console.error('找不到要重试的图片:', imageId);
+      return;
+    }
+
+    // 重置重试计数和状态
+    const updatedImage = { ...image, status: 'processing' as const, retryCount: 0, error: undefined };
+    setUploadedImages(prev => prev.map(img => img.id === imageId ? updatedImage : img));
+
+    try {
+      console.log(`🔄 手动重试图片: ${imageId}`);
+
+      // 重新处理图片
+      const ocrResult = await processImage(updatedImage);
+
+      if (ocrResult) {
+        // 创建作业记录
+        const assignment = {
+          id: `assignment_${Date.now()}_${Math.random()}`,
+          student: {
+            id: `temp_${ocrResult.studentName}_${imageId}`,
+            name: ocrResult.studentName,
+            createdAt: new Date()
+          },
+          ocrResult,
+          status: 'pending' as const,
+          createdAt: new Date()
+        };
+
+        // 更新图片状态为完成
+        setUploadedImages(prev => prev.map(img =>
+          img.id === imageId ? { ...img, status: 'completed', ocrResult, error: undefined } : img
+        ));
+
+        // 更新任务中的作业
+        if (task) {
+          setTask({
+            ...task,
+            assignments: [...(task.assignments || []), assignment]
+          });
+        }
+
+        console.log(`✅ 手动重试成功: ${ocrResult.studentName}`);
       }
     } catch (error) {
-      console.error('OCR处理失败:', error);
-      throw error;
+      console.error(`❌ 手动重试失败: ${imageId}`, error);
+
+      // 更新图片状态为失败
+      setUploadedImages(prev => prev.map(img =>
+        img.id === imageId
+          ? {
+              ...img,
+              status: 'failed',
+              error: error instanceof Error ? error.message : '手动重试失败',
+              retryCount: img.retryCount || 0
+            }
+          : img
+      ));
     }
   };
 
@@ -326,7 +430,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     setUploadedImages(prev => prev.map(img => ({ ...img, status: 'processing' })));
 
     // 显示进度提醒
-    const estimatedMinutes = Math.ceil(uploadedImages.length / 4); // 4张图片约1分钟
+    const estimatedMinutes = Math.ceil(uploadedImages.length / 30); // 30张图片约1分钟
     const message = `AI加速识图中，请耐心等待... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟。`;
     console.log(`🎯 ${message}`);
 
@@ -338,7 +442,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     let completedCount = 0;
 
     // 分批并行处理图片，限制并发数为15
-    const batchSize = 15; // 限制并发数量以提高稳定性
+    const batchSize = 30; // 学生作业OCR并发数改为30
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {
@@ -599,25 +703,47 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                       <span className="text-xs text-gray-500 truncate">
                         {image.file.name}
                       </span>
-                      <Badge
-                        variant={
-                          image.status === 'completed' ? 'default' :
-                          image.status === 'processing' || image.status === 'compressing' ? 'secondary' :
-                          image.status === 'failed' ? 'destructive' : 'outline'
-                        }
-                        className="text-xs"
-                      >
-                        {image.status === 'compressing' && (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                            压缩中
-                          </>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            image.status === 'completed' ? 'default' :
+                            image.status === 'processing' || image.status === 'compressing' ? 'secondary' :
+                            image.status === 'failed' || image.status === 'retrying' ? 'destructive' : 'outline'
+                          }
+                          className="text-xs"
+                        >
+                          {image.status === 'compressing' && (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                              压缩中
+                            </>
+                          )}
+                          {image.status === 'pending' && '待处理'}
+                          {image.status === 'processing' && '处理中'}
+                          {image.status === 'completed' && '已完成'}
+                          {image.status === 'retrying' && (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                              重试中 ({image.retryCount}/{image.maxRetries})
+                            </>
+                          )}
+                          {image.status === 'failed' && '失败'}
+                        </Badge>
+
+                        {/* 失败图片的手动重试按钮 */}
+                        {image.status === 'failed' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => retrySingleImage(image.id)}
+                            className="h-6 px-2 text-xs"
+                            title="手动重试识图"
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            重试
+                          </Button>
                         )}
-                        {image.status === 'pending' && '待处理'}
-                        {image.status === 'processing' && '处理中'}
-                        {image.status === 'completed' && '已完成'}
-                        {image.status === 'failed' && '失败'}
-                      </Badge>
+                      </div>
                     </div>
 
                     {/* 压缩信息显示 */}

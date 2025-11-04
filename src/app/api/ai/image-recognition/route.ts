@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         "Authorization": `Bearer ${VOLCENGINE_API_KEY}`
       },
       body: JSON.stringify({
-        model: "doubao-seed-1-6-vision-250815",
+        model: "doubao-seed-1-6-flash-250828",
         messages: [
           {
             role: "user",
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
           "Authorization": `Bearer ${VOLCENGINE_API_KEY}`
         },
         body: JSON.stringify({
-          model: "doubao-seed-1-6-vision-250815",
+          model: "doubao-seed-1-6-flash-250828",
           messages: [
             {
               role: "user",

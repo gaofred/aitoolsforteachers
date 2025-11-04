@@ -95,30 +95,44 @@ export async function compressImagesForOCR(
  * 检查图片是否需要压缩
  * @param file - 图片文件
  * @param options - 压缩选项
- * @returns boolean 是否需要压缩
+ * @returns Promise<boolean> 是否需要压缩
  */
 export function needsCompression(
   file: File,
   options: CompressionOptions = {}
-): boolean {
+): Promise<boolean> {
   const { maxSizeMB = 2, maxWidthOrHeight = 2048 } = options;
 
   // 检查文件大小
   const fileSizeMB = file.size / (1024 * 1024);
   if (fileSizeMB > maxSizeMB) {
-    return true;
+    return Promise.resolve(true);
+  }
+
+  // 检查是否在浏览器环境
+  if (typeof window === 'undefined' || typeof Image === 'undefined' || typeof URL === 'undefined') {
+    // 服务端环境，无法检查图片尺寸，基于文件大小判断
+    return Promise.resolve(false);
   }
 
   // 检查图片尺寸（需要创建Image对象来获取）
   return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const needsResize = img.width > maxWidthOrHeight || img.height > maxWidthOrHeight;
-      resolve(needsResize);
-      URL.revokeObjectURL(img.src); // 清理内存
-    };
-    img.onerror = () => resolve(false);
-    img.src = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.onload = () => {
+        const needsResize = img.width > maxWidthOrHeight || img.height > maxWidthOrHeight;
+        resolve(needsResize);
+        // 清理内存
+        if (img.src && img.src.startsWith('blob:')) {
+          URL.revokeObjectURL(img.src);
+        }
+      };
+      img.onerror = () => resolve(false);
+      img.src = URL.createObjectURL(file);
+    } catch (error) {
+      console.error('检查图片尺寸失败:', error);
+      resolve(false);
+    }
   });
 }
 

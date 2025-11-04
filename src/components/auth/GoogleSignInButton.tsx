@@ -19,7 +19,8 @@ export function GoogleSignInButton() {
       const inviteCode = getInviteCodeFromURL()
 
       // 构建Google登录URL，包含邀请码参数
-      const googleUrl = new URL('/api/auth/google', window.location.origin)
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+      const googleUrl = new URL('/api/auth/google', origin)
       if (inviteCode) {
         googleUrl.searchParams.set('invite_code', inviteCode)
       }

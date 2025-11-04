@@ -73,129 +73,155 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
     }));
   };
 
-  // 批改单个作文
-  const gradeApplication = async (assignmentId: string) => {
+  // 批改单个作文（带自动重试机制）
+  const gradeApplication = async (assignmentId: string, retryCount: number = 0, maxRetries: number = 1) => {
     const assignment = task.assignments.find(a => a.id === assignmentId);
     if (!assignment) return null;
 
-    try {
-      const requestData = {
-        studentName: assignment.student.name,
-        topic: task.topic,
-        content: assignment.ocrResult.editedText || assignment.ocrResult.originalText || assignment.ocrResult.content,
-        gradingType: 'both',
-        userId: userId
-      };
-
-      console.log('开始批改作业:', {
-        assignmentId,
-        studentName: assignment.student.name,
-        userId: userId,
-        topicLength: task.topic?.length,
-        contentLength: requestData.content?.length,
-        requestData: JSON.stringify(requestData).substring(0, 200) + '...'
-      });
-
-      let response;
+    const attemptGrade = async () => {
       try {
-        // 获取认证token（Edge浏览器兼容方式）
-        const getAuthToken = () => {
-          if (typeof window !== 'undefined') {
-            // 优先从 localStorage 获取
-            let token = localStorage.getItem('sb-access-token');
-            if (token) return token;
-
-            // 备用：从 sessionStorage 获取
-            token = sessionStorage.getItem('sb-access-token');
-            if (token) return token;
-          }
-          return '';
-        };
-
-        const authToken = getAuthToken();
-        console.log('发送API请求到 /api/ai/application-grading，token存在:', !!authToken);
-
-        response = await fetch('/api/ai/application-grading', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // 添加认证头，确保 Edge 浏览器能正确传递认证信息
-            'Authorization': `Bearer ${authToken}`
-          },
-          credentials: 'include', // 确保发送cookies（Edge浏览器兼容）
-          body: JSON.stringify(requestData)
-        });
-      } catch (fetchError) {
-        console.error('网络请求失败:', fetchError);
-        throw new Error(`网络请求失败: ${fetchError.message}`);
-      }
-
-      console.log('批改API响应状态:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
-      if (!response.ok) {
-        console.error('HTTP错误响应:', response.status, response.statusText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        console.error('JSON解析失败:', jsonError);
-        throw new Error(`响应解析失败: ${jsonError.message}`);
-      }
-
-      console.log('批改API响应:', {
-        success: data.success,
-        error: data.error,
-        pointsCost: data.pointsCost,
-        remainingPoints: data.remainingPoints,
-        httpStatus: response.status
-      });
-
-      if (data.success) {
-        const gradingResult: ApplicationGradingResult = {
-          score: data.result.score,
-          feedback: data.result.feedback,
-          improvedVersion: data.result.improvedVersion,
-          gradingDetails: data.result.gradingDetails,
-          gradedAt: new Date()
-        };
-
-        console.log('批改成功:', {
+        const requestData = {
           studentName: assignment.student.name,
-          score: gradingResult.score,
-          pointsCost: data.pointsCost,
-          remainingPoints: data.remainingPoints
-        });
-
-        return gradingResult;
-      } else {
-        console.error('批改API返回错误:', {
-          error: data.error,
-          success: data.success,
-          httpStatus: response.status,
-          statusText: response.statusText,
-          studentName: assignment.student.name,
+          topic: task.topic,
+          content: assignment.ocrResult.editedText || assignment.ocrResult.originalText || assignment.ocrResult.content,
+          gradingType: 'both',
           userId: userId
+        };
+
+        console.log(`开始批改作业 (${retryCount + 1}/${maxRetries + 1}):`, {
+          assignmentId,
+          studentName: assignment.student.name,
+          userId: userId,
+          topicLength: task.topic?.length,
+          contentLength: requestData.content?.length,
+          retryCount,
+          requestData: JSON.stringify(requestData).substring(0, 200) + '...'
         });
-        throw new Error(data.error || '批改失败');
+
+        let response;
+        try {
+          // 获取认证token（Edge浏览器兼容方式）
+          const getAuthToken = () => {
+            if (typeof window !== 'undefined') {
+              // 优先从 localStorage 获取
+              let token = localStorage.getItem('sb-access-token');
+              if (token) return token;
+
+              // 备用：从 sessionStorage 获取
+              token = sessionStorage.getItem('sb-access-token');
+              if (token) return token;
+            }
+            return '';
+          };
+
+          const authToken = getAuthToken();
+          console.log('发送API请求到 /api/ai/application-grading，token存在:', !!authToken);
+
+          response = await fetch('/api/ai/application-grading', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              // 添加认证头，确保 Edge 浏览器能正确传递认证信息
+              'Authorization': `Bearer ${authToken}`
+            },
+            credentials: 'include', // 确保发送cookies（Edge浏览器兼容）
+            body: JSON.stringify(requestData)
+          });
+        } catch (fetchError) {
+          console.error('网络请求失败:', fetchError);
+          throw new Error(`网络请求失败: ${fetchError.message}`);
+        }
+
+        console.log('批改API响应状态:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+
+        if (!response.ok) {
+          console.error('HTTP错误响应:', response.status, response.statusText);
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          console.error('JSON解析失败:', jsonError);
+          throw new Error(`响应解析失败: ${jsonError.message}`);
+        }
+
+        console.log('批改API响应:', {
+          success: data.success,
+          error: data.error,
+          pointsCost: data.pointsCost,
+          remainingPoints: data.remainingPoints,
+          httpStatus: response.status
+        });
+
+        if (data.success) {
+          const gradingResult: ApplicationGradingResult = {
+            score: data.result.score,
+            feedback: data.result.feedback,
+            improvedVersion: data.result.improvedVersion,
+            gradingDetails: data.result.gradingDetails,
+            gradedAt: new Date()
+          };
+
+          console.log('批改成功:', {
+            studentName: assignment.student.name,
+            score: gradingResult.score,
+            pointsCost: data.pointsCost,
+            remainingPoints: data.remainingPoints,
+            retryCount
+          });
+
+          return gradingResult;
+        } else {
+          console.error('批改API返回错误:', {
+            error: data.error,
+            success: data.success,
+            httpStatus: response.status,
+            statusText: response.statusText,
+            studentName: assignment.student.name,
+            userId: userId
+          });
+          throw new Error(data.error || '批改失败');
+        }
+      } catch (error) {
+        console.error(`批改失败 (尝试 ${retryCount + 1}/${maxRetries + 1}):`, {
+          error: error,
+          message: error?.message,
+          stack: error?.stack,
+          studentName: assignment.student.name,
+          userId: userId,
+          retryCount
+        });
+        throw error;
       }
+    };
+
+    // 尝试批改，如果失败且未达到最大重试次数，则自动重试
+    try {
+      return await attemptGrade();
     } catch (error) {
-      console.error('批改失败 (完整错误):', {
-        error: error,
-        message: error?.message,
-        stack: error?.stack,
-        studentName: assignment.student.name,
-        userId: userId,
-        hasResponse: false
-      });
-      throw error;
+      if (retryCount < maxRetries) {
+        console.log(`⚠️ 批改失败，1秒后自动重试 (${retryCount + 1}/${maxRetries + 1}): ${assignment.student.name}`);
+
+        // 等待1秒后重试
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        try {
+          return await gradeApplication(assignmentId, retryCount + 1, maxRetries);
+        } catch (retryError) {
+          console.error(`❌ 自动重试失败: ${assignment.student.name}`, retryError);
+          throw retryError;
+        }
+      } else {
+        console.error(`❌ 所有重试尝试均失败: ${assignment.student.name}`, error);
+        throw error;
+      }
     }
   };
 
@@ -651,7 +677,7 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
   // 使用函数式更新确保获取最新状态
   const completedCount = task?.assignments?.filter(a => a.status === 'completed').length || 0;
   const failedCount = task?.assignments?.filter(a => a.status === 'failed').length || 0;
-  const canProceed = completedCount > 0 && !isGrading; // 确保批改完成后才能进行下一步
+  const canProceed = true; // 始终允许进入下一步，无论批改状态如何
   const progress = task?.assignments?.length > 0 ? (processingStats.gradedApplications / task.assignments.length) * 100 : 0;
 
   return (
@@ -1017,7 +1043,7 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
         </Button>
         <Button
           onClick={onNext}
-          disabled={!canProceed || isGrading}
+          disabled={false} // 始终允许点击下一步
           className="px-8"
         >
           下一步：查看结果导出

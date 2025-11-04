@@ -171,6 +171,13 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+
+    // 题目识别限制2张图片
+    if (files.length > 2) {
+      alert(`题目识别最多只能上传2张图片！本次选择了${files.length}张图片，超出限制。`);
+      return;
+    }
+
     const readers = files.map(file => {
       return new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -214,7 +221,7 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-gray-600">
-            拍照或上传题目图片，AI将自动识别并填入题目内容
+            拍照或上传题目图片，AI将自动识别并填入题目内容（最多2张图片）
           </p>
 
           <div className="flex flex-wrap gap-3">
