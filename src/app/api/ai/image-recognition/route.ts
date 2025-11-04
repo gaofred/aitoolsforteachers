@@ -43,6 +43,10 @@ export async function POST(request: Request) {
       数据长度: imageDataUrl.length
     });
 
+    // 记录请求开始时间，用于监控网络延迟
+    const startTime = Date.now();
+    console.log('🌐 开始调用火山引擎API (北京节点)...');
+
     const pointsCost = 0; // 识图功能免费
 
     // 免费功能，无需检查点数
@@ -80,6 +84,11 @@ export async function POST(request: Request) {
     });
 
     const ocrData = await ocrResponse.json();
+
+    // 计算并记录网络延迟
+    const endTime = Date.now();
+    const networkLatency = endTime - startTime;
+    console.log(`🌐 火山引擎API响应完成，总耗时: ${networkLatency}ms (${(networkLatency/1000).toFixed(2)}秒)`);
 
     if (!ocrResponse.ok) {
       console.error("火山引擎API错误:", ocrData);
