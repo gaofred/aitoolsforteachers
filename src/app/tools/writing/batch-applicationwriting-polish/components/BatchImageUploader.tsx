@@ -429,9 +429,9 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     // 将所有图片状态设置为处理中
     setUploadedImages(prev => prev.map(img => ({ ...img, status: 'processing' })));
 
-    // 显示进度提醒 - 基于新的并发配置更新时间估算
-    const estimatedMinutes = Math.ceil(uploadedImages.length / 5) + 1; // 5张图片约1分钟，加上批次间延迟
-    const message = `AI识图中，请耐心等待... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（已优化性能）。`;
+    // 显示进度提醒 - 基于优化后的并发配置更新时间估算
+    const estimatedMinutes = Math.ceil(uploadedImages.length / 8) + 1; // 8张图片约1分钟，加上批次间延迟
+    const message = `AI识图中，请耐心等待... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（性能已优化）。`;
     console.log(`🎯 ${message}`);
 
     // 设置进度消息
@@ -441,8 +441,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     const errors: string[] = [];
     let completedCount = 0;
 
-    // 分批并行处理图片，降低并发数避免API限流
-    const batchSize = 5; // 降低并发数避免火山引擎API限流，提升生产环境稳定性
+    // 分批并行处理图片，优化并发数平衡性能和稳定性
+    const batchSize = 8; // 优化并发数：平衡处理速度和API限流风险
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {
