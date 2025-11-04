@@ -194,10 +194,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
     try {
       const formatted = await applyAIFormatting(assignmentId, originalText);
 
-      // 更新编辑文本
-      setEditedTexts({ ...editedTexts, [assignmentId]: formatted });
-
-      // 同时更新任务数据（确保立即生效）
+      // 🔧 修复：先更新任务数据，确保状态同步
       if (task) {
         const updatedAssignments = task.assignments.map(assignment => {
           if (assignment.id === assignmentId) {
@@ -221,15 +218,50 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
         console.log('✅ AI排版已应用到任务数据', { assignmentId, textLength: formatted.length });
       }
 
-      // 隐藏格式化建议
-      setShowFormattingSuggestions(prev => ({
-        ...prev,
-        [assignmentId]: false
-      }));
-      setFormattedPreviews(prev => ({
-        ...prev,
-        [assignmentId]: ''
-      }));
+      // 🔧 修复：立即更新所有状态，防止页面刷新导致状态丢失
+      // 立即更新 editedTexts 状态
+      setEditedTexts(prev => ({ ...prev, [assignmentId]: formatted }));
+
+      // 立即隐藏格式化建议和预览
+      setShowFormattingSuggestions(prev => ({ ...prev, [assignmentId]: false }));
+      setFormattedPreviews(prev => ({ ...prev, [assignmentId]: '' }));
+
+      // 🔧 强制刷新任务状态，确保所有相关状态同步
+      setTask(prev => {
+        if (!prev) return prev;
+
+        const updatedAssignments = prev.assignments.map(assignment => {
+          if (assignment.id === assignmentId) {
+            // 更新 OCR结果中的 editedText 和 content 字段
+            const updatedOCRResult = {
+              ...assignment.ocrResult,
+              editedText: formatted,
+              content: formatted
+            };
+
+            console.log('✅ AI排版状态已同步更新', {
+              assignmentId,
+              studentName: assignment.student?.name || '未知',
+              textLength: formatted.length,
+              updatedFields: ['editedText', 'content']
+            });
+
+            return {
+              ...assignment,
+              ocrResult: updatedOCRResult
+            };
+          }
+          return assignment;
+        });
+
+        // 🔧 关键：强制更新 assignments 的引用以触发组件重新渲染
+        return {
+          ...prev,
+          assignments: [...updatedAssignments]
+        };
+      });
+
+      console.log('✅ AI排版已应用，所有状态已同步更新', { assignmentId, textLength: formatted.length });
 
       console.log('✅ AI排版已应用', { assignmentId, textLength: formatted.length });
 
@@ -498,7 +530,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                   {editingAssignments[assignment.id] ? (
                     <div className="space-y-2">
                       <Textarea
-                        value={editedTexts[assignment.id] || ''}
+                        value={editedTexts[assignment.id] || assignment.ocrResult.editedText || assignment.ocrResult.content || ''}
                         onChange={(e) => setEditedTexts({ ...editedTexts, [assignment.id]: e.target.value })}
                         className="min-h-[200px] text-sm"
                         placeholder="请输入作文内容..."
@@ -584,10 +616,24 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
 
                       {/* 作文内容显示 */}
                       <div className="bg-gray-50 p-4 rounded border border-gray-300 text-sm text-gray-800 whitespace-pre-wrap break-words max-h-96 overflow-y-auto">
-                        {(formattedPreviews[assignment.id] && showFormattingSuggestions[assignment.id])
-                          ? formattedPreviews[assignment.id]
-                          : (assignment.ocrResult.editedText || assignment.ocrResult.content || '未识别到作文内容')
-                        }
+                        {(() => {
+                          // 🔧 修复：优先级逻辑 - 确保显示最新的状态
+                          const showPreview = formattedPreviews[assignment.id] && showFormattingSuggestions[assignment.id];
+                          const editedText = editedTexts[assignment.id];
+                          const taskEditedText = assignment.ocrResult.editedText;
+                          const taskContent = assignment.ocrResult.content;
+
+                          // 优先级：预览 > editedTexts > task.editedText > task.content
+                          if (showPreview) {
+                            return formattedPreviews[assignment.id];
+                          } else if (editedText && editedText !== taskEditedText) {
+                            return editedText;
+                          } else if (taskEditedText) {
+                            return taskEditedText;
+                          } else {
+                            return taskContent || '未识别到作文内容';
+                          }
+                        })()}
                       </div>
 
                       {/* AI排版预览提示 */}
@@ -623,10 +669,18 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                 setBatchFormattingInProgress(true);
 
                 try {
-                  // 显示提示信息
+                  // 显示提示信息 - 智能检测：排除已经排版过的内容
                   const needsFormattingCount = currentAssignments.filter(assignment => {
                     const text = assignment.ocrResult.editedText || assignment.ocrResult.content;
-                    return needsFormatting(text);
+                    const isAlreadyFormatted = !needsFormatting(text);
+
+                    console.log(`🔍 检测作文格式: ${assignment.student.name}`, {
+                      textLength: text.length,
+                      needsFormatting: !isAlreadyFormatted,
+                      hasEditedText: !!assignment.ocrResult.editedText
+                    });
+
+                    return !isAlreadyFormatted;
                   }).length;
 
                   if (needsFormattingCount > 0) {

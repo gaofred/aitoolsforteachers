@@ -444,9 +444,10 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     // 将所有图片状态设置为处理中
     setUploadedImages(prev => prev.map(img => ({ ...img, status: 'processing' })));
 
-    // 显示进度提醒 - 基于优化后的并发配置更新时间估算
-    const estimatedMinutes = Math.ceil(uploadedImages.length / 8) + 1; // 8张图片约1分钟，加上批次间延迟
-    const message = `AI识图中，请耐心等待... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（性能已优化）。`;
+    // 显示进度提醒 - 基于26张超级并行处理的性能更新时间估算
+    // 保守估计：26张并发，平均每张10秒，批次间延迟30秒
+    const estimatedMinutes = Math.max(1, Math.ceil((uploadedImages.length * 10) / 60) + Math.ceil(uploadedImages.length / 26));
+    const message = `AI超级并行处理中... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（${Math.min(26, uploadedImages.length)}张同时处理，性能大幅优化）。`;
     console.log(`🎯 ${message}`);
 
     // 设置进度消息
