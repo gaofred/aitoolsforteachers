@@ -47,13 +47,14 @@ export async function POST(request: Request) {
 
     // 免费功能，无需检查点数
 
-    // 调用火山引擎API进行识图 - 专注于图像识别
+    // 调用火山引擎API进行识图 - 专注于图像识别，添加超时控制
     const ocrResponse = await fetch(VOLCENGINE_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${VOLCENGINE_API_KEY}`
       },
+      signal: AbortSignal.timeout(60000), // 60秒超时，防止单个请求卡住
       body: JSON.stringify({
         model: "doubao-seed-1-6-flash-250828",
         messages: [
@@ -100,13 +101,14 @@ export async function POST(request: Request) {
     if (!hasChineseChars && rawText.length > 0) {
       console.log('⚠️ 警告：识别结果可能缺少中文，尝试重新识别...');
 
-      // 第二次识别，更强调中文识别
+      // 第二次识别，更强调中文识别，添加超时控制
       const retryResponse = await fetch(VOLCENGINE_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${VOLCENGINE_API_KEY}`
         },
+        signal: AbortSignal.timeout(60000), // 60秒超时控制
         body: JSON.stringify({
           model: "doubao-seed-1-6-flash-250828",
           messages: [
