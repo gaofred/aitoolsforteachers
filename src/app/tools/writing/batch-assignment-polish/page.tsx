@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // import { Progress } from "@/components/ui/progress"; // 暂时移除
@@ -19,6 +20,7 @@ import {
   ResultTable
 } from "./components";
 import type { BatchTask, Student, Requirement, StudentAssignment, ProcessingStats } from "./types";
+import NoSSR from "@/components/NoSSR";
 
 const BatchAssignmentPolish = () => {
   const router = useRouter();
@@ -179,7 +181,8 @@ const BatchAssignmentPolish = () => {
   }
 
   return (
-    <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-6xl">
+    <NoSSR>
+      <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-6xl">
       {/* 头部信息 */}
       <div className="mb-4 sm:mb-6 md:mb-8">
         <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
@@ -453,8 +456,10 @@ const BatchAssignmentPolish = () => {
                       </p>
                       <Button
                         onClick={() => {
-                          // 强制刷新状态
-                          window.location.reload();
+                          // 强制刷新状态 - 使用useRouter代替window.location
+                          if (typeof window !== 'undefined') {
+                            router.refresh();
+                          }
                         }}
                         variant="outline"
                         className="border-blue-600 text-blue-600 hover:bg-blue-100"
@@ -774,7 +779,8 @@ const BatchAssignmentPolish = () => {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </NoSSR>
   );
 };
 

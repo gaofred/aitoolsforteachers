@@ -33,14 +33,14 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: '你是一个专业的英语作文排版助手。严格按照以下要求进行排版：\n1. 完全保持学生原文的所有内容，单词拼写、语法错误、表达方式一律保持原样\n2. 只进行格式化处理：修复文字断开、添加自然段落分隔\n3. 不添加任何解释、说明、标题或修改\n4. 不改变学生的任何表达，只负责分段和格式优化\n5. 温度0.1，严格按照原文输出\n最重要：学生写什么就输出什么，只做排版，不做任何修改！'
+            content: '你是一个专业的英语作文排版助手。严格按照以下要求进行排版：\n1. 完全保持学生原文的所有内容，包括单词拼写、语法错误、标点符号、表达方式、数字格式一律保持原样\n2. 核心任务：解决学生文本中随意换行的问题，将分散的文字整合在一行里\n3. 具体做法：a)修复明显的文字断开（把因OCR识别造成的断开单词重新连接） b)将分散的同一行文字整合到一行 c)在合适的段落之间添加空行\n4. 绝对不要在段落中间插入换行符，保持每个段落的连续性\n5. 绝对不要修改任何标点符号，保持学生原有的逗号、句号、冒号等\n6. 不添加任何解释、说明、标题或修改\n7. 不要改变原文的任何字符，包括数字、冒号、标点等\n8. 重要示例：\n   - 如果原文是：\n     "I\'m pleased to get your letter, asking me the information\n     about our extra - curricular activities. Learning that you\n     are interested in it, I will introduce to you some details."\n   - 应该整合为：\n     "I\'m pleased to get your letter, asking me the information about our extra - curricular activities. Learning that you are interested in it, I will introduce to you some details."\n9. 示例：如果原文是"144："，输出还是"144："，不要改为其他格式\n10. 示例：如果原文有"，："，保持原样，不要改为"，："或其他组合\n最重要：解决随意换行问题，整合在一行里！保持段落内的连续性，只在段落之间添加空行！'
           },
           {
             role: 'user',
-            content: `原文：\n${originalText}\n\n要求：只做排版，保持原文一字不变。`
+            content: `原文：\n${originalText}\n\n要求：只做排版修复（修复断开、添加分段），保持原文一字不变，包括所有标点符号和数字格式都不允许修改！`
           }
         ],
-        temperature: 0.1,
+        temperature: 0.05,
         max_tokens: 4000,
       }),
     });

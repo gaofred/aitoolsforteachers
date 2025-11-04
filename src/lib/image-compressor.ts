@@ -1,4 +1,13 @@
-import Compressor from 'compressorjs';
+// 动态导入 compressorjs 以避免构建时依赖问题
+const importCompressor = async () => {
+  try {
+    const module = await import('compressorjs');
+    return module.default;
+  } catch (error) {
+    console.warn('compressorjs 加载失败，将跳过图片压缩:', error);
+    return null;
+  }
+};
 
 export interface CompressionOptions {
   maxSizeMB?: number;
@@ -13,10 +22,17 @@ export interface CompressionOptions {
  * @param options - 压缩选项
  * @returns Promise<File> 压缩后的文件
  */
-export function compressImageForOCR(
+export async function compressImageForOCR(
   file: File,
   options: CompressionOptions = {}
 ): Promise<File> {
+  const Compressor = await importCompressor();
+
+  if (!Compressor) {
+    console.log('compressorjs 不可用，跳过图片压缩');
+    return file;
+  }
+
   const defaultOptions: CompressionOptions = {
     maxSizeMB: 2, // 最大2MB，确保OCR处理效率
     maxWidthOrHeight: 2048, // 最大尺寸，保持文字清晰度
@@ -27,7 +43,7 @@ export function compressImageForOCR(
   const finalOptions = { ...defaultOptions, ...options };
 
   return new Promise((resolve, reject) => {
-    new Compressor(file, {
+    new (Compressor as any)(file, {
       ...finalOptions,
       success(result) {
         resolve(result as File);
