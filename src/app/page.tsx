@@ -67,7 +67,7 @@ const navigationData = [
     items: [
       { id: "vocabulary-practice", title: "词汇练习生成", cost: 3, disabled: true },
       { id: "word-analysis", title: "词汇分析工具", cost: 4, disabled: true },
-      { id: "textbook-vocabulary-organise", title: "单元词汇梳理及配套练习生成", active: true, cost: 4 },
+      { id: "textbook-vocabulary-organise", title: "单元词汇梳理及配套练习生成", active: true, cost: 4, route: "/tools/vocabulary/textbook_vocabulary_organize" },
       { id: "bcd-vocabulary-organise", title: "BCD篇阅读重点词汇整理", cost: 2, route: "/tools/vocabulary/organiseBCDvocabulary" },
       { id: "qixuanwu-vocabulary-organise", title: "七选五重点词汇整理", cost: 2, route: "/tools/vocabulary/organiseQixuanwuVocabulary" },
       { id: "cloze-vocabulary-organise", title: "完形填空重点词汇整理", cost: 6, route: "/tools/vocabulary/organise_cloze_vocabulary" },

@@ -585,9 +585,9 @@ export default function TextbookVocabularyOrganisePage() {
               首页
             </Link>
             <span className="mx-2">/</span>
-            <Link href="/tools/vocabulary" className="hover:text-indigo-600 transition-colors">
+            <span className="text-gray-600">
               词汇学习工具
-            </Link>
+            </span>
             <span className="mx-2">/</span>
             <span className="text-indigo-600 font-medium break-words">
               单元词汇梳理及配套练习生成
