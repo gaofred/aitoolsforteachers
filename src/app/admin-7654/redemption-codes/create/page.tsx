@@ -176,11 +176,11 @@ export default function CreateRedemptionCodePage() {
                       onChange={(e) => setFormData({ ...formData, membership_days: Number(e.target.value) })}
                       placeholder="30"
                       min="1"
-                      max="365"
+                      max="1000"
                       required
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      会员有效天数（1-365天）
+                      会员有效天数（1-1000天）
                     </p>
                   </div>
                 )}
