@@ -35,11 +35,11 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
 
   // 监听assignments变化，更新processedAssignments
   useEffect(() => {
-    console.log('SentencePolisher - assignments props变化:', assignments.length, '个作业');
+    console.log('SentencePolisher - assignments props变化:', assignments?.length || 0, '个作业');
     console.log('SentencePolisher - assignments详情:', assignments);
 
     // 检查assignments中是否包含润色数据
-    const hasPolishedData = assignments.some(assignment =>
+    const hasPolishedData = assignments?.some(assignment =>
       assignment.polishedSentences && assignment.polishedSentences.length > 0
     );
 
@@ -48,7 +48,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
     setProcessedAssignments(assignments);
 
     // 如果有润色数据且没有选中作业，自动选择第一个
-    if (hasPolishedData && assignments.length > 0 && !selectedAssignment) {
+    if (hasPolishedData && assignments?.length > 0 && !selectedAssignment) {
       console.log('自动选择第一个作业查看详情');
       setSelectedAssignment(assignments[0]);
     }
@@ -62,18 +62,18 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
 
   // 获取总句子数
   const getTotalSentences = (): number => {
-    return assignments.reduce((total, assignment) => {
+    return assignments?.reduce((total, assignment) => {
       // 优先使用提取后的句子，如果没有则使用OCR原始句子
       const sentenceCount = assignment.extractedSentences && assignment.extractedSentences.length > 0
         ? assignment.extractedSentences.length
         : assignment.ocrResult.sentences.length;
       return total + sentenceCount;
-    }, 0);
+    }, 0) || 0;
   };
 
   // 获取学生数量
   const getStudentCount = (): number => {
-    return assignments.length;
+    return assignments?.length || 0;
   };
 
   // 构建润色提示词
@@ -393,7 +393,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
       const processedCountRef = { current: 0 };
 
       // 并行处理所有作业
-      const assignmentPromises = assignments.map(async (assignment) => {
+      const assignmentPromises = assignments?.map(async (assignment) => {
         try {
           const processedAssignment = await processAssignment(
             assignment,
@@ -489,8 +489,8 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
       );
 
       const stats: ProcessingStats = {
-        totalImages: assignments.length,
-        processedImages: updatedAssignments.length,
+        totalImages: assignments?.length || 0,
+        processedImages: updatedAssignments?.length || 0,
         totalSentences,
         polishedSentences: successfulSentences,
         errors,
@@ -534,9 +534,9 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
     }
 
     // 找出所有失败的句子
-    const failedAssignments = processedAssignments.filter(assignment => 
+    const failedAssignments = processedAssignments?.filter(assignment =>
       assignment.polishedSentences.some(s => s.confidence === 0)
-    );
+    ) || [];
 
     if (failedAssignments.length === 0) {
       alert('没有失败的句子需要重试');
@@ -544,9 +544,9 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
     }
 
     // 计算重试需要的点数（只计算失败的学生）
-    const failedStudentCount = failedAssignments.filter(assignment => 
+    const failedStudentCount = failedAssignments?.filter(assignment =>
       assignment.polishedSentences.every(s => s.confidence === 0)
-    ).length;
+    ).length || 0;
     
     const retryPointsNeeded = Math.ceil(failedStudentCount * 1.5);
 
@@ -628,7 +628,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
       }
 
       // 更新处理结果
-      const updatedAssignments = processedAssignments.map(assignment => {
+      const updatedAssignments = processedAssignments?.map(assignment => {
         const retryResult = retryResults.find(r => r.id === assignment.id);
         return retryResult || assignment;
       });
@@ -659,19 +659,19 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
   const totalSentences = getTotalSentences();
   const studentCount = getStudentCount();
   const pointsNeeded = calculatePoints(studentCount);
-  const processedCount = processedAssignments.reduce((total, assignment) =>
+  const processedCount = processedAssignments?.reduce((total, assignment) =>
     total + assignment.polishedSentences.length, 0
-  );
-  
+  ) || 0;
+
   // 计算失败的句子数量
-  const failedSentencesCount = processedAssignments.reduce((total, assignment) =>
+  const failedSentencesCount = processedAssignments?.reduce((total, assignment) =>
     total + assignment.polishedSentences.filter(s => s.confidence === 0).length, 0
-  );
+  ) || 0;
   
   // 计算完全失败的学生数量（用于重试点数计算）
-  const failedStudentCount = processedAssignments.filter(assignment => 
+  const failedStudentCount = processedAssignments?.filter(assignment =>
     assignment.polishedSentences.every(s => s.confidence === 0)
-  ).length;
+  ).length || 0;
   
   const retryPointsNeeded = Math.ceil(failedStudentCount * 1.5);
 
@@ -713,7 +713,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
             {/* 统计信息 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{assignments.length}</div>
+                <div className="text-2xl font-bold text-gray-900">{assignments?.length || 0}</div>
                 <div className="text-sm text-gray-600">学生作业</div>
               </div>
               <div className="text-center">
@@ -752,7 +752,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
               {/* 开始润色按钮 */}
             <Button
               onClick={startBatchPolishing}
-              disabled={isProcessing || assignments.length === 0}
+              disabled={isProcessing || !assignments?.length}
               className="w-full"
               size="lg"
             >
@@ -770,7 +770,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
             </Button>
 
               {/* 重试按钮 - 只有在有失败句子时才显示 */}
-              {failedSentencesCount > 0 && processedAssignments.length > 0 && (
+              {failedSentencesCount > 0 && processedAssignments?.length > 0 && (
                 <Button
                   onClick={retryFailedSentences}
                   disabled={isProcessing}
@@ -797,7 +797,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
       </Card>
 
       {/* 处理结果 */}
-      {processedAssignments.length > 0 && (
+      {processedAssignments?.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">润色结果预览</CardTitle>
@@ -832,7 +832,7 @@ export const SentencePolisher: React.FC<SentencePolisherProps> = ({
             {/* 总览内容 */}
             {selectedAssignment === null && (
                 <div className="grid gap-4">
-                  {processedAssignments.map((assignment, index) => (
+                  {processedAssignments?.map((assignment, index) => (
                     <div
                       key={assignment.id}
                       className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50"

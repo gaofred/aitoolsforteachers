@@ -336,19 +336,19 @@ export const RequirementInput: React.FC<RequirementInputProps> = ({
           <CardTitle className="text-lg flex items-center justify-between">
             <span>润色要求列表</span>
             <Badge variant="secondary">
-              {requirements.length} 个要求
+              {requirements?.length || 0} 个要求
             </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {requirements.length === 0 ? (
+          {!requirements || requirements.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <p>暂无润色要求</p>
               <p className="text-sm mt-2">请添加词汇、语法结构或特定要求</p>
             </div>
           ) : (
             <div className="space-y-3 max-h-64 overflow-y-auto">
-              {requirements.map((requirement) => (
+              {requirements?.map((requirement) => (
                 <div
                   key={requirement.id}
                   className="p-4 bg-gray-50 rounded-lg border border-gray-200"

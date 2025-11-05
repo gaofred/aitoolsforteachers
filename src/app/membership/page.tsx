@@ -138,13 +138,19 @@ export default function MembershipPage() {
       return;
     }
 
-    // 所有会员都通过数据库函数处理，支持重复购买
-    // 注释掉外部链接跳转，改为调用数据库函数
-    // if (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM' || plan.plan_type === 'PREMIUM_II' || plan.plan_type === 'PRO') {
-    //   handlePurchaseConfirmation(plan);
-    //   return;
-    // }
+    // Premium会员通过外部链接购买，支持重复购买
+    if (plan.plan_type === 'PREMIUM_I' || plan.plan_type === 'PREMIUM' || plan.plan_type === 'PRO') {
+      handlePurchaseConfirmation(plan);
+      return;
+    }
 
+    // Premium 会员 II 通过外部链接购买，跳转到不同的链接
+    if (plan.plan_type === 'PREMIUM_II') {
+      handlePurchaseConfirmation(plan);
+      return;
+    }
+
+    // 其他会员通过数据库函数处理
     // 所有会员现在都免费激活，不需要检查点数
     // 积分检查逻辑已移除，因为购买不再消耗积分
 
@@ -234,7 +240,9 @@ export default function MembershipPage() {
     let purchaseUrl = '';
     if (selectedPlan.plan_type === 'PRO') {
       purchaseUrl = 'https://appsryewio94072.h5.xiaoeknow.com/p/course/ecourse/course_34xD5WzLU4DEVmW6ZR9vuYAC5M9';
-    } else if (selectedPlan.plan_type === 'PREMIUM_I' || selectedPlan.plan_type === 'PREMIUM' || selectedPlan.plan_type === 'PREMIUM_II') {
+    } else if (selectedPlan.plan_type === 'PREMIUM_I' || selectedPlan.plan_type === 'PREMIUM') {
+      purchaseUrl = 'https://appsryewio94072.h5.xiaoeknow.com/p/course/ecourse/course_34xCPkOtB3gGfSJRAf1xGRP8puy';
+    } else if (selectedPlan.plan_type === 'PREMIUM_II') {
       purchaseUrl = 'https://appsryewio94072.h5.xiaoeknow.com/p/course/ecourse/course_34xCqjfakZ402KhSqBgkJj3hjNF';
     }
 
@@ -390,7 +398,7 @@ export default function MembershipPage() {
         {/* 会员套餐展示 */}
         <div className="text-center mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">选择您的会员套餐</h2>
-          <p className="text-base sm:text-lg text-gray-600 px-4 sm:px-0">升级会员，享受每日点数重置和更多特权</p>
+          <p className="text-base sm:text-lg text-gray-600 px-4 sm:px-0">升级会员，享受每日可使用点数和更多特权</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
@@ -516,7 +524,7 @@ export default function MembershipPage() {
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
                       <span className="text-xs sm:text-sm text-gray-700">
-                        每日点数重置 {plan.daily_points} 点
+                        每日可使用 {plan.daily_points} 点
                       </span>
                     </div>
                     {plan.features.priority_support && (
@@ -528,7 +536,7 @@ export default function MembershipPage() {
                     {plan.features.advanced_tools && (
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
-                        <span className="text-xs sm:text-sm text-gray-700">高级工具特权</span>
+                        <span className="text-xs sm:text-sm text-gray-700">支持更高阶AI大模型</span>
                       </div>
                     )}
                     {plan.features.beta_access && (
@@ -576,10 +584,12 @@ export default function MembershipPage() {
         </div>
 
         {/* 会员特权对比 */}
-        <Card className="mb-8">
-          <CardHeader className="px-4 sm:px-6">
-            <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900">
+        <Card className="mb-8 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 shadow-lg">
+          <CardHeader className="px-6 sm:px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600">
+            <CardTitle className="text-xl sm:text-2xl font-bold text-white text-center flex items-center justify-center gap-2">
+              <span className="text-2xl sm:text-3xl">💎</span>
               会员特权对比
+              <span className="text-2xl sm:text-3xl">📊</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 sm:px-6">
@@ -625,7 +635,7 @@ export default function MembershipPage() {
                     <td className="text-center py-3 px-4">✅</td>
                   </tr>
                   <tr className="border-b">
-                    <td className="py-3 px-4">高级工具特权</td>
+                    <td className="py-3 px-4">支持更高阶AI大模型</td>
                     <td className="text-center py-3 px-4">❌</td>
                     <td className="text-center py-3 px-4">✅</td>
                     <td className="text-center py-3 px-4">✅</td>
@@ -668,7 +678,7 @@ export default function MembershipPage() {
                     <span className="text-red-500">❌</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">高级工具特权</span>
+                    <span className="text-sm text-gray-600">支持更高阶AI大模型</span>
                     <span className="text-red-500">❌</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
@@ -702,7 +712,7 @@ export default function MembershipPage() {
                     <span className="text-green-500">✅</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-blue-100">
-                    <span className="text-sm text-gray-600">高级工具特权</span>
+                    <span className="text-sm text-gray-600">支持更高阶AI大模型</span>
                     <span className="text-green-500">✅</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
@@ -736,7 +746,7 @@ export default function MembershipPage() {
                     <span className="text-green-500">✅</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-blue-100">
-                    <span className="text-sm text-gray-600">高级工具特权</span>
+                    <span className="text-sm text-gray-600">支持更高阶AI大模型</span>
                     <span className="text-green-500">✅</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
@@ -770,7 +780,7 @@ export default function MembershipPage() {
                     <span className="text-green-500">✅</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-purple-100">
-                    <span className="text-sm text-gray-600">高级工具特权</span>
+                    <span className="text-sm text-gray-600">支持更高阶AI大模型</span>
                     <span className="text-green-500">✅</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
@@ -955,7 +965,7 @@ export default function MembershipPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm text-gray-700">高级工具特权</span>
+                  <span className="text-xs sm:text-sm text-gray-700">支持更高阶AI大模型</span>
                 </div>
                 {selectedPlan.plan_type === 'PRO' && (
                   <div className="flex items-center gap-2">

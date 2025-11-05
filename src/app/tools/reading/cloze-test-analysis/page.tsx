@@ -228,37 +228,34 @@ ${result.replace(/<[^>]*>/g, '')}`;
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
       {/* 顶部导航 */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={() => router.push("/")}
-                className="text-gray-600 hover:text-gray-900 mr-4"
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">完形填空解析</h1>
-                <p className="text-sm text-gray-500">输入完形填空文章和题目，AI将为您详细解析每个选项</p>
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">完形填空解析</h1>
+                <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">输入完形填空文章和题目，AI将为您详细解析每个选项</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {currentUser ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-full border border-purple-200">
-                    <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-purple-700 font-medium">{userPoints}</span>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="flex items-center gap-1.5 sm:gap-2 bg-purple-50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full border border-purple-200">
+                    <span className="text-xs sm:text-sm text-purple-700 font-medium">{userPoints}</span>
+                    <span className="text-xs sm:text-sm text-purple-600">点数</span>
                   </div>
-                  <span className="text-sm text-gray-600">{currentUser.email}</span>
+                  <span className="text-xs sm:text-sm text-gray-600 hidden sm:block">{currentUser.email}</span>
                 </div>
               ) : (
                 <Link href="/auth/signin">
-                  <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-sm px-3 py-1.5 sm:px-4 sm:py-2">
                     登录
                   </Button>
                 </Link>
@@ -269,32 +266,32 @@ ${result.replace(/<[^>]*>/g, '')}`;
       </header>
 
       {/* 主内容区 */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
           {/* 左侧：输入区域 */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* 工具信息卡片 */}
             <Card className="bg-white border-gray-200 shadow-sm">
-              <CardHeader>
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center flex-shrink-0 border border-green-200">
-                    <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+              <CardHeader className="pb-3 sm:pb-6">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center flex-shrink-0 border border-green-200">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <CardTitle className="text-xl font-semibold text-gray-900 mb-2">
+                    <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
                       完形填空解析
                     </CardTitle>
-                    <p className="text-sm text-gray-600 leading-relaxed">
+                    <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
                       输入完形填空文章内容、题目和选项，AI将为您详细解析每个答案的选择依据。
                       支持联系上下文分析，提供准确的解题思路和原文引用。
                     </p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
+                    <div className="flex items-center gap-1 sm:gap-2 mt-3">
+                      <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200 text-xs">
                         消耗 {toolCost} 点数
                       </Badge>
-                      <Badge variant="outline" className="text-green-600 border-green-200">
+                      <Badge variant="outline" className="text-green-600 border-green-200 text-xs">
                         智能解析
                       </Badge>
                     </div>
@@ -312,24 +309,22 @@ ${result.replace(/<[^>]*>/g, '')}`;
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* 文本输入 */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <label className="text-sm font-medium text-gray-700">
                       完形填空文章内容
                     </label>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={() => setShowOCR(!showOCR)}
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2 text-green-600 border-green-200 hover:bg-green-50"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {showOCR ? '关闭识图' : '图片识图'}
-                      </Button>
-                    </div>
+                    <Button
+                      onClick={() => setShowOCR(!showOCR)}
+                      variant="outline"
+                      className="flex items-center justify-center gap-2 h-10 px-4 text-green-600 border-green-200 hover:bg-green-50 text-sm sm:text-base"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="hidden sm:inline">{showOCR ? '关闭识图' : '图片识图'}</span>
+                      <span className="sm:hidden">{showOCR ? '📷 关闭' : '📷 识图'}</span>
+                    </Button>
                   </div>
                   <div className="relative">
                     <Textarea
@@ -348,7 +343,7 @@ Sargassum is the smelly seaweed piling up on beaches across the Caribbean. It is
 ...
 ##Answers:
 41-45 CADBA"
-                      className="min-h-[400px] text-sm border-gray-300 focus:border-green-500 focus:ring-green-500 resize-none"
+                      className="h-64 sm:h-80 lg:h-[400px] text-sm sm:text-base border-gray-300 focus:border-green-500 focus:ring-green-500 resize-none"
                       maxLength={maxChars}
                     />
                     <div className="absolute bottom-2 right-2 text-xs text-gray-500 bg-white px-2 py-1 rounded border">
@@ -386,32 +381,50 @@ Sargassum is the smelly seaweed piling up on beaches across the Caribbean. It is
                 </div>
 
                 {/* 操作按钮 */}
-                <div className="flex items-center justify-between pt-4">
-                  <div className="text-sm text-gray-600">
-                    {currentUser ? (
-                      userPoints >= toolCost ? (
-                        <span className="text-green-600">✓ 点数充足</span>
+                <div className="space-y-3 pt-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-600">
+                      {currentUser ? (
+                        userPoints >= toolCost ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-green-600">✅ 点数充足</span>
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">消耗 {toolCost} 点数</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="text-red-600">⚠️ 点数不足</span>
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">需要 {toolCost} 点数</span>
+                          </div>
+                        )
                       ) : (
-                        <span className="text-red-600">点数不足，需要 {toolCost} 点数</span>
-                      )
-                    ) : (
-                      <span className="text-gray-500">请先登录</span>
-                    )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">🔒 请先登录</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <Button
                     onClick={handleAnalyze}
                     disabled={!text.trim() || isAnalyzing || (!currentUser || (currentUser && userPoints < toolCost))}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white"
+                    className="w-full h-14 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:bg-gray-300 text-white text-base sm:text-lg font-medium shadow-lg"
                   >
                     {isAnalyzing ? (
                       <span className="flex items-center gap-2">
-                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        正在解析中，请耐心等待...
+                        <span className="hidden sm:inline">正在解析中，请耐心等待...</span>
+                        <span className="sm:hidden">解析中...</span>
                       </span>
-                    ) : "开始解析!"}
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                        🚀 开始解析
+                      </span>
+                    )}
                   </Button>
                 </div>
               </CardContent>
@@ -450,38 +463,43 @@ Sargassum is the smelly seaweed piling up on beaches across the Caribbean. It is
               </Card>
             ) : result ? (
               <Card className="bg-white border-gray-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-semibold text-gray-900">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900">
                       解析结果
                     </CardTitle>
-                    <div className="flex items-center gap-2">
+                    <div className="flex gap-2">
                       <Button
                         onClick={copyToClipboard}
                         disabled={isCopying}
                         variant="outline"
-                        size="sm"
+                        className="flex items-center gap-2 h-10 px-3 sm:px-4 text-sm"
                       >
-                        {isCopying ? "已复制" : "复制结果"}
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15H4a2 2 0 01-2v4a2 2 0 012 2h4a2 2 0 012-2v-4a2 2 0 01-2z" />
+                        </svg>
+                        <span className="hidden sm:inline">{isCopying ? "已复制" : "复制结果"}</span>
+                        <span className="sm:hidden">{isCopying ? "已复制" : "复制"}</span>
                       </Button>
                       <Button
                         onClick={exportToTextFile}
                         variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 h-10 px-3 sm:px-4 text-sm"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        导出文本
+                        <span className="hidden sm:inline">导出文本</span>
+                        <span className="sm:hidden">导出</span>
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="max-h-[600px] overflow-y-auto">
+                <CardContent className="px-3 sm:px-6">
+                  <div className="h-64 sm:h-80 lg:h-[600px] overflow-y-auto">
                     <div
-                      className="prose prose-sm max-w-none text-sm leading-relaxed"
+                      className="prose prose-sm max-w-none text-sm sm:text-base leading-relaxed"
                       dangerouslySetInnerHTML={{
                         __html: result
                           .replace(/\n/g, '<br>')
@@ -536,25 +554,53 @@ Sargassum is the smelly seaweed piling up on beaches across the Caribbean. It is
 
       {/* 兑换码弹窗 */}
       {showRedeemModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">兑换点数</h3>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 max-w-md w-full mx-auto max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                <span className="hidden sm:inline">兑换点数</span>
+                <span className="sm:hidden">💎 兑换</span>
+              </h3>
+              <button
+                onClick={() => {
+                  setShowRedeemModal(false);
+                  setRedeemError("");
+                  setRedeemSuccess("");
+                  setRedemptionCode("");
+                }}
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
             {redeemSuccess && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm text-green-800">{redeemSuccess}</p>
+              <div className="mb-4 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-800 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  {redeemSuccess}
+                </p>
               </div>
             )}
 
             {redeemError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-800">{redeemError}</p>
+              <div className="mb-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  {redeemError}
+                </p>
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-4 sm:space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   兑换码
                 </label>
                 <input
@@ -562,17 +608,33 @@ Sargassum is the smelly seaweed piling up on beaches across the Caribbean. It is
                   value={redemptionCode}
                   onChange={(e) => setRedemptionCode(e.target.value)}
                   placeholder="请输入兑换码"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
+                  disabled={redeeming}
                 />
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <Button
                   onClick={handleRedeem}
                   disabled={redeeming}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white h-12 text-base sm:text-lg font-medium"
                 >
-                  {redeeming ? "兑换中..." : "确认兑换"}
+                  {redeeming ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>兑换中...</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V2" />
+                      </svg>
+                      <span>确认兑换</span>
+                    </span>
+                  )}
                 </Button>
                 <Button
                   onClick={() => {
@@ -582,10 +644,16 @@ Sargassum is the smelly seaweed piling up on beaches across the Caribbean. It is
                     setRedemptionCode("");
                   }}
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 h-12 text-base sm:text-lg"
                 >
                   取消
                 </Button>
+              </div>
+
+              <div className="text-center">
+                <p className="text-xs text-gray-500">
+                  兑换成功后点数将自动添加到您的账户
+                </p>
               </div>
             </div>
           </div>

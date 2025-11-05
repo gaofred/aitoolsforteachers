@@ -67,7 +67,7 @@ const navigationData = [
     items: [
       { id: "vocabulary-practice", title: "词汇练习生成", cost: 3, disabled: true },
       { id: "word-analysis", title: "词汇分析工具", cost: 4, disabled: true },
-      { id: "textbook-vocabulary-organise", title: "单元词汇梳理及配套练习生成", active: true, cost: 4, route: "/tools/vocabulary/textbook_vocabulary_organize" },
+      { id: "textbook-vocabulary-organise", title: "单元词汇梳理及配套练习生成", active: true, cost: 4 },
       { id: "bcd-vocabulary-organise", title: "BCD篇阅读重点词汇整理", cost: 2, route: "/tools/vocabulary/organiseBCDvocabulary" },
       { id: "qixuanwu-vocabulary-organise", title: "七选五重点词汇整理", cost: 2, route: "/tools/vocabulary/organiseQixuanwuVocabulary" },
       { id: "cloze-vocabulary-organise", title: "完形填空重点词汇整理", cost: 6, route: "/tools/vocabulary/organise_cloze_vocabulary" },
@@ -112,8 +112,8 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "batch-assignment-polish", title: "批量润色学生句子", active: true, cost: 0, route: "/tools/writing/batch-assignment-polish" },
-      { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 0, route: "/tools/writing/batch-applicationwriting-polish" },
+      { id: "batch-assignment-polish", title: "批量润色学生句子", active: true, cost: 10, route: "/tools/writing/batch-assignment-polish" },
+      { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 10, route: "/tools/writing/batch-applicationwriting-polish" },
       { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
       { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
       { id: "continuation-writing", title: "读后续写范文", cost: 6, route: "/tools/writing/continuation_writing_model_essay" },
@@ -1639,9 +1639,18 @@ The future of AI depends on our ability to balance innovation with responsibilit
                   </div>
                   <button
                     onClick={() => router.push('/membership')}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md shadow-sm hover:shadow-md transition-all duration-200"
+                    className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-base font-bold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
                   >
-                    🎯 网站会员通道开启
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">💎</span>
+                      <div className="text-left">
+                        <div className="font-bold text-base">🎯 网站会员通道开启</div>
+                        <div className="text-sm opacity-90 font-medium">点此购买，获大量网站使用点数！</div>
+                      </div>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
                   </button>
                 </div>
               </div>

@@ -448,42 +448,45 @@ export default function CDCreatorPage() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
       {/* 导航栏 */}
       <nav className="bg-white/80 backdrop-blur-sm border-b border-white/20 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={() => router.push("/")}
-                className="text-gray-600 hover:text-gray-900 mr-4"
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">CD篇命题工具</h1>
-                <p className="text-sm text-gray-500">基于英文文章生成选择题题目和答案解析</p>
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">CD篇命题工具</h1>
+                <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">基于英文文章生成选择题题目和答案解析</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">点数: {userPoints}</span>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-purple-50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full border border-purple-200">
+                <span className="text-xs sm:text-sm text-purple-700 font-medium">{userPoints}</span>
+                <span className="text-xs sm:text-sm text-purple-600">点数</span>
+              </div>
             </div>
           </div>
         </div>
       </nav>
 
       {/* 主内容区域 */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
           {/* 左侧：输入区域 */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>CD篇命题工具</span>
+          <div className="space-y-4 sm:space-y-6">
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <span className="text-lg sm:text-xl">CD篇命题工具</span>
                   <div className="flex gap-2">
                     <Select value={difficulty} onValueChange={(value: 'basic' | 'intermediate' | 'advanced') => setDifficulty(value)}>
-                      <SelectTrigger className="w-32">
+                      <SelectTrigger className="w-full sm:w-40 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -495,7 +498,7 @@ export default function CDCreatorPage() {
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     请输入要命题的文章内容：
@@ -503,41 +506,41 @@ export default function CDCreatorPage() {
                   <Textarea
                     value={article}
                     onChange={(e) => setArticle(e.target.value)}
-                    placeholder="在此粘贴英文文章内容，或使用火山引擎豆包模型拍照识别图片中的文字..."
-                    className="h-[400px] resize-none overflow-y-auto"
+                    placeholder="在此粘贴英文文章内容，或使用下方按钮拍照识别图片中的文字..."
+                    className="h-64 sm:h-80 lg:h-[400px] resize-none overflow-y-auto text-sm sm:text-base"
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <div className="flex gap-2">
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={() => {
                         setIsCameraOpen(true)
                         startCamera()
                       }}
-                      className="flex items-center space-x-2"
+                      className="flex items-center justify-center gap-2 h-12 text-sm sm:text-base border-blue-200 hover:bg-blue-50"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h7.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018 13H9a2 2 0 01-2-2V7a2 2 0 012-2z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13l-3 3m0 0l-3-3" />
                       </svg>
-                      拍照识图
+                      <span className="sm:hidden">📷 拍照</span>
+                      <span className="hidden sm:inline">拍照识图</span>
                     </Button>
 
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center space-x-2"
+                      className="flex items-center justify-center gap-2 h-12 text-sm sm:text-base border-blue-200 hover:bg-blue-50"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 15v4a2 2 0 00-2h-10a2 2 0 00-2v-4a2 2 0 002 2z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8H7a2 2 0 00-2v4a2 2 0 002 2z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13l-7 7m0 0l-7 7m0 0v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 002-2z" />
                       </svg>
-                      上传图片(最多3张)
+                      <span className="sm:hidden">📁 上传</span>
+                      <span className="hidden sm:inline">上传图片(最多3张)</span>
                     </Button>
                   </div>
 
@@ -552,16 +555,15 @@ export default function CDCreatorPage() {
                   />
                   {(photo || uploadedImages.length > 0) && (
                     <>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                         <Button
                           variant="default"
-                          size="sm"
                           onClick={() => {
                             console.log('OCR按钮被点击了！')
                             recognizeText()
                           }}
                           disabled={isRecognizing}
-                          className="bg-orange-500 hover:bg-orange-600 text-white"
+                          className="flex-1 bg-orange-500 hover:bg-orange-600 text-white h-12 text-sm sm:text-base font-medium"
                         >
                           {isRecognizing ? (
                             <>
@@ -569,7 +571,8 @@ export default function CDCreatorPage() {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
-                              AI识图中，请耐心等待......
+                              <span className="hidden sm:inline">AI识图中，请耐心等待...</span>
+                              <span className="sm:hidden">AI识图中...</span>
                             </>
                           ) : (
                             <>
@@ -577,50 +580,68 @@ export default function CDCreatorPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
-                              豆包OCR识别
+                              <span className="hidden sm:inline">豆包OCR识别</span>
+                              <span className="sm:hidden">🔍 OCR识别</span>
                             </>
                           )}
                         </Button>
-                        <span className="text-xs text-green-600 whitespace-nowrap">免费使用</span>
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            clearPhoto()
+                            clearUploadedImage()
+                          }}
+                          className="h-12 px-4 sm:px-6 text-sm sm:text-base"
+                        >
+                          <span className="hidden sm:inline">清除图片</span>
+                          <span className="sm:hidden">🗑️ 清除</span>
+                        </Button>
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          clearPhoto()
-                          clearUploadedImage()
-                        }}
-                      >
-                        清除图片
-                      </Button>
+                      <div className="text-center">
+                        <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-200">
+                          ✅ 免费使用
+                        </span>
+                      </div>
                     </>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">
-                    <div>当前模式: <span className="font-semibold">{getDifficultyLabel(difficulty)} - 选择题</span></div>
-                    <div>消耗点数: <span className="font-semibold text-purple-600">{toolCost}</span></div>
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="hidden sm:inline">当前模式:</span>
+                        <span className="sm:hidden">模式:</span>
+                        <span className="font-semibold text-purple-600 bg-purple-100 px-2 py-1 rounded text-xs">
+                          {getDifficultyLabel(difficulty)} - 选择题
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>消耗点数:</span>
+                        <span className="font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded text-xs">{toolCost}</span>
+                      </div>
+                    </div>
                   </div>
                   <Button
                     onClick={handleCreate}
                     disabled={!hasEnoughPoints || isCreating || !article.trim()}
-                    className="px-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    className="w-full h-14 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-base sm:text-lg font-medium shadow-lg"
                   >
                     {isCreating ? (
                       <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        AI生成中...
+                        <span className="hidden sm:inline">AI生成中，请耐心等待...</span>
+                        <span className="sm:hidden">AI生成中...</span>
                       </>
                     ) : (
                       <>
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                         </svg>
-                        开始命题
+                        <span>🚀 开始命题</span>
                       </>
                     )}
                   </Button>
@@ -629,18 +650,18 @@ export default function CDCreatorPage() {
             </Card>
           </div>
 
-          {/* 右侧：结果区域 */}
-          <div className="space-y-6">
+        {/* 右侧：结果区域 */}
+          <div className="space-y-4 sm:space-y-6">
             {isCreating && !creationResult && (
               <Card className="h-full">
-                <CardHeader>
+                <CardHeader className="pb-3 sm:pb-6">
                   <CardTitle className="flex items-center justify-center">
-                    <span className="text-purple-600">
+                    <span className="text-purple-600 text-sm sm:text-base">
                       {difficulty === 'advanced' ? 'Gemini-2.5-pro模型生成中......大约需要2分钟' : difficulty === 'intermediate' ? '智谱清言模型生成中......大约需要1分钟' : '豆包模型生成中，请耐心等待...'}
                     </span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex items-center justify-center h-[400px]">
+                <CardContent className="flex items-center justify-center h-64 sm:h-80 lg:h-[400px]">
                   <div className="text-center space-y-6">
                     {/* AI机器人动画 */}
                     <div className="relative inline-flex">
@@ -698,11 +719,11 @@ export default function CDCreatorPage() {
             )}
 
             {creationResult && !isCreating && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <span className="flex items-center gap-2">
-                      <span>命题目结果</span>
+                      <span className="text-lg sm:text-xl">命题目结果</span>
                       <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                         生成完成
                       </span>
@@ -715,31 +736,33 @@ export default function CDCreatorPage() {
                         variant="outline"
                         size="sm"
                         onClick={copyToClipboard}
-                        className="flex items-center space-x-1"
+                        className="flex items-center space-x-1 h-10 px-3"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15H4a2 2 0 01-2v4a2 2 0 012 2h4a2 2 0 012-2v-4a2 2 0 01-2z" />
                         </svg>
-                        一键复制
+                        <span className="hidden sm:inline">一键复制</span>
+                        <span className="sm:hidden">复制</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={exportToText}
-                        className="flex items-center space-x-1"
+                        className="flex items-center space-x-1 h-10 px-3"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6M8 21l4-4m0 0l4 4m-4-4v12a2 2 0 01-2 2H8a2 2 0 01-2-2V7a2 2 0 012-2z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 2H6a2 2 0 00-2v6a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2z" />
                         </svg>
-                        导出文本
+                        <span className="hidden sm:inline">导出文本</span>
+                        <span className="sm:hidden">导出</span>
                       </Button>
                     </div>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-[400px] overflow-y-auto prose prose-gray prose-sm max-w-none" style={{ fontSize: '0.875rem' }}>
+                <CardContent className="px-3 sm:px-6">
+                  <div className="h-64 sm:h-80 lg:h-[400px] overflow-y-auto prose prose-gray prose-sm max-w-none" style={{ fontSize: '0.875rem' }}>
                     {creationResult.split('\n').map((paragraph, index) => (
                       <p key={index} className="mb-4" style={{ fontSize: '0.875rem' }}>
                         {paragraph}
@@ -849,10 +872,13 @@ export default function CDCreatorPage() {
 
       {/* 摄像头模态框 */}
       {isCameraOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-semibold">拍照识图（火山引擎豆包模型）</h3>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] overflow-hidden">
+            <div className="flex justify-between items-center p-3 sm:p-4 border-b">
+              <h3 className="text-base sm:text-lg font-semibold">
+                <span className="hidden sm:inline">拍照识图（火山引擎豆包模型）</span>
+                <span className="sm:hidden">📷 拍照识图</span>
+              </h3>
               <Button
                 variant="ghost"
                 size="sm"
@@ -861,23 +887,26 @@ export default function CDCreatorPage() {
                   stopCamera()
                   clearPhoto()
                 }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </Button>
             </div>
 
-            <div className="p-4 space-y-4">
+            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
               {/* 摄像头预览 */}
               {uploadedImages.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="text-sm text-gray-600">已上传 {uploadedImages.length} 张图片：</div>
-                  <div className="grid grid-cols-3 gap-2" style={{ aspectRatio: '4/3' }}>
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                    📁 已上传 {uploadedImages.length} 张图片
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3" style={{ aspectRatio: '4/3' }}>
                     {uploadedImages.map((image, index) => (
                       <div key={index} className="relative bg-gray-100 rounded-lg overflow-hidden">
                         <img src={image} alt={`上传的第${index + 1}张图片`} className="w-full h-full object-cover" />
-                        <div className="absolute top-1 right-1 bg-black/50 text-white text-xs px-1 rounded">
+                        <div className="absolute top-1 right-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
                           {index + 1}
                         </div>
                       </div>
@@ -885,17 +914,27 @@ export default function CDCreatorPage() {
                   </div>
                 </div>
               ) : photo ? (
-                <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
-                  <img src={photo} alt="拍摄的图片" className="w-full h-full object-contain" />
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600 bg-green-50 p-3 rounded-lg">
+                    📷 拍照完成，请确认识别
+                  </div>
+                  <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                    <img src={photo} alt="拍摄的图片" className="w-full h-full object-contain" />
+                  </div>
                 </div>
               ) : (
-                <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600 bg-orange-50 p-3 rounded-lg text-center">
+                    📷 请对准需要识别的文字进行拍照
+                  </div>
+                  <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -903,18 +942,18 @@ export default function CDCreatorPage() {
               <canvas ref={canvasRef} className="hidden" />
 
               {/* 控制按钮 */}
-              <div className="flex justify-center space-x-3">
+              <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
                 {!photo ? (
                   <>
                     <Button
                       onClick={takePhoto}
-                      className="flex items-center space-x-2"
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 h-12 bg-blue-500 hover:bg-blue-600 text-white text-base sm:text-lg font-medium"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <circle cx="12" cy="12" r="10" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6" />
                       </svg>
-                      拍照
+                      📸 拍照
                     </Button>
                   </>
                 ) : (
@@ -922,12 +961,13 @@ export default function CDCreatorPage() {
                     <Button
                       onClick={recognizeText}
                       disabled={isRecognizing}
-                      className="flex items-center space-x-2"
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 h-12 bg-orange-500 hover:bg-orange-600 text-white text-base sm:text-lg font-medium"
                     >
                       {isRecognizing ? (
                         <>
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          识别中...
+                          <span className="hidden sm:inline">识别中，请稍候...</span>
+                          <span className="sm:hidden">识别中...</span>
                         </>
                       ) : (
                         <>
@@ -936,7 +976,8 @@ export default function CDCreatorPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 21v-2a2 2 0 012-2h4a2 2 0 012 2v2" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17v-1" />
                           </svg>
-                          识别文字(消耗2点数)
+                          <span className="hidden sm:inline">🔍 识别文字(2点数)</span>
+                          <span className="sm:hidden">🔍 识别(2点数)</span>
                         </>
                       )}
                     </Button>
@@ -946,8 +987,10 @@ export default function CDCreatorPage() {
                         clearPhoto()
                         startCamera()
                       }}
+                      className="flex-1 sm:flex-none h-12 text-base sm:text-lg"
                     >
-                      重拍/重选
+                      <span className="hidden sm:inline">🔄 重拍/重选</span>
+                      <span className="sm:hidden">🔄 重拍</span>
                     </Button>
                   </>
                 )}

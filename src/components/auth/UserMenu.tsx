@@ -173,10 +173,6 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push('/profile')}>
-          <User className="mr-2 h-4 w-4" />
-          <span>个人资料</span>
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push('/membership')} className="text-purple-600">
           <Crown className="mr-2 h-4 w-4" />
           <span>会员中心</span>

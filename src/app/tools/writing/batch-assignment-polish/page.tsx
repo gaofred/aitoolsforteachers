@@ -28,6 +28,7 @@ const BatchAssignmentPolish = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [task, setTask] = useState<BatchTask | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [processingStats, setProcessingStats] = useState<ProcessingStats>({
     totalImages: 0,
     processedImages: 0,
@@ -39,6 +40,22 @@ const BatchAssignmentPolish = () => {
   const [isPolishCompleted, setIsPolishCompleted] = useState(false);
   const [editingAssignments, setEditingAssignments] = useState<{[key: string]: boolean}>({});
   const [editedTexts, setEditedTexts] = useState<{[key: string]: string}>({});
+
+  // 检测设备类型
+  useEffect(() => {
+    const checkDevice = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isTablet = /ipad|android(?!.*mobile)/i.test(userAgent);
+      const isSmallScreen = window.innerWidth < 1024; // 小于1024px认为是移动设备
+
+      setIsDesktop(!isMobileDevice && !isTablet && !isSmallScreen);
+    };
+
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
 
   // 步骤配置 - 8步流程，职责分离
   const steps = [
@@ -70,6 +87,37 @@ const BatchAssignmentPolish = () => {
   useEffect(() => {
     initializeTask();
   }, []);
+
+  // 如果不是桌面设备，显示限制提示
+  if (!isDesktop) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1m8-7l3-3m0 0l-3-3m3 3V7m0 0h-3M3 20h6M9 3h6v6m0 0v6m0-6h6" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">此功能仅限桌面端使用</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                批量作业润色功能需要更大的屏幕空间才能获得最佳体验。
+                请使用电脑或平板的桌面浏览器访问此功能。
+              </p>
+              <Button
+                onClick={() => router.push("/")}
+                className="w-full"
+                variant="outline"
+              >
+                返回首页
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // 计算点数消耗（按学生数计算）
   const calculatePoints = (studentCount: number) => {

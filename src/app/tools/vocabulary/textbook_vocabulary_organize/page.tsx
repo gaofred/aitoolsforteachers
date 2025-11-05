@@ -609,19 +609,6 @@ export default function TextbookVocabularyOrganisePage() {
               </CardHeader>
               <CardContent className="space-y-4 sm:space-y-6">
                 <div>
-                  <label htmlFor="topic" className="block text-sm font-medium text-gray-700 mb-2">
-                    大单元主题
-                  </label>
-                  <Input
-                    id="topic"
-                    placeholder="例如：校园生活、环境保护、科技发展等"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    className="w-full text-sm"
-                  />
-                </div>
-
-                <div>
                   <label htmlFor="vocabulary" className="block text-sm font-medium text-gray-700 mb-2">
                     <div className="flex items-center justify-between">
                       <span>词汇列表</span>
@@ -675,6 +662,19 @@ export default function TextbookVocabularyOrganisePage() {
                     ref={fileInputRef}
                     onChange={handleImageUpload}
                     className="hidden"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="topic" className="block text-sm font-medium text-gray-700 mb-2">
+                    大单元主题
+                  </label>
+                  <Input
+                    id="topic"
+                    placeholder="例如：校园生活、环境保护、科技发展等"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    className="w-full text-sm"
                   />
                 </div>
 
