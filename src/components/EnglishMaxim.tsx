@@ -73,18 +73,77 @@ export function EnglishMaxim({ theme = 'default' }: EnglishMaximProps = {}) {
 
   if (loading) {
     return (
-      <div className={`${textSizeClass} ${textClass} animate-pulse`}>
-        <span className="hidden lg:inline">加载格言中...</span>
-        <span className="lg:hidden">格言...</span>
+      <div className="h-full">
+        <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg p-4 border border-amber-500 shadow-md h-full flex flex-col justify-between relative overflow-hidden">
+          {/* 标题区域 */}
+          <div className="flex items-center gap-2 mb-3 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <div className="w-1.5 h-1.5 bg-amber-200 rounded-full animate-ping"></div>
+            </div>
+            <span className="text-sm font-semibold text-white">💡 智慧名言</span>
+          </div>
+
+          {/* 加载内容 */}
+          <div className="flex-1 flex items-center justify-center relative z-10 min-h-[120px]">
+            <div className="text-center">
+              <div className="text-white/95 text-sm lg:text-base mb-2 animate-pulse">
+                <div className="w-20 h-4 bg-white/30 rounded mx-auto mb-2"></div>
+                <div className="w-16 h-3 bg-white/20 rounded mx-auto"></div>
+              </div>
+              <div className="text-white/70 text-xs animate-pulse">
+                加载格言中...
+              </div>
+            </div>
+          </div>
+
+          {/* 底部装饰 */}
+          <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/20 relative z-10">
+            <div className="flex items-center gap-1">
+              <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
+              <div className="w-1 h-1 bg-amber-200 rounded-full animate-pulse delay-75"></div>
+              <div className="w-1 h-1 bg-white rounded-full animate-pulse delay-150"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error && !maxim) {
     return (
-      <div className={`${textSizeClass} ${subTextClass} italic`}>
-        <span className="hidden lg:inline">格言加载失败</span>
-        <span className="lg:hidden">格言...</span>
+      <div className="h-full">
+        <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg p-4 border border-amber-500 shadow-md h-full flex flex-col justify-between relative overflow-hidden opacity-75">
+          {/* 标题区域 */}
+          <div className="flex items-center gap-2 mb-3 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-white/50 rounded-full"></div>
+              <div className="w-1.5 h-1.5 bg-amber-200/50 rounded-full"></div>
+            </div>
+            <span className="text-sm font-semibold text-white/90">💡 智慧名言</span>
+          </div>
+
+          {/* 错误内容 */}
+          <div className="flex-1 flex items-center justify-center relative z-10 min-h-[120px]">
+            <div className="text-center">
+              <div className="text-white/80 text-sm lg:text-base mb-2">
+                ⚠️ 格言加载失败
+              </div>
+              <div className="text-white/60 text-xs italic">
+                请稍后重试
+              </div>
+            </div>
+          </div>
+
+          {/* 底部装饰 */}
+          <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/20 relative z-10">
+            <div className="flex items-center gap-1">
+              <div className="w-1 h-1 bg-white/50 rounded-full"></div>
+              <div className="w-1 h-1 bg-amber-200/50 rounded-full"></div>
+              <div className="w-1 h-1 bg-white/50 rounded-full"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -94,56 +153,69 @@ export function EnglishMaxim({ theme = 'default' }: EnglishMaximProps = {}) {
   }
 
   return (
-    <div className={`${textSizeClass} ${textClass} group cursor-pointer`} onClick={handleRefresh}>
-      {/* 桌面端完整显示 */}
-      <div className={`hidden lg:flex items-center gap-2 transition-all duration-200 ${hoverClass}`}>
-        <svg
-          className={`w-5 h-5 ${subSubTextClass} group-hover:text-white transition-colors duration-200 flex-shrink-0`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-          />
-        </svg>
-        <div className="max-w-2xl">
-          <div className={`italic ${subTextClass} ${hoverSubClass} transition-colors duration-200 leading-relaxed`}>
-            "{maxim.en}"
+    <div className="h-full group cursor-pointer" onClick={handleRefresh}>
+      {/* 统一的卡片样式，适配桌面端和移动端 */}
+      <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg p-4 border border-amber-500 shadow-md h-full flex flex-col justify-between relative overflow-hidden hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+
+        {/* 背景装饰 */}
+        <div className="absolute top-2 right-2 opacity-20">
+          <div className="w-16 h-16 bg-white rounded-full blur-xl"></div>
+        </div>
+        <div className="absolute bottom-1 left-1 opacity-10">
+          <div className="w-8 h-8 bg-white rounded-full blur-md"></div>
+        </div>
+
+        {/* 标题区域 */}
+        <div className="flex items-center gap-2 mb-3 relative z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            <div className="w-1.5 h-1.5 bg-amber-200 rounded-full animate-ping"></div>
           </div>
-          <div className={`text-base ${subSubTextClass} ${hoverSubSubClass} transition-colors duration-200 mt-2`}>
-            {maxim.zh}
+          <span className="text-sm font-semibold text-white">💡 智慧名言</span>
+          <div className="ml-auto">
+            <svg
+              className="w-4 h-4 text-white/80 group-hover:text-white transition-colors duration-200 animate-spin-slow"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              style={{ animation: 'spin 8s linear infinite' }}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
           </div>
         </div>
-      </div>
 
-      {/* 移动端优化显示 */}
-      <div className="lg:hidden" onClick={handleRefresh}>
-        <div className="flex items-start gap-2 cursor-pointer group">
-          <svg
-            className={`w-4 h-4 ${subSubTextClass} group-hover:text-purple-600 transition-colors duration-200 flex-shrink-0 mt-0.5`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          <div className="flex-1 min-w-0">
-            <div className={`italic ${textClass} text-sm leading-tight group-hover:text-purple-700 transition-colors duration-200`}>
-              {maxim.en.length > 60 ? maxim.en.substring(0, 60) + '...' : maxim.en}
+        {/* 内容区域 */}
+        <div className="flex-1 flex flex-col justify-center relative z-10 min-h-[120px]">
+          {/* 桌面端和移动端通用显示 */}
+          <div className="text-center lg:text-left">
+            {/* 英文名言 */}
+            <div className="text-white/95 font-medium text-sm lg:text-base leading-relaxed mb-3 italic drop-shadow-sm">
+              "{maxim.en}"
             </div>
-            <div className={`${subSubTextClass} text-xs mt-1 leading-tight group-hover:text-purple-600 transition-colors duration-200 line-clamp-2`}>
-              {maxim.zh.length > 40 ? maxim.zh.substring(0, 40) + '...' : maxim.zh}
+
+            {/* 中文翻译 */}
+            <div className="text-white/85 text-xs lg:text-sm leading-tight drop-shadow-sm">
+              {maxim.zh}
             </div>
           </div>
+        </div>
+
+        {/* 底部提示 */}
+        <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/20 relative z-10">
+          <div className="flex items-center gap-1">
+            <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
+            <div className="w-1 h-1 bg-amber-200 rounded-full animate-pulse delay-75"></div>
+            <div className="w-1 h-1 bg-white rounded-full animate-pulse delay-150"></div>
+          </div>
+          <span className="text-xs text-white/70 group-hover:text-white/90 transition-colors duration-200">
+            点击刷新
+          </span>
         </div>
       </div>
     </div>
