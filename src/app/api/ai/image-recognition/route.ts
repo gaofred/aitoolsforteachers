@@ -7,7 +7,19 @@ const VOLCENGINE_API_KEY = process.env.VOLCENGINE_API_KEY;
 export async function POST(request: Request) {
   try {
     // OCR识图是免费功能，无需认证检查
-    console.log('图片识别API - 免费功能，跳过认证检查');
+    console.log('🖼️ 图片识别API - 免费功能，跳过认证检查');
+
+    // 检查API密钥配置
+    if (!VOLCENGINE_API_KEY) {
+      console.error('❌ 火山引擎API密钥未配置');
+      return NextResponse.json({
+        success: false,
+        error: "OCR服务暂时不可用，请稍后重试",
+        details: "API配置错误"
+      }, { status: 500 });
+    }
+
+    console.log(`✅ 火山引擎API密钥已配置，长度: ${VOLCENGINE_API_KEY.length}`);
 
     // 获取请求数据
     const { imageBase64, images } = await request.json();
@@ -58,7 +70,7 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${VOLCENGINE_API_KEY}`
       },
-      signal: AbortSignal.timeout(60000), // 60秒超时，防止单个请求卡住
+      signal: AbortSignal.timeout(120000), // 120秒超时，生产环境需要更长等待时间
       body: JSON.stringify({
         model: "doubao-seed-1-6-flash-250828",
         messages: [
