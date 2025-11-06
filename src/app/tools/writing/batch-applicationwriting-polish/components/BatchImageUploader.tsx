@@ -303,41 +303,72 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     let studentName = "";
     let content = "";
 
-    // 快速姓名识别 - 只检查前5行，使用简单的正则匹配
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
-      const line = lines[i].trim();
+    // 快速检测是否有明显的姓名关键词 - 如果没有就快速跳过姓名提取
+    const hasNameKeyword = lines.slice(0, 3).some(line =>
+      /姓名|name|student/i.test(line.trim())
+    );
 
-      // 1. 优先匹配 "姓名 XXX" 格式
-      const nameWithSpaceMatch = line.match(/^姓名\s+([\u4e00-\u9fa5]{2,4})/);
-      if (nameWithSpaceMatch) {
-        studentName = nameWithSpaceMatch[1];
-        content = lines.slice(i + 1).join('\n');
-        break;
+    // 如果前3行没有姓名关键词，且没有明显的中文姓名，直接跳过姓名提取
+    if (!hasNameKeyword) {
+      const hasPossibleChineseName = lines.slice(0, 3).some(line =>
+        /^[\u4e00-\u9fa5]{2,4}$/.test(line.trim()) &&
+        !/^(应用文|作文|班级|学号|制卡时间|天学网|出品|学网出品)$/.test(line.trim())
+      );
+
+      if (!hasPossibleChineseName) {
+        // 快速路径：没有明显姓名信息，直接使用英文内容
+        studentName = "未识别";
+        content = englishOnlyText.trim();
+      } else {
+        // 可能有中文姓名，进行快速检查
+        for (let i = 0; i < Math.min(3, lines.length); i++) {
+          const line = lines[i].trim();
+          if (/^[\u4e00-\u9fa5]{2,4}$/.test(line) &&
+              !/^(应用文|作文|班级|学号|制卡时间|天学网|出品|学网出品)$/.test(line)) {
+            studentName = line;
+            content = lines.slice(i + 1).join('\n');
+            break;
+          }
+        }
+
+        if (!studentName) {
+          studentName = "未识别";
+          content = englishOnlyText.trim();
+        }
       }
+    } else {
+      // 有姓名关键词，进行标准姓名提取流程
+      for (let i = 0; i < Math.min(5, lines.length); i++) {
+        const line = lines[i].trim();
 
-      // 2. 匹配 "姓名：XXX" 格式
-      const nameWithColonMatch = line.match(/^姓名[：:]\s*([\u4e00-\u9fa5]{2,4})/);
-      if (nameWithColonMatch) {
-        studentName = nameWithColonMatch[1];
-        content = lines.slice(i + 1).join('\n');
-        break;
-      }
+        // 1. 优先匹配 "姓名 XXX" 格式
+        const nameWithSpaceMatch = line.match(/^姓名\s+([\u4e00-\u9fa5]{2,4})/);
+        if (nameWithSpaceMatch) {
+          studentName = nameWithSpaceMatch[1];
+          content = lines.slice(i + 1).join('\n');
+          break;
+        }
 
-      // 3. 匹配纯中文姓名（排除常见标题词）
-      if (/^[\u4e00-\u9fa5]{2,4}$/.test(line) &&
-          !/^(应用文|作文|班级|学号|制卡时间|天学网|出品|学网出品)$/.test(line)) {
-        studentName = line;
-        content = lines.slice(i + 1).join('\n');
-        break;
+        // 2. 匹配 "姓名：XXX" 格式
+        const nameWithColonMatch = line.match(/^姓名[：:]\s*([\u4e00-\u9fa5]{2,4})/);
+        if (nameWithColonMatch) {
+          studentName = nameWithColonMatch[1];
+          content = lines.slice(i + 1).join('\n');
+          break;
+        }
+
+        // 3. 匹配纯中文姓名（排除常见标题词）
+        if (/^[\u4e00-\u9fa5]{2,4}$/.test(line) &&
+            !/^(应用文|作文|班级|学号|制卡时间|天学网|出品|学网出品)$/.test(line)) {
+          studentName = line;
+          content = lines.slice(i + 1).join('\n');
+          break;
+        }
       }
     }
 
-    // 如果没找到姓名，使用默认值
-    if (!studentName) {
-      studentName = "未识别";
-      content = englishOnlyText.trim();
-    } else {
-      // 简单的文本提取：查找英文内容开始位置
+    // 简单的文本提取和清理
+    if (studentName && content) {
       const englishStartIndex = content.split('\n').findIndex(line =>
         /[a-zA-Z]/.test(line.trim()) && line.trim().length > 5
       );
