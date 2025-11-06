@@ -188,12 +188,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
         if (data.success && data.result) {
           // 解析OCR结果，使用完整原文解析姓名，但从英文内容中提取作文
-          console.log('🔥🔥🔥 即将调用parseOCRResult函数...');
           const parsedResult = parseOCRResult(data.result, data.englishOnly, image.id);
-          console.log('🔥🔥🔥 parseOCRResult函数调用完成，返回结果：', {
-            studentName: parsedResult.studentName,
-            contentLength: parsedResult.content.length
-          });
           return parsedResult;
         } else {
           throw new Error(data.error || 'OCR识别失败');
@@ -302,215 +297,74 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     }
   };
 
-  // 智能修复文本分段问题
-  const fixTextParagraphs = (text: string): string => {
-    console.log('🔧 开始智能修复文本分段:', text.substring(0, 100));
-
-    let fixedText = text;
-
-    // 1. 修复常见的段落合并问题
-    fixedText = fixedText
-      // 在句号后换行（如果是段落结束）
-      .replace(/([.!?])\s*([A-Z])/g, '$1\n\n$2')
-      // 在标题后换行
-      .replace(/(Notice|IMPORTANT|PLEASE NOTE)\s*/gi, '$1\n\n')
-      // 在数字编号后换行（如 "1. 2. 3."）
-      .replace(/(\d+\.)\s*/g, '$1\n')
-      // 在冒号后换行（如果是应用文格式）
-      .replace(/(:)\s*(?=[A-Z])/g, '$1\n');
-
-    // 2. 修复错误的换行符
-    fixedText = fixedText
-      // 移除单词中间的错误换行
-      .replace(/([a-zA-Z])-\n([a-zA-Z])/g, '$1$2')
-      // 修复逗号后的错误换行（除非是句子结束）
-      .replace(/,\n(?![A-Z])/g, ', ');
-
-    // 3. 标准化换行符
-    fixedText = fixedText
-      .replace(/\n{3,}/g, '\n\n')  // 多个空行变成两个
-      .replace(/\n\s*\n/g, '\n\n')  // 标准化段落间距
-      .trim();
-
-    // 4. 特殊处理应用文格式
-    fixedText = fixedText
-      // 确保标题独立成行
-      .replace(/\s*(Notice|Dear|Sincerely|Regards|Best wishes)\s*/gi, '\n\n$1\n\n')
-      // 确保时间地点等信息格式正确
-      .replace(/(\d+:\d+\s*(AM|PM|am|pm))\s*/g, '$1\n')
-      // 确保日期格式正确
-      .replace(/(this\s+(Saturday|Sunday|Monday|Tuesday|Wednesday|Thursday|Friday))\s*/gi, '$1\n');
-
-    console.log('✅ 文本分段修复完成');
-    return fixedText;
-  };
-
-  // 提取中文内容（包含姓名、班级、学号等信息）
-  const extractChineseContent = (originalText: string, lines: string[]): string => {
-    const chineseLines: string[] = [];
-
-    // 遍历所有行，找出包含中文字符的行
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      // 如果行包含中文字符，并且不是纯英文内容，则加入中文内容
-      if (/[\u4e00-\u9fff]/.test(trimmedLine)) {
-        // 排除纯英文标点符号和空行
-        if (trimmedLine.length > 0) {
-          chineseLines.push(trimmedLine);
-        }
-      }
-    }
-
-    return chineseLines.join('\n').trim();
-  };
-
   // 解析OCR结果
   const parseOCRResult = (originalText: string, englishOnlyText: string, imageId: string): OCRResult => {
-    console.log('🔥🔥🔥 parseOCRResult函数被调用了！ 🔥🔥🔥');
-    console.log('=== 开始解析OCR结果 ===');
-    console.log('OCR识别的原始文本:', originalText);
-    console.log('纯英文文本:', englishOnlyText);
-
     const lines = originalText.split('\n').filter(line => line.trim());
-    console.log('按行分割后的文本（带索引）:', lines.map((line, index) => `${index}: "${line}"`));
-    console.log('总行数:', lines.length);
-
     let studentName = "";
     let content = "";
 
-    // 优化中文姓名识别逻辑
-    let nameIndex = -1;
-
-    // 1. 最优先：查找 "姓名 XXX" 格式（空格分隔，最准确）
-    // 修正：支持姓名后面跟其他内容的情况，如"姓名 俞丁悦 班级 16 学号 10719."
-    const nameWithSpacePattern = /^姓名\s+([\u4e00-\u9fa5]{2,4})/;
-    console.log('🔍 尝试匹配"姓名 XXX"格式，正则表达式:', nameWithSpacePattern);
+    // 快速姓名识别 - 只检查前5行，使用简单的正则匹配
     for (let i = 0; i < Math.min(5, lines.length); i++) {
       const line = lines[i].trim();
-      console.log(`🔍 检查第${i}行: "${line}"`);
-      const nameMatch = line.match(nameWithSpacePattern);
-      console.log(`🔍 匹配结果:`, nameMatch);
-      if (nameMatch) {
-        studentName = nameMatch[1];
-        nameIndex = i;
-        console.log(`✅ 识别到"姓名 XXX"格式: ${studentName} (在第${i}行)`);
+
+      // 1. 优先匹配 "姓名 XXX" 格式
+      const nameWithSpaceMatch = line.match(/^姓名\s+([\u4e00-\u9fa5]{2,4})/);
+      if (nameWithSpaceMatch) {
+        studentName = nameWithSpaceMatch[1];
+        content = lines.slice(i + 1).join('\n');
+        break;
+      }
+
+      // 2. 匹配 "姓名：XXX" 格式
+      const nameWithColonMatch = line.match(/^姓名[：:]\s*([\u4e00-\u9fa5]{2,4})/);
+      if (nameWithColonMatch) {
+        studentName = nameWithColonMatch[1];
+        content = lines.slice(i + 1).join('\n');
+        break;
+      }
+
+      // 3. 匹配纯中文姓名（排除常见标题词）
+      if (/^[\u4e00-\u9fa5]{2,4}$/.test(line) &&
+          !/^(应用文|作文|班级|学号|制卡时间|天学网|出品|学网出品)$/.test(line)) {
+        studentName = line;
         content = lines.slice(i + 1).join('\n');
         break;
       }
     }
-    console.log('步骤1完成，当前姓名:', studentName, '当前索引:', nameIndex);
 
-    if (nameIndex === -1) {
-      // 2. 查找 "姓名：XXX" 或 "姓名: XXX" 格式
-      const nameWithColonPattern = /^姓名[：:]\s*([\u4e00-\u9fa5]{2,4})/;
-      for (let i = 0; i < Math.min(5, lines.length); i++) {
-        const line = lines[i].trim();
-        const nameMatch = line.match(nameWithColonPattern);
-        if (nameMatch) {
-          studentName = nameMatch[1];
-          nameIndex = i;
-          console.log(`✅ 识别到"姓名：XXX"格式: ${studentName}`);
-          content = lines.slice(i + 1).join('\n');
-          break;
-        }
-      }
-    }
-
-    if (nameIndex === -1) {
-      // 3. 查找 "中文姓名." 格式（如 "张三."）
-      const nameWithDotPattern = /^[\u4e00-\u9fa5]{2,4}\.$/;
-      nameIndex = lines.findIndex(line => nameWithDotPattern.test(line.trim()));
-
-      if (nameIndex !== -1) {
-        studentName = lines[nameIndex].trim().replace(/\.$/, '');
-        console.log(`✅ 识别到姓名格式 "XX.": ${studentName}`);
-        content = lines.slice(nameIndex + 1).join('\n');
-      } else {
-        // 4. 查找纯中文姓名（2-4个中文字符，排除常见标题词）
-        const pureChineseNamePattern = /^[\u4e00-\u9fa5]{2,4}$/;
-        for (let i = 0; i < Math.min(5, lines.length); i++) {
-          const line = lines[i].trim();
-          // 排除明显不是姓名的词汇
-          if (!/^(应用文|作文|班级|学号|制卡时间|天学网|出品|学网出品)$/.test(line) && pureChineseNamePattern.test(line)) {
-            studentName = line;
-            nameIndex = i;
-            console.log(`✅ 识别到纯中文姓名: ${studentName}`);
-            content = lines.slice(i + 1).join('\n');
-            break;
-          }
-        }
-
-        if (nameIndex === -1) {
-          // 5. 从包含中文的行中提取姓名（排除标题词）
-          for (let i = 0; i < Math.min(5, lines.length); i++) {
-            const line = lines[i].trim();
-            const chineseNameMatch = line.match(/(?!应用文|作文|班级|学号|制卡时间|天学网)([\u4e00-\u9fa5]{2,4})/);
-            if (chineseNameMatch) {
-              studentName = chineseNameMatch[0];
-              console.log(`✅ 从混合文本中提取中文姓名: ${studentName}`);
-              content = lines.slice(i + 1).join('\n');
-              break;
-            }
-          }
-        }
-      }
-    }
-
+    // 如果没找到姓名，使用默认值
     if (!studentName) {
-      console.log('⚠️ 未找到中文姓名，使用默认值');
       studentName = "未识别";
-      content = englishOnlyText.trim(); // 如果没有找到姓名，使用纯英文内容
+      content = englishOnlyText.trim();
     } else {
-      // 找到了姓名，智能提取英文作文内容
-      const nameIndex = lines.findIndex(line => {
-        const trimmed = line.trim();
-        return trimmed.includes(studentName) ||
-               trimmed.startsWith('姓名') ||
-               trimmed.match(/^[\u4e00-\u9fa5]{2,4}$/);
-      });
+      // 简单的文本提取：查找英文内容开始位置
+      const englishStartIndex = content.split('\n').findIndex(line =>
+        /[a-zA-Z]/.test(line.trim()) && line.trim().length > 5
+      );
 
-      if (nameIndex !== -1) {
-        // 从姓名行之后开始查找英文内容
-        const remainingLines = lines.slice(nameIndex + 1);
-        console.log('🔍 姓名行之后的文本行:', remainingLines);
-
-        // 查找第一行包含英文内容的行（包含英文字母）
-        const englishStartIndex = remainingLines.findIndex(line =>
-          /[a-zA-Z]/.test(line.trim()) && line.trim().length > 5
-        );
-
-        if (englishStartIndex !== -1) {
-          // 从英文内容开始提取
-          content = remainingLines.slice(englishStartIndex).join('\n');
-          console.log(`✅ 找到英文内容开始位置（第${englishStartIndex}行），提取作文内容`);
-        } else {
-          // 如果没找到英文内容，使用所有剩余行
-          content = remainingLines.join('\n');
-          console.log('⚠️ 未找到明确的英文开始位置，使用所有剩余内容');
-        }
-        console.log('✅ 从完整原文提取作文内容，跳过姓名部分');
-      } else {
-        // 奇怪，找不到姓名行，使用英文内容
-        content = englishOnlyText.trim();
-        console.log('⚠️ 奇怪情况：找到姓名但找不到对应行，使用英文内容');
+      if (englishStartIndex !== -1) {
+        content = content.split('\n').slice(englishStartIndex).join('\n');
       }
 
-      // 智能修复文本分段问题
-      content = fixTextParagraphs(content);
+      // 简单的文本清理
+      content = content
+        .replace(/([.!?])\s*([A-Z])/g, '$1\n\n$2')
+        .replace(/([a-zA-Z])-\n([a-zA-Z])/g, '$1$2')
+        .trim();
     }
 
-    console.log('最终解析结果:', { studentName, contentLength: content.length });
-
-    // 提取中文内容（包含姓名、班级、学号等信息）
-    const chineseContent = extractChineseContent(originalText, lines);
-    console.log('🔤 提取的中文内容:', chineseContent);
+    // 提取中文内容（简化版）
+    const chineseContent = lines
+      .filter(line => /[\u4e00-\u9fff]/.test(line.trim()))
+      .join('\n')
+      .trim();
 
     return {
       imageId,
       studentName,
-      originalText: originalText, // 完整OCR原文（包含中文姓名）
-      chineseContent: chineseContent, // 提取的中文内容（包含姓名、班级、学号等）
-      content: content.trim(), // 从原文中提取的作文内容（包含英文）
+      originalText,
+      chineseContent,
+      content,
       confidence: 0.8,
       processedAt: new Date()
     };

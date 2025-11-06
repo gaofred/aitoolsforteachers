@@ -189,9 +189,30 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("识图处理错误:", error);
+
+    // 提供更详细的错误信息
+    let errorMessage = "识图处理失败";
+    let errorType = "unknown";
+
+    if (error.name === 'AbortError') {
+      errorType = "timeout";
+      errorMessage = "OCR识别超时，请尝试上传更清晰的图片或稍后重试";
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      errorType = "network";
+      errorMessage = "网络连接失败，请检查网络连接后重试";
+    } else if (error.message && error.message.includes('InvalidParameter')) {
+      errorType = "image_quality";
+      errorMessage = "图片质量问题：请确保图片清晰、文字可辨，且图片尺寸不小于14像素";
+    } else if (error.message && error.message.includes('429')) {
+      errorType = "rate_limit";
+      errorMessage = "请求过于频繁，请稍等片刻后重试";
+    }
+
     return NextResponse.json({
       success: false,
-      error: "识图处理失败"
+      error: errorMessage,
+      errorType: errorType,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     }, { status: 500 });
   }
 }
