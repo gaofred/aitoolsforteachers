@@ -180,7 +180,7 @@ Word count : 80 - 130 words`;
 #步骤
 1 换行，指出学生作文是否偏离题意（与用户输入的"作文题目"相比对，是否符合"作文题目"的要点要求？）如果完全偏离题意，6分以下打分。##应用文词数 中的"英语单词数"少于60的，直接3分以下打分。直接跳到步骤
 2.注意以下几点：**特别提醒：针对中国高中生，评分标准应该相对宽容**。注意，单词错误多（比如多于10处才算多），语法错误多影响表达（但不影响理解的前提下可宽容），句式都是简单句（句式过于简单的），或字数不足（如少于80个单词），满足以上条件之一的，9分以下打分。##应用文词数 中的"英语单词数"少于60的，视为字数严重不足，按最高第一档（1-3分）打分。注意，先不要打分，wait, step by step.
-3 现在，请给学生打分！按照我上面给你的打分标准，从答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数（1-15分）。**注意：针对中国高中生，请适当宽容2分**。注意：
+3 现在，请给学生打分！按照我上面给你的打分标准，从答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数（1-15分）。**注意：针对中国高中生，请适当宽容1分**。注意：
    - 必须根据学生作文的具体表现来打分，不要随意给分
    - 语言表达方向的打分要充分参照我给你的#学生范文（13分版本）
    - 英语单词数少于80的，要扣3分
@@ -253,8 +253,14 @@ In conclusion, offering music classes would not only contribute to the holistic 
 
 每个句子分析都必须包含：原文、修改版本、详细理由。理由要具体指出语法错误、词汇选择、结构优化等问题。
 
-4 现在，请给学生打分要按照我上面给你的打分标准，从  答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数，注意，语言表达方向的打分要充分参照我给你的#学生范文（13分版本）##应用文词数中的"英语单词数"少于80的，要扣3分。**重要提醒：针对中国高中生，请适当宽容2分，不要因为一些小的语法或用词错误就过度扣分**。最后，输出姓名，输出你的修改后的分数。最后的分数输出格式为：##学生姓名+  打分：XX分。
+4 现在，请给学生打分要按照我上面给你的打分标准，从  答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数，注意，语言表达方向的打分要充分参照我给你的#学生范文（13分版本）##应用文词数中的"英语单词数"少于80的，要扣3分。**重要提醒：针对中国高中生，请适当宽容1分，不要因为一些小的语法或用词错误就过度扣分**。最后，输出姓名，输出你的修改后的分数。最后的分数输出格式为：##学生姓名+  打分：XX分。
 5 按照## 评分标准| 你的提供范文的标准生成高分范文。
+6 **特别说明：词汇处理原则** - 对于学生使用的高级词汇，只要语法正确，都应该予以保留和鼓励，不要为了追求"看起来更自然"而将高级词汇改为简单表达。中国式英语考试更注重词汇的丰富性和高级性。
+7 **亮点词汇和句式表扬** - 请明确列出学生作文中的亮点词汇和句式表达，并给予表扬。格式如下：
+## 亮点词汇与句式
+**值得表扬的词汇**：[列出具体的高级词汇]
+**精彩句式**：[列出学生使用的优秀句式结构]
+**表扬理由**：[说明为什么这些词汇和句式值得肯定]
 #学生范文（13分版本）
 Should Music Classes Be Offered to Senior 3 Students?
 As Senior 3 students approach the critical period of their final exams, the question arises whether music classes should still be offered. I believe that incorporating music into the senior high school curriculum is beneficial for students.
@@ -285,7 +291,7 @@ In conclusion, offering music classes would not only contribute to the holistic 
         messages: [
           {
             role: 'system',
-            content: '你是一位专业的英语教师，擅长批改学生的英语应用文作文。你会根据评分标准给出详细的批改意见和分数。请记住：针对中国高中生的英语作文，评分标准应该相对宽容，不要因为一些小的语法或用词错误就过度扣分，适当放宽2分是合理的。'
+            content: '你是一位专业的英语教师，擅长批改学生的英语应用文作文。你会根据评分标准给出详细的批改意见和分数。请记住：针对中国高中生的英语作文，评分标准应该相对宽容，不要因为一些小的语法或用词错误就过度扣分，适当放宽1分是合理的。同时，请鼓励和保留学生使用的高级词汇，只要语法正确就不要改为简单表达。'
           },
           {
             role: 'user',
@@ -415,8 +421,8 @@ In conclusion, offering music classes would not only contribute to the holistic 
 
         score -= Math.min(errorCount * 0.5, 5); // 最多扣5分
 
-        // 确保分数在合理范围内
-        score = Math.max(1, Math.min(15, Math.round(score)));
+        // 确保分数在合理范围内（最高13分）
+        score = Math.max(1, Math.min(13, Math.round(score)));
 
         console.log('基于内容质量估算分数:', score, '错误数量:', errorCount);
         return score;
@@ -424,10 +430,10 @@ In conclusion, offering music classes would not only contribute to the holistic 
 
       let score = extractScore(result);
 
-      // 限制分数范围在1-15分之间
-      if (score > 15) {
-        console.warn('分数超出范围，调整为15分:', score);
-        score = 15;
+      // 限制分数范围在1-13分之间
+      if (score > 13) {
+        console.warn('分数超出范围，调整为13分:', score);
+        score = 13;
       } else if (score < 1) {
         console.warn('分数过低，调整为1分:', score);
         score = 1;
