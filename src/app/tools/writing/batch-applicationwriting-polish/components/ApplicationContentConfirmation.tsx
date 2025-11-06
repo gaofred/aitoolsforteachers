@@ -8,6 +8,46 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, Save, X, User, Wand2, Sparkles, Eye, EyeOff } from "lucide-react";
 import type { ApplicationBatchTask } from "../types";
 import { formatEssayText, intelligentParagraphFormatting, needsFormatting, previewFormatting } from "@/lib/text-formatter";
+import { extractStudentName } from "@/lib/name-extractor";
+
+/**
+ * 统计英语单词数量 - 纯前端实现
+ * 只统计实际的英语单词，忽略标点符号和特殊字符
+ */
+function countEnglishWords(text: string): number {
+  if (!text || text.trim().length === 0) {
+    return 0;
+  }
+
+  // 移除多余的标点符号，保留空格和基本标点
+  const cleanText = text
+    .replace(/[^\w\s]/g, ' ')  // 将非单词字符替换为空格
+    .replace(/\s+/g, ' ')      // 合并多个空格
+    .trim();
+
+  // 按空格分割并统计非空单词
+  const words = cleanText.split(' ').filter(word =>
+    word.length > 0 &&
+    /[a-zA-Z]/.test(word)  // 确保包含至少一个英文字母
+  );
+
+  return words.length;
+}
+
+/**
+ * 获取字数统计信息和状态
+ */
+function getWordCountInfo(wordCount: number) {
+  return {
+    count: wordCount,
+    status: wordCount < 60 ? '严重不足' :
+            wordCount < 80 ? '不足' :
+            wordCount >= 130 ? '超长' : '正常',
+    statusColor: wordCount < 60 ? 'text-red-600' :
+                 wordCount < 80 ? 'text-orange-600' :
+                 wordCount >= 130 ? 'text-blue-600' : 'text-green-600'
+  };
+}
 
 interface ApplicationContentConfirmationProps {
   task: ApplicationBatchTask | null;
@@ -270,21 +310,29 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
     }
   };
 
-  // 智能提取姓名
-  const extractNameFromText = async (assignmentId: string, text: string) => {
+  // 智能提取姓名 - 纯前端版：从中文内容中提取
+  const extractNameFromText = (assignmentId: string, text: string) => {
     if (!text || text.trim().length === 0) return;
 
+    // 获取当前作业的中文内容
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) return;
+
+    // 优先使用中文内容进行姓名提取
+    const textForNameExtraction = assignment.ocrResult.chineseContent || text;
+
+    console.log(`🔍 开始纯前端姓名提取 (${assignmentId}):`, {
+      使用中文内容: !!assignment.ocrResult.chineseContent,
+      中文内容长度: assignment.ocrResult.chineseContent?.length || 0,
+      英文内容长度: text.length
+    });
+
     try {
-      const response = await fetch('/api/ai/extract-name', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-      });
+      // 使用纯前端工具提取姓名
+      const extractedName = extractStudentName(textForNameExtraction);
 
-      const data = await response.json();
-
-      if (data.success && data.name) {
-        console.log('✅ 姓名提取成功:', data.name);
+      if (extractedName && extractedName !== "未识别") {
+        console.log('✅ 纯前端姓名提取成功:', extractedName);
 
         // 更新学生姓名
         if (task) {
@@ -294,7 +342,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                 ...assignment,
                 student: {
                   ...assignment.student,
-                  name: data.name
+                  name: extractedName
                 }
               };
             }
@@ -307,63 +355,58 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
           });
         }
       } else {
-        console.warn('姓名提取失败:', data.error);
+        console.warn('纯前端姓名提取失败: 未找到有效姓名');
       }
     } catch (error) {
-      console.error('姓名提取失败:', error);
+      console.error('纯前端姓名提取错误:', error);
     }
   };
 
-  // 批量智能提取姓名
-  const batchExtractNames = async () => {
+  // 批量智能提取姓名 - 纯前端版：从中文内容中提取
+  const batchExtractNames = () => {
     if (!task || assignments.length === 0) return;
 
-    console.log('🎯 开始批量智能提取姓名...');
+    console.log('🎯 开始批量纯前端姓名提取...');
 
     try {
-      // 构建批量提取的数据
-      const texts = assignments.map(assignment => ({
-        id: assignment.id,
-        text: assignment.ocrResult.originalText
-      }));
+      // 批量处理所有作业
+      const updatedAssignments = task.assignments.map(assignment => {
+        // 优先使用中文内容进行姓名提取
+        const textForExtraction = assignment.ocrResult.chineseContent || assignment.ocrResult.originalText;
 
-      const response = await fetch('/api/ai/batch-name-extraction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignments: texts })
+        // 使用纯前端工具提取姓名
+        const extractedName = extractStudentName(textForExtraction);
+
+        console.log(`📝 提取结果 ${assignment.id.substring(0, 8)}...:`, {
+          有中文内容: !!assignment.ocrResult.chineseContent,
+          中文长度: assignment.ocrResult.chineseContent?.length || 0,
+          提取姓名: extractedName || '未识别'
+        });
+
+        if (extractedName && extractedName !== "未识别") {
+          return {
+            ...assignment,
+            student: {
+              ...assignment.student,
+              name: extractedName
+            }
+          };
+        }
+        return assignment;
       });
 
-      const data = await response.json();
+      setTask({
+        ...task,
+        assignments: updatedAssignments
+      });
 
-      if (data.success && data.results) {
-        console.log('✅ 批量姓名提取完成');
+      const successfulCount = updatedAssignments.filter(a =>
+        a.student.name && a.student.name !== "未识别" && a.student.name !== "待确认"
+      ).length;
 
-        // 更新所有学生姓名
-        const updatedAssignments = task.assignments.map(assignment => {
-          const result = data.results.find((r: any) => r.id === assignment.id);
-          if (result && result.name) {
-            return {
-              ...assignment,
-              student: {
-                ...assignment.student,
-                name: result.name
-              }
-            };
-          }
-          return assignment;
-        });
-
-        setTask({
-          ...task,
-          assignments: updatedAssignments
-        });
-
-        console.log(`✅ 成功更新 ${data.results.filter((r: any) => r.name).length} 个学生姓名`);
-      } else {
-        console.warn('批量姓名提取失败:', data.error);
-      }
+      console.log(`✅ 批量纯前端姓名提取完成！成功更新 ${successfulCount} 个学生姓名`);
     } catch (error) {
-      console.error('批量姓名提取失败:', error);
+      console.error('批量纯前端姓名提取失败:', error);
     }
   };
 
@@ -376,15 +419,15 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
             <Button
               onClick={batchExtractNames}
               className="flex items-center gap-2"
-              variant="outline"
+              variant="default"
             >
               <Wand2 className="w-4 h-4" />
-              批量智能提取姓名
+              批量提取学生姓名
             </Button>
           )}
         </div>
         <p className="text-gray-600 text-sm">
-          请检查OCR识别的作文内容，如有错误可点击编辑进行修正。支持智能提取学生姓名和智能排版功能。
+          请检查OCR识别的作文内容，如有错误可点击编辑进行修正。现在使用纯前端技术智能提取学生姓名，秒级响应，无需等待！
         </p>
       </div>
 
@@ -505,8 +548,23 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                       <div className="font-medium text-blue-600 text-sm">
                         识别学生: {assignment.student.name}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        原文长度: {assignment.ocrResult.originalText.length} 字符
+                      <div className="text-xs text-gray-500 space-y-1">
+                        <div>原文长度: {assignment.ocrResult.originalText.length} 字符</div>
+                        {(() => {
+                          const currentText = editingAssignments[assignment.id]
+                            ? editedTexts[assignment.id]
+                            : assignment.ocrResult.editedText || assignment.ocrResult.content;
+                          const wordCount = countEnglishWords(currentText);
+                          const wordInfo = getWordCountInfo(wordCount);
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span>英语单词数: {wordCount} 个</span>
+                              <span className={`font-medium ${wordInfo.statusColor}`}>
+                                ({wordInfo.status})
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -520,15 +578,15 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                     className="flex items-center gap-1"
                   >
                     <Wand2 className="w-3 h-3" />
-                    提取姓名
+                    姓名提取
                   </Button>
                 </div>
 
                 {/* 其他识别出的中文内容 */}
                 <div>
                   <div className="font-medium text-gray-700 mb-2 text-sm flex items-center gap-2">
-                    <span>其他识别出的中文内容（从ocr中提取）</span>
-                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">双保险查看学生姓名</span>
+                    <span>识别出的中文内容</span>
+                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">纯前端：极速提取</span>
                   </div>
                   <div className="bg-orange-50 p-4 rounded border border-orange-200 text-sm text-gray-800 whitespace-pre-wrap break-words max-h-48 overflow-y-auto mb-4">
                     {assignment.ocrResult.chineseContent || '无中文内容'}

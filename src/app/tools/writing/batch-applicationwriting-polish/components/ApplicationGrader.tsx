@@ -770,24 +770,23 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
               )}
 
               {/* 操作按钮 */}
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
                 <Button
                   onClick={gradeAllApplications}
                   disabled={isGrading || isGradingCompleted || !hasEnoughPoints}
                   className="flex items-center gap-2"
                 >
-                  {isGrading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      批改中，请耐心等待...
-                    </>
-                  ) : (
-                    <>
-                      <Star className="w-4 h-4" />
-                      {hasEnoughPoints ? `开始批改 (${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
-                    </>
-                  )}
+                  <Star className="w-4 h-4" />
+                  {hasEnoughPoints ? `开始批改 (${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
                 </Button>
+
+                {/* 批改中提示 - 只在批改时显示 */}
+                {isGrading && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    批改中，请耐心等待...
+                  </div>
+                )}
 
                 {failedCount > 0 && !isGrading && (
                   <Button
@@ -1043,27 +1042,41 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
         </Button>
 
         <div className="flex items-center gap-3">
-          {/* 批改状态按钮 */}
-          <Button
-            disabled={true}
-            className={`flex items-center gap-2 ${
-              isGradingCompleted
-                ? 'bg-green-600 hover:bg-green-700 text-white border-green-600'
-                : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
-            }`}
-          >
-            {isGradingCompleted ? (
-              <>
-                <CheckCircle className="w-4 h-4" />
-                已完成
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                批改中，请耐心等待
-              </>
-            )}
-          </Button>
+          {/* 开始批改按钮 - 只在未开始批改时显示 */}
+          {!isGrading && !isGradingCompleted && (
+            <Button
+              onClick={gradeAllApplications}
+              disabled={!hasEnoughPoints}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+            >
+              <Star className="w-4 h-4" />
+              {hasEnoughPoints ? `开始批改 (${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
+            </Button>
+          )}
+
+          {/* 批改状态按钮 - 只在批改中或完成后显示 */}
+          {(isGrading || isGradingCompleted) && (
+            <Button
+              disabled={true}
+              className={`flex items-center gap-2 ${
+                isGradingCompleted
+                  ? 'bg-green-600 hover:bg-green-700 text-white border-green-600'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
+              }`}
+            >
+              {isGradingCompleted ? (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  已完成
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  批改中，请耐心等待
+                </>
+              )}
+            </Button>
+          )}
 
           <Button
             onClick={onNext}

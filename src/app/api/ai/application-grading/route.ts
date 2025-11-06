@@ -120,9 +120,19 @@ Word count : 80 - 130 words`;
 ##给你的要求
 1  指出学生作文中的所有语法、单词拼写错误，尽量指出10处或以上（（连字符错误，标题符号错误，首句第一个大写字母未大写不计入，语言表达不够地道，以上均不纳入考虑范围之内。）。注意，先不要打分，wait, step by step.
 2  指出学生作文里面存在的所有的逻辑上的不足（如连贯性等），尽量指出5处或以上逻辑不足.注意是高中生作文，所以要考虑高中生的认知水平和知识水平,你的评价不能过于严苛。注意，先不要打分，wait, step by step.
-3 现在，请精确计算学生的作文，一共有几句话。请再呈现并逐句逐句输出学生原文句子，然后给出你的改动升级的句子版本，注意，呈现的都是完整的句子，像这样的完整的句子"Nowdays, some students did something fake when monthly paper"，并陈述你改动的理由。你的输出的参考格式如下： **原文**: "Let's creat an honest test environment"
-   **修改**: "Let us jointly uphold examination ethics through practical actions"
-   **理由**: 修正拼写错误（creat→create），补充具体行动指南。
+3 现在，请精确计算学生的作文，一共有几句话。请再呈现并逐句逐句输出学生原文句子，然后给出你的改动升级的句子版本，注意，呈现的都是完整的句子。你的输出格式必须严格按照以下模板，逐句分析：
+
+**原文**: "Having learned that you have a deep insight into poem, I am writing to ask for your help."
+**修改**: "Knowing your deep understanding of American poetry, I'm reaching out to seek your guidance."
+**理由**: "Having learned"结构生硬；"deep insight into poem"语法错误；改写后更自然流畅，语义准确。
+
+---
+
+**原文**: "The activity will began next week, including three parts which are sharing our favorites, giving a speech and conducting discussion."
+**修改**: "The event will take place next week and consist of three parts: sharing favorite poems, delivering short speeches, and engaging in group discussions."
+**理由**: 修正"began"错误；"including... which are"结构混乱；使用冒号列举更清晰；动名词结构统一，表达更地道。
+
+每个句子分析都必须包含：原文、修改版本、详细理由。理由要具体指出语法错误、词汇选择、结构优化等问题。
 4 附上学生的##学生姓名， 按## 题目要求 和## 评分标准| 你的提供范文的标准，生成高分范文，要充分参考及使用你上面所给的升级的句子版本。注意，升级版的作文，词数至少130个英语单词。
 9 以AI专家的口吻，写个作文评价，明确的指出学生的优缺点，分点陈述。以"你"称呼"，汉字表达，200个汉字以内。`;
       } else if (type === 'revision') {
@@ -169,8 +179,8 @@ Word count : 80 - 130 words`;
 
 #步骤
 1 换行，指出学生作文是否偏离题意（与用户输入的"作文题目"相比对，是否符合"作文题目"的要点要求？）如果完全偏离题意，6分以下打分。##应用文词数 中的"英语单词数"少于60的，直接3分以下打分。直接跳到步骤
-2.注意以下几点：注意，单词错误多（比如多于5处），语法错误多影响表达，句式都是简单句（句式过于简单的），或字数不足（如少于80个单词），满足以上条件之一的，9分以下打分。##应用文词数 中的"英语单词数"少于60的，视为字数严重不足，按最高第一档（1-3分）打分。注意，先不要打分，wait, step by step.
-3 现在，请给学生打分！按照我上面给你的打分标准，从答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数（1-15分）。注意：
+2.注意以下几点：**特别提醒：针对中国高中生，评分标准应该相对宽容**。注意，单词错误多（比如多于10处才算多），语法错误多影响表达（但不影响理解的前提下可宽容），句式都是简单句（句式过于简单的），或字数不足（如少于80个单词），满足以上条件之一的，9分以下打分。##应用文词数 中的"英语单词数"少于60的，视为字数严重不足，按最高第一档（1-3分）打分。注意，先不要打分，wait, step by step.
+3 现在，请给学生打分！按照我上面给你的打分标准，从答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数（1-15分）。**注意：针对中国高中生，请适当宽容2分**。注意：
    - 必须根据学生作文的具体表现来打分，不要随意给分
    - 语言表达方向的打分要充分参照我给你的#学生范文（13分版本）
    - 英语单词数少于80的，要扣3分
@@ -229,8 +239,22 @@ In conclusion, offering music classes would not only contribute to the holistic 
 #步骤
 1 换行，指出学生作文是否偏离题意（与用户输入的"作文题目"相比对，是否符合"作文题目"的要点要求？）如果完全偏离题意，6分以下打分。##应用文词数 中的"英语单词数"少于60的，直接3分以下打分。直接跳到步骤
 2.注意以下几点：注意，单词错误多（比如多于5处），语法错误多影响表达，句式都是简单句（句式过于简单的），或字数不足（如少于80个单词），满足以上条件之一的，9分以下打分。##应用文词数 中的"英语单词数"少于60的，视为字数严重不足，按最高第一档（1-3分）打分。注意，先不要打分，wait, step by step.
-3 现在，请给学生打分要按照我上面给你的打分标准，从  答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数，注意，语言表达方向的打分要充分参照我给你的#学生范文（13分版本）##应用文词数中的"英语单词数"少于80的，要扣3分。最后，输出姓名，输出你的修改后的分数。最后的分数输出格式为：##学生姓名+  打分：XX分。
-4 按照## 评分标准| 你的提供范文的标准生成高分范文。
+3 现在，请精确计算学生的作文，一共有几句话。请再呈现并逐句逐句输出学生原文句子，然后给出你的改动升级的句子版本。你的输出格式必须严格按照以下模板，逐句分析：
+
+**原文**: "Having learned that you have a deep insight into poem, I am writing to ask for your help."
+**修改**: "Knowing your deep understanding of American poetry, I'm reaching out to seek your guidance."
+**理由**: "Having learned"结构生硬；"deep insight into poem"语法错误；改写后更自然流畅，语义准确。
+
+---
+
+**原文**: "The activity will began next week, including three parts which are sharing our favorites, giving a speech and conducting discussion."
+**修改**: "The event will take place next week and consist of three parts: sharing favorite poems, delivering short speeches, and engaging in group discussions."
+**理由**: 修正"began"错误；"including... which are"结构混乱；使用冒号列举更清晰；动名词结构统一，表达更地道。
+
+每个句子分析都必须包含：原文、修改版本、详细理由。理由要具体指出语法错误、词汇选择、结构优化等问题。
+
+4 现在，请给学生打分要按照我上面给你的打分标准，从  答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数，注意，语言表达方向的打分要充分参照我给你的#学生范文（13分版本）##应用文词数中的"英语单词数"少于80的，要扣3分。**重要提醒：针对中国高中生，请适当宽容2分，不要因为一些小的语法或用词错误就过度扣分**。最后，输出姓名，输出你的修改后的分数。最后的分数输出格式为：##学生姓名+  打分：XX分。
+5 按照## 评分标准| 你的提供范文的标准生成高分范文。
 #学生范文（13分版本）
 Should Music Classes Be Offered to Senior 3 Students?
 As Senior 3 students approach the critical period of their final exams, the question arises whether music classes should still be offered. I believe that incorporating music into the senior high school curriculum is beneficial for students.
@@ -257,11 +281,11 @@ In conclusion, offering music classes would not only contribute to the holistic 
         'Authorization': `Bearer ${GEEKAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: "qwen-plus",
+        model: "qwen3-max",
         messages: [
           {
             role: 'system',
-            content: '你是一位专业的英语教师，擅长批改学生的英语应用文作文。你会根据评分标准给出详细的批改意见和分数。'
+            content: '你是一位专业的英语教师，擅长批改学生的英语应用文作文。你会根据评分标准给出详细的批改意见和分数。请记住：针对中国高中生的英语作文，评分标准应该相对宽容，不要因为一些小的语法或用词错误就过度扣分，适当放宽2分是合理的。'
           },
           {
             role: 'user',
@@ -269,7 +293,7 @@ In conclusion, offering music classes would not only contribute to the holistic 
           }
         ],
         temperature: 0.2,
-        max_tokens: 3000,
+        max_tokens: 16000,
         stream: false,
       })
     });

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 
 // 极客智坊API配置
 const GEEKAI_API_URL = 'https://geekai.co/api/v1/chat/completions';
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   console.log('姓名提取API - 开始处理请求');
 
   try {
-    const { text } = await request.json();
+    const { text, source } = await request.json();
 
     if (!text || text.trim().length === 0) {
       return NextResponse.json({
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('姓名提取API - 文本长度:', text.length);
+    console.log('姓名提取API - 文本长度:', text.length, '来源:', source || '未指定');
 
     // 预处理：只取前3行进行分析，避免从作文内容中提取错误姓名
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
@@ -48,25 +48,32 @@ export async function POST(request: NextRequest) {
           },
           {
             role: 'user',
-            content: `请从以下文本中提取学生的真实姓名。
+            content: `请从以下中文内容中提取学生的真实姓名。
 
 **极其重要的规则：**
 1. **绝对不要提取作文题目中的"李华"、"王明"、"张三"等通用化名**
 2. **优先寻找"姓名："、"姓名:"、"学生："、"学生:"等明确标识**
-3. **如果看到"姓名：李丹萍"这样的格式，请提取"李丹萍"，而不是"李华"**
-4. **学生真实姓名通常在第一行最前面，带有明确标识**
-5. **只提取明确标记的学生姓名，不要猜测或从作文内容中提取**
+3. **如果看到"姓名：李丹萍"这样的格式，请提取"李丹萍"**
+4. **只提取明确标记的学生姓名，不要猜测或从作文内容中提取**
+5. **${source === 'chinese_content' ? '现在是中文内容模式，更专注于中文姓名识别' : ''}**
 
 **识别顺序：**
 1. 首先找"姓名：XXX"格式 → 提取XXX
 2. 其次找"姓名: XXX"格式 → 提取XXX
-3. 再找第一行的"XXX"（2-4个汉字，且不是通用化名）
+3. 再找"姓名 XXX"格式（姓名后有空格） → 提取XXX
+4. 最后找独立的2-4个汉字姓名（排除标题词）
+
+**特别注意：**
+- 如果看到"姓名 俞丁悦"，请提取"俞丁悦"
+- 如果看到"姓名 李明"，请提取"李明"
+- "姓名"后面的汉字就是学生姓名
 
 **通用化名黑名单：** 李华、王明、张三、李明、小红、小明等
+**排除词：** 应用文、作文、班级、学号、制卡时间、天学网、出品、学网出品
 
 如果找不到明确标记的学生姓名，请返回"未找到姓名"。
 
-文本内容（仅前3行）：
+文本内容（仅前5行）：
 ${firstLines}`
           }
         ],

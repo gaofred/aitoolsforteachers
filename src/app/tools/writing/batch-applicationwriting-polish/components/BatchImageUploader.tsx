@@ -297,106 +297,33 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     }
   };
 
-  // 解析OCR结果
+  // 解析OCR结果 - 简化版：只区分中英文内容，不提取姓名
   const parseOCRResult = (originalText: string, englishOnlyText: string, imageId: string): OCRResult => {
     const lines = originalText.split('\n').filter(line => line.trim());
-    let studentName = "";
-    let content = "";
 
-    // 快速检测是否有明显的姓名关键词 - 如果没有就快速跳过姓名提取
-    const hasNameKeyword = lines.slice(0, 3).some(line =>
-      /姓名|name|student/i.test(line.trim())
-    );
-
-    // 如果前3行没有姓名关键词，且没有明显的中文姓名，直接跳过姓名提取
-    if (!hasNameKeyword) {
-      const hasPossibleChineseName = lines.slice(0, 3).some(line =>
-        /^[\u4e00-\u9fa5]{2,4}$/.test(line.trim()) &&
-        !/^(应用文|作文|班级|学号|制卡时间|天学网|出品|学网出品)$/.test(line.trim())
-      );
-
-      if (!hasPossibleChineseName) {
-        // 快速路径：没有明显姓名信息，直接使用英文内容
-        studentName = "未识别";
-        content = englishOnlyText.trim();
-      } else {
-        // 可能有中文姓名，进行快速检查
-        for (let i = 0; i < Math.min(3, lines.length); i++) {
-          const line = lines[i].trim();
-          if (/^[\u4e00-\u9fa5]{2,4}$/.test(line) &&
-              !/^(应用文|作文|班级|学号|制卡时间|天学网|出品|学网出品)$/.test(line)) {
-            studentName = line;
-            content = lines.slice(i + 1).join('\n');
-            break;
-          }
-        }
-
-        if (!studentName) {
-          studentName = "未识别";
-          content = englishOnlyText.trim();
-        }
-      }
-    } else {
-      // 有姓名关键词，进行标准姓名提取流程
-      for (let i = 0; i < Math.min(5, lines.length); i++) {
-        const line = lines[i].trim();
-
-        // 1. 优先匹配 "姓名 XXX" 格式
-        const nameWithSpaceMatch = line.match(/^姓名\s+([\u4e00-\u9fa5]{2,4})/);
-        if (nameWithSpaceMatch) {
-          studentName = nameWithSpaceMatch[1];
-          content = lines.slice(i + 1).join('\n');
-          break;
-        }
-
-        // 2. 匹配 "姓名：XXX" 格式
-        const nameWithColonMatch = line.match(/^姓名[：:]\s*([\u4e00-\u9fa5]{2,4})/);
-        if (nameWithColonMatch) {
-          studentName = nameWithColonMatch[1];
-          content = lines.slice(i + 1).join('\n');
-          break;
-        }
-
-        // 3. 匹配纯中文姓名（排除常见标题词）
-        if (/^[\u4e00-\u9fa5]{2,4}$/.test(line) &&
-            !/^(应用文|作文|班级|学号|制卡时间|天学网|出品|学网出品)$/.test(line)) {
-          studentName = line;
-          content = lines.slice(i + 1).join('\n');
-          break;
-        }
-      }
-    }
-
-    // 简单的文本提取和清理
-    if (studentName && content) {
-      const englishStartIndex = content.split('\n').findIndex(line =>
-        /[a-zA-Z]/.test(line.trim()) && line.trim().length > 5
-      );
-
-      if (englishStartIndex !== -1) {
-        content = content.split('\n').slice(englishStartIndex).join('\n');
-      }
-
-      // 简单的文本清理
-      content = content
-        .replace(/([.!?])\s*([A-Z])/g, '$1\n\n$2')
-        .replace(/([a-zA-Z])-\n([a-zA-Z])/g, '$1$2')
-        .trim();
-    }
-
-    // 提取中文内容（简化版）
+    // 提取中文内容（所有包含中文字符的行）
     const chineseContent = lines
       .filter(line => /[\u4e00-\u9fff]/.test(line.trim()))
       .join('\n')
       .trim();
 
+    // 英文作文内容直接使用API返回的纯英文版本
+    const content = englishOnlyText.trim();
+
+    console.log(`📝 OCR解析完成 (${imageId}):`, {
+      原文长度: originalText.length,
+      中文内容长度: chineseContent.length,
+      英文内容长度: content.length,
+      优化: "跳过姓名提取，专注文字识别"
+    });
+
     return {
       imageId,
-      studentName,
+      studentName: "待确认", // 标记为待确认，在下一步骤中提取
       originalText,
       chineseContent,
       content,
-      confidence: 0.8,
+      confidence: 0.9, // 提升置信度，因为更专注于识别
       processedAt: new Date()
     };
   };
@@ -793,9 +720,11 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
                     {image.ocrResult && (
                       <div className="text-xs space-y-1">
-                        <div className="font-medium text-blue-600">
-                          学生: {image.ocrResult.studentName} (调试: {image.ocrResult.studentName === "学网出品" ? "❌错误" : "✅正确"})
-                        </div>
+                        {image.ocrResult.studentName && image.ocrResult.studentName !== "待确认" && (
+                          <div className="font-medium text-blue-600">
+                            学生: {image.ocrResult.studentName}
+                          </div>
+                        )}
                         <div className="text-gray-600 line-clamp-2">
                           {image.ocrResult.content.substring(0, 50)}...
                         </div>
