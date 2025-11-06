@@ -281,7 +281,7 @@ In conclusion, offering music classes would not only contribute to the holistic 
         'Authorization': `Bearer ${GEEKAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: "qwen3-max",
+        model: "qwen-plus",
         messages: [
           {
             role: 'system',
