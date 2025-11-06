@@ -203,26 +203,30 @@ export default function MembershipPage() {
     setIsRedeeming(true);
 
     try {
-      // 使用Supabase点数服务进行兑换
-      const result = await SupabasePointsService.redeemCode(currentUser.id, redemptionCode);
-      if (result.success) {
-        // 如果是积分兑换，直接更新点数，避免查询失败
-        if (result.type === 'POINTS' && result.value) {
-          await refreshUser();
-        }
-        // 如果是会员兑换，更新会员状态
-        if (result.type === 'MEMBERSHIP') {
-          await fetchMembershipStatus();
-        }
+      // 使用API进行兑换，和首页保持一致
+      const response = await fetch('/api/redemption-codes/use', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: redemptionCode.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // 兑换成功，刷新用户信息
+        await refreshUser();
+        await fetchMembershipStatus();
         setRedemptionCode("");
         setShowRedeemModal(false);
-        toast.success(result.message);
+        toast.success(data.message || '兑换成功！');
       } else {
-        toast.error(result.message);
+        toast.error(data.error || data.message || '兑换失败，请检查兑换码是否正确');
       }
     } catch (error) {
       console.error('兑换失败:', error);
-      toast.error('兑换失败，请重试');
+      toast.error('兑换失败，请检查兑换码是否正确');
     } finally {
       setIsRedeeming(false);
     }

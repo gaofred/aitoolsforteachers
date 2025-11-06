@@ -10,6 +10,7 @@ export interface OCRResult {
   imageId: string;
   studentName: string;
   originalText: string; // 完整的OCR原文
+  chineseContent: string; // 提取的中文内容（包含姓名、班级、学号等）
   editedText?: string; // 用户编辑后的文本
   content: string; // 应用文内容
   confidence: number;

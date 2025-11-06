@@ -1037,17 +1037,42 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
       )}
 
       {/* 操作按钮 */}
-      <div className="flex justify-between">
+      <div className="flex justify-between items-center">
         <Button variant="outline" onClick={onPrev}>
           上一步
         </Button>
-        <Button
-          onClick={onNext}
-          disabled={false} // 始终允许点击下一步
-          className="px-8"
-        >
-          下一步：查看结果导出
-        </Button>
+
+        <div className="flex items-center gap-3">
+          {/* 批改状态按钮 */}
+          <Button
+            disabled={true}
+            className={`flex items-center gap-2 ${
+              isGradingCompleted
+                ? 'bg-green-600 hover:bg-green-700 text-white border-green-600'
+                : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
+            }`}
+          >
+            {isGradingCompleted ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                已完成
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                批改中，请耐心等待
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={onNext}
+            disabled={false} // 始终允许点击下一步
+            className="px-8"
+          >
+            下一步：查看结果导出
+          </Button>
+        </div>
       </div>
     </div>
   );

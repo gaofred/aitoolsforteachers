@@ -524,6 +524,17 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                   </Button>
                 </div>
 
+                {/* 其他识别出的中文内容 */}
+                <div>
+                  <div className="font-medium text-gray-700 mb-2 text-sm flex items-center gap-2">
+                    <span>其他识别出的中文内容（从ocr中提取）</span>
+                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">双保险查看学生姓名</span>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded border border-orange-200 text-sm text-gray-800 whitespace-pre-wrap break-words max-h-48 overflow-y-auto mb-4">
+                    {assignment.ocrResult.chineseContent || '无中文内容'}
+                  </div>
+                </div>
+
                 {/* 作文内容 */}
                 <div>
                   <div className="font-medium text-gray-700 mb-2 text-sm">作文内容:</div>

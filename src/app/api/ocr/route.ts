@@ -105,7 +105,7 @@ async function recognizeWithVolcengine(imageDataUrl: string): Promise<string> {
           content: [
             {
               type: "text",
-              text: "请识别图片中的所有文字内容，直接输出文字原文，不要添加任何解释或描述。请保持原文格式，包括换行和标点符号。如果图片中没有文字，请回复'无文字内容'。"
+              text: "识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复'无文字内容'"
             },
             {
               type: "image_url",
@@ -155,7 +155,7 @@ async function recognizeWithGeekai(imageDataUrl: string): Promise<string> {
           content: [
             {
               type: "text",
-              text: "请识别图片中的所有文字内容，直接输出文字原文，不要添加任何解释或描述。请保持原文格式，包括换行和标点符号。如果图片中没有文字，请回复'无文字内容'。"
+              text: "识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复'无文字内容'"
             },
             {
               type: "image_url",

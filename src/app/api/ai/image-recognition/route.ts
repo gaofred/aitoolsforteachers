@@ -67,7 +67,7 @@ export async function POST(request: Request) {
             content: [
               {
                 type: "text",
-                text: "识别图中所有文字，原文输出。保持原有的段落结构和换行。如果没有文字，请回复'无文字内容'。"
+                text: "识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复'无文字内容'"
               },
               {
                 type: "image_url",
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: "text",
-                  text: "重新识别图片中的文字，原文输出。请确保识别完整，包括所有中英文内容。"
+                  text: "识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复'无文字内容'"
                 },
                 {
                   type: "image_url",

@@ -34,9 +34,9 @@ export async function compressImageForOCR(
   }
 
   const defaultOptions: CompressionOptions = {
-    maxSizeMB: 2, // 最大2MB，确保OCR处理效率
-    maxWidthOrHeight: 2048, // 最大尺寸，保持文字清晰度
-    quality: 0.95, // 高质量压缩，确保文字识别准确
+    maxSizeMB: 5, // 增加到5MB，确保中文信息清晰度
+    maxWidthOrHeight: 3072, // 增加到3072，提升小字体识别能力
+    quality: 0.98, // 提高到98%质量，减少中文笔画模糊
     useWebWorker: true, // 使用Web Worker避免阻塞UI
   };
 

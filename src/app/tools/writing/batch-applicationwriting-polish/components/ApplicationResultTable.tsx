@@ -867,15 +867,15 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
       <div className="flex flex-wrap gap-3">
         <Button onClick={exportToExcel} className="flex items-center gap-2">
           <Download className="w-4 h-4" />
-          导出Excel
+          导出Excel（学生姓名，得分）
         </Button>
         <Button onClick={exportToWord} variant="outline" className="flex items-center gap-2">
           <FileText className="w-4 h-4" />
-          导出Word（合并）
+          导出Word（全班学生作文及批改）
         </Button>
         <Button onClick={exportToWordFiles} variant="outline" className="flex items-center gap-2">
           <FileText className="w-4 h-4" />
-          导出Word（分别）
+          导出Word（一个学生一个word文件）
         </Button>
       </div>
 

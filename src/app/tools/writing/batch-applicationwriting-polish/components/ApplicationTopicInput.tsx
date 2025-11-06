@@ -38,15 +38,15 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
   const sampleTopics = [
     {
       title: "邀请信",
-      content: "假定你是李华，你的英国朋友Peter来信询问你校学生体育运动情况。请给他写封回信，内容包括：\n1. 学校体育活动情况介绍；\n2. 你最喜欢的体育运动；\n3. 询问对方学校体育活动情况。\n注意：1. 词数100左右；2. 可以适当增加细节，以使行文连贯。"
+      content: "假定你是李华，你的英国朋友Peter来信询问你校学生体育运动情况。请给他写封回信，内容包括：\n1. 学校体育活动情况介绍；\n2. 你最喜欢的体育运动；\n3. 询问对方学校体育活动情况。"
     },
     {
       title: "建议信",
-      content: "假定你是李华，你的美国朋友Tom发邮件说他最近学习压力很大，请你给他写封回信，内容包括：\n1. 表示理解和安慰；\n2. 提出具体建议（至少两条）；\n3. 表达祝愿。\n注意：1. 词数100左右；2. 可以适当增加细节，以使行文连贯。"
+      content: "假定你是李华，你的美国朋友Tom发邮件说他最近学习压力很大，请你给他写封回信，内容包括：\n1. 表示理解和安慰；\n2. 提出具体建议（至少两条）；\n3. 表达祝愿。"
     },
     {
       title: "通知",
-      content: "你校将举办英语演讲比赛。请你根据以下信息，以学生会的名义写一则通知：\n1. 比赛时间：下周五下午2:00-5:00；\n2. 比赛地点：学校礼堂；\n3. 参赛要求：每班推荐1名学生参加；\n4. 联系人：李华（电话：12345678）。\n注意：1. 词数100左右；2. 可以适当增加细节，以使行文连贯。"
+      content: "你校将举办英语演讲比赛。请你根据以下信息，以学生会的名义写一则通知：\n1. 比赛时间：下周五下午2:00-5:00；\n2. 比赛地点：学校礼堂；\n3. 参赛要求：每班推荐1名学生参加；\n4. 联系人：李华（电话：12345678）。"
     }
   ];
 
@@ -551,6 +551,22 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
             <label className="text-sm font-medium text-gray-700">
               完整题目内容 *
             </label>
+
+            {/* 特别提醒 */}
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+              <div className="flex items-start gap-2">
+                <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-amber-600 text-xs font-bold">!</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-amber-800">特别提醒</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    请手动删除应用文题目中的"词数80左右"的部分（因为高考中，不可能只写80词）
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <Textarea
               placeholder="请输入完整的应用文题目，包括背景、写作要求、字数限制等..."
               value={topic}

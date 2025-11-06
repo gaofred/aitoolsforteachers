@@ -182,6 +182,44 @@ const StudentNameInput: React.FC<StudentNameInputProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* 目前批改能实现的功能 */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-blue-600 text-xs font-bold">✓</span>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-blue-800 mb-2">目前批改能实现的功能</h3>
+            <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+              <li>自动识别应用文中的学生姓名</li>
+              <li>对应用文进行AI智能批改，提供详细的评分和反馈</li>
+              <li>提供修改意见、逐句批改</li>
+              <li>在学生原有作文基础上生成匹配的高分范文</li>
+              <li>支持批量处理，提高批改效率</li>
+              <li>支持批改结果一键导出（学生姓名及具体得分、每个学生单独的批改结果的word文件和全班批改结果的word文件）</li>
+              <li>支持全班共性问题分析【语法错误、词汇运用问题、内容与逻辑及问题、高分词汇与句式结构、词汇拓展等】</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* 注意事项 */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-amber-600 text-xs font-bold">!</span>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-amber-800 mb-2">注意事项</h3>
+            <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
+              <li>无需固定模板。只要保证学生的作文在一张图片上即可</li>
+              <li>文字识别率较高。不过尽量让学生写名字时，别连笔</li>
+              <li>答题卡尽量有姓名：XXX字样。如 姓名:李萍萍。 这样AI可以更好识别</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">导入学生姓名 (可选)</h2>
         <p className="text-gray-600 text-sm">
