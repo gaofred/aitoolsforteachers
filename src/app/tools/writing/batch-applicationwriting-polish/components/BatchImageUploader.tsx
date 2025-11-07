@@ -46,7 +46,6 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [ocrProgressMessage, setOcrProgressMessage] = useState<string>('');
-  const [skipCompression, setSkipCompression] = useState(false); // 新增：跳过压缩选项
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 处理文件上传
@@ -90,7 +89,16 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           )
         );
 
-        const compressedFile = await compressImageForOCR(image.originalFile);
+        // 强制压缩所有图片，防止火山引擎API "Request Entity Too Large" 错误
+        const originalSize = image.originalFile.size;
+        const originalSizeMB = (originalSize / 1024 / 1024).toFixed(2);
+
+        // 使用更激进的压缩设置确保API兼容性
+        const compressedFile = await compressImageForOCR(image.originalFile, {
+          maxSizeMB: 2, // 目标大小2MB
+          maxWidthOrHeight: 1920, // 限制分辨率，提升OCR效率
+          quality: 0.85, // 稍微降低质量以减小文件大小
+        });
 
         // 计算压缩信息
         const compressionInfo = {
@@ -113,10 +121,12 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           )
         );
 
-        console.log(`图片压缩完成: ${image.originalFile.name}`, {
-          原始大小: `${(image.originalFile.size / 1024 / 1024).toFixed(2)}MB`,
-          压缩后大小: `${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`,
-          压缩率: `${compressionInfo.compressionRatio}%`
+        const compressedSizeMB = (compressedFile.size / 1024 / 1024).toFixed(2);
+        console.log(`🔥 图片压缩完成: ${image.originalFile.name}`, {
+          原始大小: `${originalSizeMB}MB`,
+          压缩后大小: `${compressedSizeMB}MB`,
+          压缩率: `${compressionInfo.compressionRatio}%`,
+          状态: compressionInfo.compressionRatio > 0 ? '✅ 成功压缩' : 'ℹ️ 已符合要求'
         });
 
       } catch (error) {
@@ -178,20 +188,49 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           })
         });
 
-        const data = await response.json();
+        // 安全解析JSON响应，防止非JSON响应导致的解析错误
+        let data;
+        try {
+          const responseText = await response.text();
+          console.log('🔍 OCR API原始响应前200字符:', responseText.substring(0, 200));
+
+          // 检查响应是否为JSON格式
+          const trimmedText = responseText.trim();
+          if (!trimmedText.startsWith('{') && !trimmedText.startsWith('[')) {
+            console.error('❌ API返回非JSON格式响应:', responseText.substring(0, 500));
+            throw new Error(`API返回非JSON格式响应: ${responseText.substring(0, 200)}...`);
+          }
+
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ JSON解析失败:', parseError);
+          throw new Error(`API响应解析失败: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        }
+
         console.log('🔥🔥🔥 OCR API响应数据检查：', {
           success: data.success,
           result: data.result ? data.result.substring(0, 100) + '...' : 'null',
           englishOnly: data.englishOnly ? data.englishOnly.substring(0, 100) + '...' : 'null',
-          imageId: image.id
+          imageId: image.id,
+          provider: data.provider,
+          fallback: data.fallback
         });
 
         if (data.success && data.result) {
           // 解析OCR结果，使用完整原文解析姓名，但从英文内容中提取作文
-          const parsedResult = parseOCRResult(data.result, data.englishOnly, image.id);
+          const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id);
           return parsedResult;
         } else {
-          throw new Error(data.error || 'OCR识别失败');
+          // 构建详细错误信息
+          let errorMessage = data.error || 'OCR识别失败';
+          if (data.details) {
+            if (typeof data.details === 'string') {
+              errorMessage += ` (${data.details})`;
+            } else if (data.details.primaryError) {
+              errorMessage += ` (${data.details.primaryError})`;
+            }
+          }
+          throw new Error(errorMessage);
         }
       } catch (error) {
         console.error(`OCR处理失败 (尝试 ${image.retryCount ? image.retryCount + 1 : 1}):`, error);
@@ -548,17 +587,13 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
             className="hidden"
           />
 
-          {/* 压缩选项设置 */}
-          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded border border-blue-200">
-            <input
-              type="checkbox"
-              id="skipCompression"
-              checked={skipCompression}
-              onChange={(e) => setSkipCompression(e.target.checked)}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="skipCompression" className="text-sm text-blue-700">
-              跳过压缩（测试用）- 使用原图进行OCR识别，可能影响速度但提升识别准确度
+          {/* 压缩说明 */}
+          <div className="flex items-center gap-2 p-3 bg-green-50 rounded border border-green-200">
+            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+              <span className="text-white text-xs">✓</span>
+            </div>
+            <label className="text-sm text-green-700">
+              智能压缩已启用 - 所有图片将自动压缩至2MB以内，确保OCR识别成功率和速度
             </label>
           </div>
 

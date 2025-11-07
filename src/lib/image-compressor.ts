@@ -101,11 +101,12 @@ export function needsCompression(
   file: File,
   options: CompressionOptions = {}
 ): Promise<boolean> {
-  const { maxSizeMB = 2, maxWidthOrHeight = 2048 } = options;
+  const { maxSizeMB = 1, maxWidthOrHeight = 2048 } = options;
 
-  // 检查文件大小
+  // 检查文件大小 - 降低阈值，1MB以上就开始压缩
   const fileSizeMB = file.size / (1024 * 1024);
   if (fileSizeMB > maxSizeMB) {
+    console.log(`图片 ${file.name} 需要压缩: ${fileSizeMB.toFixed(2)}MB > ${maxSizeMB}MB`);
     return Promise.resolve(true);
   }
 
