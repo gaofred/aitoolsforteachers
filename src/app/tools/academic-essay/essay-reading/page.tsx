@@ -1,0 +1,829 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, BookOpen, Brain, Target, Lightbulb, Search, Copy, Check, Upload, FileText, Loader2, FileText as FileWord, FileDown, FilePlus, CloudUpload, FileImage, FileCheck } from "lucide-react";
+import { useUser } from "@/lib/user-context";
+import toast from "react-hot-toast";
+
+interface AnalysisResult {
+  fundamentalProblem: string;
+  perspective: string;
+  keyMethod: string;
+  coreFinding: string;
+  methodFormula: string;
+  coreValueSummary: string;
+  simpleSummary: string;
+}
+
+export default function AcademicEssayReading() {
+  const router = useRouter();
+  const { currentUser, userPoints, refreshUser } = useUser();
+  const [essayText, setEssayText] = useState("");
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSimpleExplaining, setIsSimpleExplaining] = useState(false);
+  const [copiedSection, setCopiedSection] = useState<string | null>(null);
+
+  // 文件处理相关状态
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const [fileReady, setFileReady] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const wordInputRef = useRef<HTMLInputElement>(null);
+
+  const toolCost = 6;
+
+  // 简化的文件处理功能初始化 - 仅设置状态标志
+  useEffect(() => {
+    console.log('文件处理功能初始化开始...');
+
+    // 确保只在客户端运行
+    if (typeof window === 'undefined') {
+      console.log('服务器端，跳过文件处理初始化');
+      return;
+    }
+
+    // 直接设置为ready，实际导入在处理时进行
+    setFileReady(true);
+    console.log('文件处理功能标记为就绪');
+
+    // 延迟显示成功消息
+    setTimeout(() => {
+      toast.success('文件上传功能已准备就绪');
+      console.log('文件处理功能初始化完成');
+    }, 1000);
+  }, []);
+
+  const handleAnalyze = async () => {
+    if (!essayText.trim()) {
+      toast.error("请输入要分析的论文内容");
+      return;
+    }
+
+    if (!currentUser) {
+      toast.error("请先登录");
+      router.push("/auth/signin");
+      return;
+    }
+
+    if (userPoints < toolCost) {
+      toast.error(`点数不足，需要 ${toolCost} 个点数`);
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+
+    try {
+      const response = await fetch("/api/ai/academic-essay-analysis", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: essayText
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast.error("请先登录");
+          router.push("/auth/signin");
+          return;
+        }
+        if (response.status === 400 && data.error?.includes("点数不足")) {
+          toast.error(data.error);
+          await refreshUser();
+          return;
+        }
+        throw new Error(data.error || "分析失败");
+      }
+
+      setAnalysisResult(data.result);
+      await refreshUser();
+      toast.success(`分析完成！消耗 ${toolCost} 个点数`);
+
+    } catch (error) {
+      console.error("论文分析错误:", error);
+      toast.error(error instanceof Error ? error.message : "分析失败，请稍后重试");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleSimpleExplanation = async () => {
+    if (!essayText.trim()) {
+      toast.error("请输入要解读的论文内容");
+      return;
+    }
+
+    if (!currentUser) {
+      toast.error("请先登录");
+      router.push("/auth/signin");
+      return;
+    }
+
+    const simpleCost = Math.floor(toolCost * 0.6); // 大白话解读消耗60%的点数
+
+    if (userPoints < simpleCost) {
+      toast.error(`点数不足，需要 ${simpleCost} 个点数`);
+      return;
+    }
+
+    setIsSimpleExplaining(true);
+    setAnalysisResult(null);
+
+    try {
+      const response = await fetch("/api/ai/simple-explanation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: essayText,
+          type: "academic_essay" // 指定这是学术论文的大白话解读
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast.error("请先登录");
+          router.push("/auth/signin");
+          return;
+        }
+        if (response.status === 400 && data.error?.includes("点数不足")) {
+          toast.error(data.error);
+          await refreshUser();
+          return;
+        }
+        throw new Error(data.error || "解读失败");
+      }
+
+      // 将大白话解读结果包装成分析结果的格式
+      const simpleResult: AnalysisResult = {
+        summary: data.result.simpleExplanation || "",
+        keyArguments: data.result.keyPoints || [],
+        methodology: data.result.methodology || "",
+        implications: data.result.implications || "",
+        strength: data.result.strengths || "",
+        limitations: data.result.limitations || "",
+        contributions: data.result.contributions || "",
+        practicalApplications: data.result.practicalApplications || "",
+        futureResearch: data.result.futureResearch || "",
+        relatedWork: data.result.relatedWork || "",
+        keyReferences: data.result.keyReferences || []
+      };
+
+      setAnalysisResult(simpleResult);
+      await refreshUser();
+      toast.success(`大白话解读完成！消耗 ${simpleCost} 个点数`);
+
+    } catch (error) {
+      console.error("大白话解读错误:", error);
+      toast.error(error instanceof Error ? error.message : "解读失败，请稍后重试");
+    } finally {
+      setIsSimpleExplaining(false);
+    }
+  };
+
+  const handleCopy = async (content: string, section: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedSection(section);
+      toast.success("已复制到剪贴板");
+      setTimeout(() => setCopiedSection(null), 2000);
+    } catch (error) {
+      toast.error("复制失败");
+    }
+  };
+
+  // PDF文本提取功能 - 调用后端API
+  const extractTextFromPDF = async (file: File) => {
+    console.log('extractTextFromPDF被调用了！fileReady状态:', fileReady);
+
+    // 确保只在客户端运行
+    if (typeof window === 'undefined') {
+      console.log('服务器端，跳过PDF处理');
+      return;
+    }
+
+    if (!fileReady) {
+      console.log('fileReady为false，等待初始化完成...');
+      toast.error("文件处理库正在加载中，请稍后再试");
+      return;
+    }
+
+    console.log('开始调用后端PDF解析API:', file.name);
+    setIsProcessingFile(true);
+    setUploadedFileName(file.name);
+
+    try {
+      // 创建FormData
+      const formData = new FormData();
+      formData.append('file', file);
+
+      console.log('发送请求到后端API...');
+
+      // 调用后端API
+      const response = await fetch('/api/pdf/extract', {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('后端API响应状态:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'PDF解析失败');
+      }
+
+      const result = await response.json();
+      console.log('PDF解析结果:', result);
+
+      if (result.success && result.text) {
+        setEssayText(result.text);
+
+        let successMessage = `PDF解析成功！提取了 ${result.text.length} 个字符`;
+        if (result.truncated) {
+          successMessage += '（文本已截断）';
+        }
+        successMessage += `，共 ${result.pages} 页`;
+
+        toast.success(successMessage);
+      } else {
+        // 显示错误信息，但仍然提供一些有用的提示
+        const errorText = `PDF解析失败：
+${result.error}
+
+PDF文件信息：
+文件名：${file.name}
+文件大小：${Math.round(file.size / 1024)}KB
+文件类型：PDF文档
+
+请尝试以下方法：
+1. 手动复制PDF中的文本内容粘贴到下方文本框
+2. 确认PDF不是扫描版图片
+3. 检查PDF是否受密码保护
+4. 尝试使用其他PDF工具提取文本`;
+
+        setEssayText(errorText);
+        toast.error('PDF解析失败，请查看详细信息');
+      }
+
+    } catch (error) {
+      console.error("PDF处理错误:", error);
+
+      let errorMessage = "PDF文件处理失败";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error(errorMessage);
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
+  // Word文件处理功能 - 暂时显示提示信息
+  const processWordFile = async (file: File) => {
+    console.log('processWordFile被调用了！', file.name);
+
+    // 确保只在客户端运行
+    if (typeof window === 'undefined') {
+      console.log('服务器端，跳过Word处理');
+      return;
+    }
+
+    setIsProcessingFile(true);
+    setUploadedFileName(file.name);
+
+    try {
+      // 暂时显示Word文件处理提示
+      const infoText = `Word文件处理功能开发中...
+
+文件信息：
+文件名：${file.name}
+文件大小：${Math.round(file.size / 1024)}KB
+文件类型：Word文档
+
+目前功能：
+✅ 已支持PDF文件自动文本提取
+🚧 Word文件解析功能正在开发中
+
+临时解决方案：
+1. 在Word中手动复制文本内容
+2. 将Word另存为PDF格式
+3. 然后使用PDF上传功能
+4. 或直接将文本粘贴到下方文本框
+
+敬请期待Word文件自动解析功能！`;
+
+      setEssayText(infoText);
+      toast.info('Word文件处理功能开发中，请查看详细信息');
+
+    } catch (error) {
+      console.error("Word处理错误:", error);
+      toast.error("Word文件处理失败");
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
+  // 处理PDF文件上传
+  const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('PDF上传触发', event.target.files);
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      console.log('没有选择文件');
+      return;
+    }
+
+    console.log('选择的文件:', file.name, file.type, file.size);
+
+    // 检查文件类型
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      toast.error("请选择PDF文件");
+      return;
+    }
+
+    // 检查文件大小 (限制10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("PDF文件大小不能超过10MB");
+      return;
+    }
+
+    // 先显示文件名，表示上传成功
+    setUploadedFileName(file.name);
+    toast.success(`已选择文件: ${file.name}`);
+
+    console.log('准备调用extractTextFromPDF函数...');
+    await extractTextFromPDF(file);
+    console.log('extractTextFromPDF函数调用完成');
+  };
+
+  // 处理Word文件上传
+  const handleWordUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('Word上传触发', event.target.files);
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      console.log('没有选择文件');
+      return;
+    }
+
+    console.log('选择的文件:', file.name, file.type, file.size);
+
+    // 检查文件类型
+    const wordTypes = [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/msword', // .doc
+      'application/vnd.ms-word', // .doc
+    ];
+
+    const isWordFile = wordTypes.some(type => file.type === type) ||
+                      file.name.toLowerCase().endsWith('.docx') ||
+                      file.name.toLowerCase().endsWith('.doc');
+
+    if (!isWordFile) {
+      toast.error("请选择Word文件(.doc或.docx)");
+      return;
+    }
+
+    // 检查文件大小 (限制10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Word文件大小不能超过10MB");
+      return;
+    }
+
+    // 先显示文件名，表示上传成功
+    setUploadedFileName(file.name);
+    toast.success(`已选择文件: ${file.name}`);
+
+    console.log('准备调用processWordFile函数...');
+    await processWordFile(file);
+    console.log('processWordFile函数调用完成');
+  };
+
+  // 清除上传的文件
+  const clearUploadedFile = () => {
+    setUploadedFileName("");
+    if (pdfInputRef.current) {
+      pdfInputRef.current.value = "";
+    }
+    if (wordInputRef.current) {
+      wordInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* 顶部导航 */}
+        <div className="flex items-center gap-4 mb-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/")}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            返回主页
+          </Button>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-6 h-6 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">一键看懂学术论文</h1>
+            </div>
+            <div className="flex items-center gap-1 ml-8">
+              <div className="h-px bg-gradient-to-r from-blue-200 to-purple-200 w-6"></div>
+              <p className="text-xs text-gray-600 italic font-medium">
+                提示词来源：IT界大神
+                <span className="text-blue-600 font-bold">宝玉</span>
+                <span className="text-gray-400 mx-1">&</span>
+                <span className="text-purple-600 font-bold">李继刚</span>
+                <span className="text-gray-400 ml-1">联合设计</span>
+              </p>
+              <div className="h-px bg-gradient-to-r from-purple-200 to-blue-200 flex-1"></div>
+            </div>
+          </div>
+          <Badge variant="secondary" className="ml-auto">
+            消耗 {toolCost} 点数
+          </Badge>
+        </div>
+
+        {/* 主要内容区域 - 左右并排布局 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 左侧：论文输入区域 */}
+          <div className="lg:sticky lg:top-4 lg:h-fit">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-purple-600" />
+                  论文内容
+                  {uploadedFileName && (
+                    <Badge variant="secondary" className="ml-2">
+                      {uploadedFileName.toLowerCase().endsWith('.pdf') ? '来自PDF' : '来自Word'}: {uploadedFileName}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* PDF上传小按钮 */}
+                <div className="relative">
+                  <Textarea
+                    placeholder="请粘贴学术论文的摘要或全文内容，或点击右上角上传PDF/Word文件自动提取文本..."
+                    value={essayText}
+                    onChange={(e) => {
+                      setEssayText(e.target.value);
+                      if (uploadedFileName && !e.target.value.trim()) {
+                        clearUploadedFile();
+                      }
+                    }}
+                    className="min-h-[400px] resize-none leading-relaxed"
+                    style={{
+                      minHeight: '400px',
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: '1.6'
+                    }}
+                    disabled={isProcessingFile}
+                  />
+
+                  {/* 右上角时尚按钮组 */}
+                  <div className="absolute top-0 right-0 flex gap-1">
+                    {/* PDF上传按钮 */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-3 text-xs font-medium bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 text-red-700 border-red-200 shadow-sm transition-all duration-200 hover:shadow-md"
+                      onClick={() => pdfInputRef.current?.click()}
+                      disabled={isProcessingFile || isAnalyzing}
+                      title="上传PDF文件"
+                    >
+                      {isProcessingFile ? (
+                        <div className="flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span className="hidden sm:inline">PDF</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <FileDown className="w-4 h-4" />
+                          <span className="hidden sm:inline">PDF</span>
+                        </div>
+                      )}
+                    </Button>
+
+                    {/* Word上传按钮 */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-3 text-xs font-medium bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-700 border-blue-200 shadow-sm transition-all duration-200 hover:shadow-md"
+                      onClick={() => wordInputRef.current?.click()}
+                      disabled={isProcessingFile || isAnalyzing}
+                      title="上传Word文件"
+                    >
+                      {isProcessingFile ? (
+                        <div className="flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span className="hidden sm:inline">Word</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <FilePlus className="w-4 h-4" />
+                          <span className="hidden sm:inline">Word</span>
+                        </div>
+                      )}
+                    </Button>
+
+                    {uploadedFileName && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 border-gray-300 shadow-sm transition-all duration-200 hover:shadow-md"
+                        onClick={clearUploadedFile}
+                        disabled={isAnalyzing}
+                        title="清除文件内容"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* 隐藏的文件输入 */}
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handlePdfUpload}
+                    className="hidden"
+                    disabled={isProcessingFile || isAnalyzing}
+                  />
+                  <input
+                    ref={wordInputRef}
+                    type="file"
+                    accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-word"
+                    onChange={handleWordUpload}
+                    className="hidden"
+                    disabled={isProcessingFile || isAnalyzing}
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  {/* 用户点数信息 */}
+                  <div className="flex justify-start">
+                    <div className="text-sm text-gray-600">
+                      {currentUser ? (
+                        <span>当前点数: <span className="font-semibold text-blue-600">{userPoints}</span></span>
+                      ) : (
+                        <span className="text-red-600">请先登录使用此功能</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 按钮组 */}
+                  <div className="flex justify-center items-center gap-3">
+                    {/* 大白话解读按钮 */}
+                    <Button
+                      variant="outline"
+                      onClick={handleSimpleExplanation}
+                      disabled={!essayText.trim() || isAnalyzing || isProcessingFile || !currentUser || userPoints < Math.floor(toolCost * 0.6)}
+                      className="px-6 py-2 border-2 border-orange-300 text-orange-700 bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 hover:border-orange-400 hover:text-orange-800 transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+                    >
+                      {isSimpleExplaining ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          解读中...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Lightbulb className="w-4 h-4" />
+                          大白话解读
+                        </div>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={handleAnalyze}
+                      disabled={!essayText.trim() || isAnalyzing || isProcessingFile || !currentUser || userPoints < toolCost}
+                      className="px-8"
+                    >
+                      {isAnalyzing ? "分析中..." : "开始分析"}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 右侧：分析结果区域 */}
+          <div>
+            {analysisResult ? (
+              <div className="space-y-6">
+                <div className="text-center mb-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">论文核心价值分析</h2>
+                  <p className="text-gray-600 text-sm">深度提炼论文的思想结构与核心贡献</p>
+                </div>
+
+                {/* 四个核心要素 */}
+                <div className="grid grid-cols-1 gap-4 mb-6">
+                  {/* 根本问题 */}
+                  <Card className="relative group">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center justify-between gap-2 text-base">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-red-600" />
+                          根本问题
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopy(analysisResult.fundamentalProblem, "problem")}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                        >
+                          {copiedSection === "problem" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="text-gray-700 leading-relaxed text-sm">{analysisResult.fundamentalProblem}</p>
+                    </CardContent>
+                  </Card>
+
+                  {/* 切入视角 */}
+                  <Card className="relative group">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center justify-between gap-2 text-base">
+                        <div className="flex items-center gap-2">
+                          <Lightbulb className="w-4 h-4 text-yellow-600" />
+                          切入视角
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopy(analysisResult.perspective, "perspective")}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                        >
+                          {copiedSection === "perspective" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="text-gray-700 leading-relaxed text-sm">{analysisResult.perspective}</p>
+                    </CardContent>
+                  </Card>
+
+                  {/* 关键方法 */}
+                  <Card className="relative group">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center justify-between gap-2 text-base">
+                        <div className="flex items-center gap-2">
+                          <Search className="w-4 h-4 text-green-600" />
+                          关键方法
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopy(analysisResult.keyMethod, "method")}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                        >
+                          {copiedSection === "method" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="text-gray-700 leading-relaxed text-sm">{analysisResult.keyMethod}</p>
+                    </CardContent>
+                  </Card>
+
+                  {/* 核心发现 */}
+                  <Card className="relative group">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center justify-between gap-2 text-base">
+                        <div className="flex items-center gap-2">
+                          <Brain className="w-4 h-4 text-blue-600" />
+                          核心发现
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopy(analysisResult.coreFinding, "finding")}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                        >
+                          {copiedSection === "finding" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="text-gray-700 leading-relaxed text-sm">{analysisResult.coreFinding}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* 方法公式化 */}
+                <Card className="mb-6">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center justify-between gap-2 text-base">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">⚙️</span>
+                        方法公式化
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopy(analysisResult.methodFormula, "formula")}
+                        className="h-6 w-6 p-0"
+                      >
+                        {copiedSection === "formula" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-500">
+                      <p className="text-sm font-mono text-gray-800 text-center">
+                        {analysisResult.methodFormula}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 双重总结 */}
+                <div className="grid grid-cols-1 gap-4">
+                  {/* 核心价值总结 */}
+                  <Card className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center justify-between gap-2 text-base">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">💎</span>
+                          核心价值总结
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopy(analysisResult.coreValueSummary, "core")}
+                          className="h-6 w-6 p-0"
+                        >
+                          {copiedSection === "core" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="text-gray-800 leading-relaxed text-sm font-medium">
+                        {analysisResult.coreValueSummary}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* 大白话版总结 */}
+                  <Card className="bg-gradient-to-r from-green-50 to-emerald-50">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center justify-between gap-2 text-base">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🎯</span>
+                          大白话版总结
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopy(analysisResult.simpleSummary, "simple")}
+                          className="h-6 w-6 p-0"
+                        >
+                          {copiedSection === "simple" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <p className="text-gray-800 leading-relaxed text-sm font-medium">
+                        {analysisResult.simpleSummary}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              // 右侧占位符 - 在没有分析结果时显示
+              <Card className="h-full flex items-center justify-center min-h-[400px]">
+                <CardContent className="text-center">
+                  <Brain className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-600 mb-2">等待论文分析</h3>
+                  <p className="text-sm text-gray-500">
+                    在左侧输入论文内容或上传PDF文件，然后点击"开始分析"按钮
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

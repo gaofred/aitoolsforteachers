@@ -64,14 +64,16 @@ export async function POST(request: Request) {
     // 免费功能，无需检查点数
 
     // 调用火山引擎API进行识图 - 专注于图像识别，添加超时控制
-    const ocrResponse = await fetch(VOLCENGINE_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${VOLCENGINE_API_KEY}`
-      },
-      signal: AbortSignal.timeout(120000), // 120秒超时，生产环境需要更长等待时间
-      body: JSON.stringify({
+    let ocrResponse;
+    try {
+      ocrResponse = await fetch(VOLCENGINE_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${VOLCENGINE_API_KEY}`
+        },
+        signal: AbortSignal.timeout(120000), // 120秒超时，生产环境需要更长等待时间
+        body: JSON.stringify({
         model: "doubao-seed-1-6-flash-250828",
         messages: [
           {
@@ -93,9 +95,39 @@ export async function POST(request: Request) {
         temperature: 0.1,
         max_tokens: 4000  // 增加到4000以支持更长的文本识别
       })
-    });
+      });
+    } catch (networkError) {
+      console.error('❌ 网络请求失败:', networkError);
+      return NextResponse.json({
+        success: false,
+        error: "识图服务网络连接失败",
+        details: `网络请求失败: ${networkError instanceof Error ? networkError.message : 'Unknown error'}`
+      }, { status: 500 });
+    }
 
-    const ocrData = await ocrResponse.json();
+    let ocrData;
+    try {
+      const responseText = await ocrResponse.text();
+      console.log('🔍 火山引擎API原始响应前200字符:', responseText.substring(0, 200));
+
+      // 检查响应是否为JSON格式
+      if (!responseText.trim().startsWith('{') && !responseText.trim().startsWith('[')) {
+        console.error('❌ API返回的不是JSON格式:', responseText.substring(0, 500));
+        throw new Error(`API返回非JSON格式响应: ${responseText.substring(0, 100)}`);
+      }
+
+      ocrData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('❌ JSON解析失败:', parseError);
+      const responseText = await ocrResponse.text();
+      console.error('❌ 原始响应内容:', responseText.substring(0, 500));
+
+      return NextResponse.json({
+        success: false,
+        error: "识图服务响应格式错误",
+        details: `API响应解析失败: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+      }, { status: 500 });
+    }
 
     // 计算并记录网络延迟
     const endTime = Date.now();
@@ -155,7 +187,15 @@ export async function POST(request: Request) {
       });
 
       if (retryResponse.ok) {
-        const retryData = await retryResponse.json();
+        let retryData;
+        try {
+          const retryText = await retryResponse.text();
+          console.log('🔍 重试API原始响应前200字符:', retryText.substring(0, 200));
+          retryData = JSON.parse(retryText);
+        } catch (retryParseError) {
+          console.error('❌ 重试API JSON解析失败:', retryParseError);
+          throw new Error(`重试API响应解析失败: ${retryParseError instanceof Error ? retryParseError.message : 'Unknown error'}`);
+        }
         const retryText = retryData.choices[0].message.content;
         console.log('重新识别结果:', retryText.substring(0, 200));
 

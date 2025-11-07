@@ -159,7 +159,7 @@ const navigationData = [
       </svg>
     ),
     items: [
-      { id: "paper-understand", title: "一键看懂学术论文", cost: 0, disabled: true }
+      { id: "paper-understand", title: "一键看懂学术论文", active: true, cost: 6, route: "/tools/academic-essay/essay-reading" }
     ]
   },
   {
