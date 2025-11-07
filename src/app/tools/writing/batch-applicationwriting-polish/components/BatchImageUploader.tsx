@@ -782,17 +782,40 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       )}
 
       {/* 操作按钮 */}
-      <div className="flex justify-between">
+      <div className="flex justify-between items-center">
         <Button variant="outline" onClick={onPrev} disabled={isProcessing}>
           上一步
         </Button>
-        <Button
-          onClick={onNext}
-          disabled={!canProceed || isProcessing}
-          className="px-8"
-        >
-          下一步：学生作文内容确认
-        </Button>
+
+        <div className="flex gap-3">
+          {/* OCR识别按钮 */}
+          <Button
+            onClick={processAllImages}
+            disabled={uploadedImages.length === 0 || isProcessing || processingStats.total > 0}
+            variant="secondary"
+            className="bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-700 border-blue-200 font-medium px-6"
+          >
+            {isProcessing ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                OCR识别中...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                {processingStats.total > 0 ? `继续OCR (${processingStats.completed}/${processingStats.total})` : '开始OCR识别'}
+              </div>
+            )}
+          </Button>
+
+          <Button
+            onClick={onNext}
+            disabled={!canProceed || isProcessing}
+            className="px-8"
+          >
+            下一步：学生作文内容确认
+          </Button>
+        </div>
       </div>
     </div>
   );

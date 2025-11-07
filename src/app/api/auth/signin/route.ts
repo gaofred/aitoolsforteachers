@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       if (error.message.includes('Invalid login credentials')) {
         errorMessage = '邮箱或密码错误'
       } else if (error.message.includes('fetch failed')) {
-        errorMessage = '开发环境Supabase连接失败，请使用管理员账号：admin@example.com / admin123'
+        errorMessage = '无法连接到认证服务，请检查网络连接或稍后重试'
       } else {
         errorMessage = `登录失败: ${error.message}`
       }
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
           error: errorMessage,
           details: error,
           suggestion: error.message.includes('fetch failed')
-            ? "请在开发环境使用：admin@example.com / admin123"
+            ? "请检查网络连接，确保能够访问认证服务"
             : "请检查邮箱和密码是否正确，或尝试重置密码。"
         },
         { status: 400 }

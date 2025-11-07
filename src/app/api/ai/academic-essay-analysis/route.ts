@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pointsCost = 6; // 学术论文分析消耗6点数
+    const pointsCost = 1; // 整理理解论文消耗1点数
 
     // 检查用户点数是否足够
     const { data: userPoints, error: pointsError } = await supabase
@@ -73,14 +73,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 使用智谱清言API进行学术论文分析
-    const apiKey = process.env.CLOUDMIST_API_KEY;
-    const apiUrl = 'https://yunwu.ai/v1/chat/completions';
-    const model = 'glm-4.6';
+    // 使用智谱官方API进行学术论文分析
+    const apiKey = process.env.ZhipuOfficial;
+    const apiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+    const model = 'glm-4-flash';
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: '智谱清言API Key未配置' },
+        { error: '智谱官方API Key未配置' },
         { status: 500 }
       );
     }
@@ -173,14 +173,14 @@ export async function POST(request: NextRequest) {
 
     if (!aiResponse.ok) {
       const errorData = await aiResponse.text();
-      console.error('智谱清言API调用失败:', errorData);
+      console.error('智谱官方API调用失败:', errorData);
 
       // API调用失败，退还点数
       const refundSuccess = await refundPoints(
         supabase,
         user.id,
         pointsCost,
-        '学术论文分析失败 - 智谱清言API调用失败'
+        '学术论文分析失败 - 智谱官方API调用失败'
       );
 
       return NextResponse.json(
@@ -330,7 +330,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         tool_name: 'academic_essay_reading',
         tool_type: 'academic',
-        model_type: 'glm-4.6',
+        model_type: 'glm-4-flash',
         input_data: {
           text: text.substring(0, 1000), // 只保存前1000字符作为记录
           analysisType: 'academic_essay'
@@ -359,8 +359,8 @@ export async function POST(request: NextRequest) {
       metadata: {
         analysisType: 'academic_essay',
         originalLength: text.length,
-        model: 'glm-4.6',
-        provider: 'yunwu-zhipu'
+        model: 'glm-4-flash',
+        provider: 'zhipu-official'
       }
     });
 
