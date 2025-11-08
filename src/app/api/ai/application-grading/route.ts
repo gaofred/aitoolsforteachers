@@ -120,7 +120,12 @@ Word count : 80 - 130 words`;
 ##给你的要求
 1  指出学生作文中的所有语法、单词拼写错误，尽量指出10处或以上（（连字符错误，标题符号错误，首句第一个大写字母未大写不计入，语言表达不够地道，以上均不纳入考虑范围之内。）。注意，先不要打分，wait, step by step.
 2  指出学生作文里面存在的所有的逻辑上的不足（如连贯性等），尽量指出5处或以上逻辑不足.注意是高中生作文，所以要考虑高中生的认知水平和知识水平,你的评价不能过于严苛。注意，先不要打分，wait, step by step.
-3 现在，请精确计算学生的作文，一共有几句话。请再呈现并逐句逐句输出学生原文句子，然后给出你的改动升级的句子版本，注意，呈现的都是完整的句子。你的输出格式必须严格按照以下模板，逐句分析：
+3 **重要判断** - 现在判断学生作文是否**总体偏离题目要求**：
+   - 如果**完全偏离题目**（与用户输入的"作文题目"完全不符），直接跳到步骤4，跳过逐句修改！
+   - 如果**基本符合题目要求**，继续执行逐句分析修改。
+
+4 **逐句分析与修改升级**（仅在第3步判断为基本符合题目要求时执行）：
+   请精确计算学生的作文，一共有几句话。请再呈现并逐句逐句输出学生原文句子，然后给出你的改动升级的句子版本，注意，呈现的都是完整的句子。你的输出格式必须严格按照以下模板，逐句分析：
 
 **原文**: "Having learned that you have a deep insight into poem, I am writing to ask for your help."
 **修改**: "Knowing your deep understanding of American poetry, I'm reaching out to seek your guidance."
@@ -133,8 +138,15 @@ Word count : 80 - 130 words`;
 **理由**: 修正"began"错误；"including... which are"结构混乱；使用冒号列举更清晰；动名词结构统一，表达更地道。
 
 每个句子分析都必须包含：原文、修改版本、详细理由。理由要具体指出语法错误、词汇选择、结构优化等问题。
-4 附上学生的##学生姓名， 按## 题目要求 和## 评分标准| 你的提供范文的标准，生成高分范文，要充分参考及使用你上面所给的升级的句子版本。注意，升级版的作文，词数至少130个英语单词。
-9 以AI专家的口吻，写个作文评价，明确的指出学生的优缺点，分点陈述。以"你"称呼"，汉字表达，200个汉字以内。`;
+
+5 附上学生的##学生姓名， 按## 题目要求 和## 评分标准| 你的提供范文的标准，生成高分范文：
+   **关键要求**：
+   - 如果学生**偏离题目**：重新生成一篇完全符合题目要求的13-15分标准高分范文
+   - 如果学生**基本符合题目**：在步骤4逐句修改升级的基础上生成高分范文，**必须尽可能使用步骤4中改进升级的句子版本**
+   - 升级版的作文，词数至少130个英语单词
+   - **重要：高分范文必须完全围绕用户提供的话题，不得偏离题目要求！**
+
+6 以AI专家的口吻，写个作文评价，明确的指出学生的优缺点，分点陈述。以"你"称呼"，汉字表达，200个汉字以内。`;
       } else if (type === 'revision') {
         return basePrompt + `
 
@@ -182,16 +194,11 @@ Word count : 80 - 130 words`;
 2.注意以下几点：**特别提醒：针对中国高中生，评分标准应该相对宽容**。注意，单词错误多（比如多于10处才算多），语法错误多影响表达（但不影响理解的前提下可宽容），句式都是简单句（句式过于简单的），或字数不足（如少于80个单词），满足以上条件之一的，9分以下打分。##应用文词数 中的"英语单词数"少于60的，视为字数严重不足，按最高第一档（1-3分）打分。注意，先不要打分，wait, step by step.
 3 现在，请给学生打分！按照我上面给你的打分标准，从答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数（1-15分）。**注意：针对中国高中生，请适当宽容1分**。注意：
    - 必须根据学生作文的具体表现来打分，不要随意给分
-   - 语言表达方向的打分要充分参照我给你的#学生范文（13分版本）
+   - 语言表达方向要严格按照## 评分标准| 你的提供范文的标准进行评分
    - 英语单词数少于80的，要扣3分
    - 必须输出具体的分数值
    - 最后的分数输出格式必须是：##${studentName}  打分：XX分（XX必须是具体数字）
-4 按照## 评分标准| 你的提供范文的标准生成高分范文。
-#学生范文（13分版本）
-Should Music Classes Be Offered to Senior 3 Students?
-As Senior 3 students approach the critical period of their final exams, the question arises whether music classes should still be offered. I believe that incorporating music into the senior high school curriculum is beneficial for students.
-Firstly, music education offers a valuable mental break from the intense pressure of academic studies. It helps reduce stress and anxiety, fostering emotional well-being. Moreover, music stimulates creativity and enhances cognitive abilities, such as memory and concentration, which are vital during exam preparation. In addition, exposure to music can encourage teamwork and improve social skills, as students often engage in group performances or music-related activities.
-In conclusion, offering music classes would not only contribute to the holistic development of Senior 3 students but also provide them with essential emotional and intellectual benefits.`;
+4 按照## 评分标准| 你的提供范文的标准，严格基于## 题目要求生成高分范文。**重要：高分范文必须完全围绕用户提供的话题，不得偏离题目要求！**`;
       } else {
         // both - 使用打分提示词
         return basePrompt + `
@@ -237,9 +244,15 @@ In conclusion, offering music classes would not only contribute to the holistic 
 6.信息未能传达给读者。
 
 #步骤
-1 换行，指出学生作文是否偏离题意（与用户输入的"作文题目"相比对，是否符合"作文题目"的要点要求？）如果完全偏离题意，6分以下打分。##应用文词数 中的"英语单词数"少于60的，直接3分以下打分。直接跳到步骤
+1 换行，指出学生作文是否偏离题意（与用户输入的"作文题目"相比对，是否符合"作文题目"的要点要求？）如果完全偏离题意，6分以下打分。##应用文词数 中的"英语单词数"少于60的，直接3分以下打分。**如果完全偏离题目，直接跳到步骤5，跳过逐句修改！**
 2.注意以下几点：注意，单词错误多（比如多于5处），语法错误多影响表达，句式都是简单句（句式过于简单的），或字数不足（如少于80个单词），满足以上条件之一的，9分以下打分。##应用文词数 中的"英语单词数"少于60的，视为字数严重不足，按最高第一档（1-3分）打分。注意，先不要打分，wait, step by step.
-3 现在，请精确计算学生的作文，一共有几句话。请再呈现并逐句逐句输出学生原文句子，然后给出你的改动升级的句子版本。你的输出格式必须严格按照以下模板，逐句分析：
+
+3 **重要判断** - 现在判断学生作文是否**总体偏离题目要求**：
+   - 如果**完全偏离题目**（与用户输入的"作文题目"完全不符），直接跳到步骤5，跳过逐句修改！
+   - 如果**基本符合题目要求**，继续执行步骤4逐句分析修改。
+
+4 **逐句分析与修改升级**（仅在第3步判断为基本符合题目要求时执行）：
+   请精确计算学生的作文，一共有几句话。请再呈现并逐句逐句输出学生原文句子，然后给出你的改动升级的句子版本。你的输出格式必须严格按照以下模板，逐句分析：
 
 **原文**: "Having learned that you have a deep insight into poem, I am writing to ask for your help."
 **修改**: "Knowing your deep understanding of American poetry, I'm reaching out to seek your guidance."
@@ -253,19 +266,21 @@ In conclusion, offering music classes would not only contribute to the holistic 
 
 每个句子分析都必须包含：原文、修改版本、详细理由。理由要具体指出语法错误、词汇选择、结构优化等问题。
 
-4 现在，请给学生打分要按照我上面给你的打分标准，从  答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数，注意，语言表达方向的打分要充分参照我给你的#学生范文（13分版本）##应用文词数中的"英语单词数"少于80的，要扣3分。**重要提醒：针对中国高中生，请适当宽容1分，不要因为一些小的语法或用词错误就过度扣分**。最后，输出姓名，输出你的修改后的分数。最后的分数输出格式为：##学生姓名+  打分：XX分。
-5 按照## 评分标准| 你的提供范文的标准生成高分范文。
-6 **特别说明：词汇处理原则** - 对于学生使用的高级词汇，只要语法正确，都应该予以保留和鼓励，不要为了追求"看起来更自然"而将高级词汇改为简单表达。中国式英语考试更注重词汇的丰富性和高级性。
-7 **亮点词汇和句式表扬** - 请明确列出学生作文中的亮点词汇和句式表达，并给予表扬。格式如下：
+5 现在，请给学生打分要按照我上面给你的打分标准，从  答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数，注意要严格按照## 评分标准| 你的提供范文的标准进行评分##应用文词数中的"英语单词数"少于80的，要扣3分。**重要提醒：针对中国高中生，请适当宽容1分，不要因为一些小的语法或用词错误就过度扣分**。最后，输出姓名，输出你的修改后的分数。最后的分数输出格式为：##学生姓名+  打分：XX分。
+
+6 按照## 评分标准| 你的提供范文的标准，严格基于## 题目要求生成高分范文：
+   **关键要求**：
+   - 如果学生**偏离题目**：重新生成一篇完全符合题目要求的13-15分标准高分范文
+   - 如果学生**基本符合题目**：在步骤4逐句修改升级的基础上生成高分范文，**必须尽可能使用步骤4中改进升级的句子版本**
+   - **重要：高分范文必须完全围绕用户提供的话题，不得偏离题目要求！**
+
+7 **特别说明：词汇处理原则** - 对于学生使用的高级词汇，只要语法正确，都应该予以保留和鼓励，不要为了追求"看起来更自然"而将高级词汇改为简单表达。中国式英语考试更注重词汇的丰富性和高级性。
+
+8 **亮点词汇和句式表扬** - 请明确列出学生作文中的亮点词汇和句式表达，并给予表扬。格式如下：
 ## 亮点词汇与句式
 **值得表扬的词汇**：[列出具体的高级词汇]
 **精彩句式**：[列出学生使用的优秀句式结构]
-**表扬理由**：[说明为什么这些词汇和句式值得肯定]
-#学生范文（13分版本）
-Should Music Classes Be Offered to Senior 3 Students?
-As Senior 3 students approach the critical period of their final exams, the question arises whether music classes should still be offered. I believe that incorporating music into the senior high school curriculum is beneficial for students.
-Firstly, music education offers a valuable mental break from the intense pressure of academic studies. It helps reduce stress and anxiety, fostering emotional well-being. Moreover, music stimulates creativity and enhances cognitive abilities, such as memory and concentration, which are vital during exam preparation. In addition, exposure to music can encourage teamwork and improve social skills, as students often engage in group performances or music-related activities.
-In conclusion, offering music classes would not only contribute to the holistic development of Senior 3 students but also provide them with essential emotional and intellectual benefits.`;
+**表扬理由**：[说明为什么这些词汇和句式值得肯定]`;
       }
     };
 

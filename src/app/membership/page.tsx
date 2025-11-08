@@ -399,6 +399,47 @@ export default function MembershipPage() {
           </CardContent>
         </Card>
 
+        {/* 体验包购买入口 */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl">🎯</span>
+              </div>
+              <div>
+                <h3 className="text-lg sm:text-xl font-bold text-green-900">200点数体验包</h3>
+                <p className="text-sm sm:text-base text-green-700">适合初次体验，点数充足</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-2xl sm:text-3xl font-bold text-green-900">¥10</div>
+                <div className="text-xs sm:text-sm text-green-600">一次性购买</div>
+              </div>
+              <Button
+                onClick={() => {
+                  window.open('https://appsryewio94072.h5.xiaoeknow.com/p/course/ecourse/course_35BqDrqaDJLvxwujCh7BP0p5QJz', '_blank');
+                  toast.success('已打开体验包购买页面，请在新页面完成购买');
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium shadow-lg hover:shadow-xl transition-all duration-200 min-w-[100px] sm:min-w-[120px]"
+              >
+                立即购买
+              </Button>
+            </div>
+          </div>
+        </div>
+
+      {/* 兑换码提示 */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 sm:mb-8">
+          <div className="flex items-center justify-center">
+            <span className="text-blue-800 text-center">
+              <p className="text-base sm:text-lg font-medium">
+                🎁 购买后，记得找网站作者：<span className="font-bold">Fred老师</span>（微信号 <span className="font-mono bg-blue-100 px-2 py-1 rounded">fredgaouom</span>）领取会员兑换码
+              </p>
+            </span>
+          </div>
+        </div>
+
         {/* 会员套餐展示 */}
         <div className="text-center mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">选择您的会员套餐</h2>

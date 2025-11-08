@@ -559,9 +559,9 @@ const ApplicationTopicInput: React.FC<ApplicationTopicInputProps> = ({
                   <span className="text-amber-600 text-xs font-bold">!</span>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-amber-800">特别提醒</p>
-                  <p className="text-xs text-amber-700 mt-1">
-                    请手动删除应用文题目中的"词数80左右"的部分（因为高考中，不可能只写80词）
+                  <p className="text-base font-bold text-amber-800">特别提醒</p>
+                  <p className="text-sm text-amber-700 mt-2 leading-relaxed">
+                    请手动删除应用文题目中的"词数80左右"的部分，会干扰AI的批改（况且高考中，敢让学生只写80个词么...）
                   </p>
                 </div>
               </div>

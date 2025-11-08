@@ -44,7 +44,7 @@ const navigationData = [
       </svg>
     ),
     items: [
-        { id: "text-generator", title: "阅读文本生成神器", cost: 4, route: "/tools/reading/reading-generator" },
+        { id: "text-generator", title: "所学词汇编排成阅读理解题", cost: 4, route: "/tools/reading/reading-generator" },
       { id: "textbook-passage-analysis", title: "课文文章分析", cost: 5, route: "/tools/reading/textbook_passage_analysis" },
       { id: "cd-adaptation", title: "外刊文章改编为CD篇", cost: 5, route: "/tools/reading/cd-adaptation" },
       { id: "cd-creator", title: "CD篇命题", active: true, cost: 4, route: "/tools/reading/cd-creator" },

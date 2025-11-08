@@ -534,7 +534,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     setIsProcessing(false);
   };
 
-  const canProceed = uploadedImages.length > 0 && uploadedImages.every(img => img.status === 'completed');
+  const canProceed = uploadedImages.length > 0 && uploadedImages.some(img => img.status !== 'pending'); // 只要开始OCR识别了就可以进行下一步
   const hasProcessedImages = uploadedImages.some(img => img.status === 'completed');
   const canStartOCR = uploadedImages.length > 0 && uploadedImages.every(img => img.status === 'pending');
   const hasCompressingImages = uploadedImages.some(img => img.status === 'compressing');
@@ -566,6 +566,43 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* 格式要求说明 */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <h3 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+              <span className="text-lg">📝</span>
+              作业图片格式要求
+            </h3>
+            <div className="space-y-2 text-sm text-amber-700">
+              <div className="flex items-start gap-2">
+                <span className="text-amber-600 mt-1">•</span>
+                <div>
+                  <strong>纸张大小：</strong>尽量使用A4纸大小的图片进行拍照或扫描，无固定模板要求
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-amber-600 mt-1">•</span>
+                <div>
+                  <strong>图片内容：</strong>请确保图片中尽量只包含应用文文字内容，避免与应用文无关的信息
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-amber-600 mt-1">•</span>
+                <div>
+                  <strong>学生姓名格式：</strong>请让学生在作文上方或旁边明确标注
+                  <span className="bg-white px-2 py-1 rounded border border-amber-300 font-mono text-amber-800 ml-1">
+                    姓名：XX
+                  </span>
+                  （例如：姓名：李白）
+                </div>
+              </div>
+              <div className="mt-3 p-2 bg-amber-100 rounded border border-amber-300">
+                <p className="text-xs font-medium text-amber-800">
+                  💡 提示：清晰的格式有助于提高OCR识别准确率，确保学生姓名能够被正确提取。不太规范的图片，有可能识别很慢，甚至报错。
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* 拖拽上传区域 */}
           <div
             className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"

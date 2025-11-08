@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Download, Eye, EyeOff, FileText, Star, FileDown, BrainCircuit, TrendingUp, AlertCircle, Coins } from "lucide-react";
 import * as XLSX from 'xlsx';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, PageBreak, TabStopType, TabStopPosition, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
 import type { ApplicationBatchTask } from "../types";
 
@@ -134,7 +134,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             })
           ],
           heading: HeadingLevel.HEADING_1,
-          spacing: { before: 400, after: 200 }
+          spacing: { before: 0, after: 0 }
         }),
 
         new Paragraph({
@@ -161,7 +161,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             })
           ],
           heading: HeadingLevel.HEADING_1,
-          spacing: { before: 400, after: 200 }
+          spacing: { before: 0, after: 0 }
         })
       ];
 
@@ -182,7 +182,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                   })
                 ],
                 heading: paragraph.includes('###') ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_1,
-                spacing: { before: 300, after: 200 }
+                spacing: { before: 20, after: 20 }
               })
             );
           } else {
@@ -214,7 +214,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             })
           ],
           alignment: AlignmentType.CENTER,
-          spacing: { before: 600 }
+          spacing: { before: 0 }
         })
       );
 
@@ -466,7 +466,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                   })
                 ],
                 heading: HeadingLevel.HEADING_1,
-                spacing: { before: 400, after: 200 }
+                spacing: { before: 20, after: 20 }
               }),
 
               // 添加原文段落
@@ -478,7 +478,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                       size: 22
                     })
                   ],
-                  spacing: { after: 180 }
+                  spacing: { after: 0 }
                 })
               ),
 
@@ -493,7 +493,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                   })
                 ],
                 heading: HeadingLevel.HEADING_1,
-                spacing: { before: 400, after: 200 }
+                spacing: { before: 20, after: 20 }
               }),
 
               // 添加批改意见段落
@@ -505,7 +505,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                       size: 22
                     })
                   ],
-                  spacing: { after: 180 }
+                  spacing: { after: 0 }
                 })
               ),
 
@@ -521,7 +521,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     })
                   ],
                   heading: HeadingLevel.HEADING_1,
-                  spacing: { before: 400, after: 200 }
+                  spacing: { before: 20, after: 20 }
                 }),
 
                 // 添加范文段落
@@ -533,7 +533,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                         size: 22
                       })
                     ],
-                    spacing: { after: 180 }
+                    spacing: { after: 0 }
                   })
                 )
               ] : [])
@@ -649,7 +649,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             })
           ],
           heading: HeadingLevel.HEADING_1,
-          spacing: { before: 400, after: 200 }
+          spacing: { before: 0, after: 0 }
         })
       );
 
@@ -712,7 +712,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             })
           ],
           heading: HeadingLevel.HEADING_2,
-          spacing: { before: 400, after: 200 }
+          spacing: { before: 0, after: 0 }
         })
       );
 
@@ -746,7 +746,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
               })
             ],
             heading: HeadingLevel.HEADING_2,
-            spacing: { before: 400, after: 200 }
+            spacing: { before: 0, after: 0 }
           })
         );
 
@@ -796,6 +796,296 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
     } catch (error) {
       console.error('Word文档导出失败:', error);
       alert('Word文档导出失败，请稍后重试');
+    }
+  };
+
+  // 导出学生查阅Word文件（保留完整批改内容，仅移除原文）
+  const exportStudentReviewFiles = async () => {
+    if (completedAssignments.length === 0) {
+      alert('没有可导出的数据');
+      return;
+    }
+
+    console.log('🎓 开始生成学生查阅Word文档...');
+
+    try {
+      // 为每个学生生成单独的Word文件
+      const promises = completedAssignments.map(async (assignment, index) => {
+        const studentName = assignment.student.name;
+        const content = assignment.ocrResult.editedText || assignment.ocrResult.content || '';
+        const feedback = assignment.gradingResult?.feedback || '';
+        const improvedVersion = assignment.gradingResult?.improvedVersion || '';
+        const score = assignment.gradingResult?.score || 0;
+        const gradedTime = assignment.gradingResult?.gradedAt ? new Date(assignment.gradingResult.gradedAt).toLocaleString() : '';
+
+        try {
+          // 创建Word文档，设置特殊格式要求
+          const doc = new Document({
+            sections: [{
+              properties: {
+                // 1cm边距 (567 twips per cm)
+                page: {
+                  margin: {
+                    top: 567,    // 1cm
+                    right: 567,  // 1cm
+                    bottom: 567, // 1cm
+                    left: 567    // 1cm
+                  }
+                }
+              },
+              children: [
+                // 标题
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "应用文批改报告",
+                      bold: true,
+                      size: 20, // 10pt字体
+                      color: "2E74B5"
+                    })
+                  ],
+                  heading: HeadingLevel.HEADING_1,
+                  alignment: AlignmentType.CENTER,
+                  spacing: {
+                    before: 20,        // 段前1磅
+                    after: 20,         // 段后1磅
+                    line: 200,         // 固定值10磅行距
+                    lineRule: 'exact'  // 设置为固定值行距
+                  }
+                }),
+
+                // 学生信息
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `学生姓名：${studentName}`,
+                      size: 18, // 9pt字体
+                      bold: true
+                    })
+                  ],
+                  spacing: {
+                    before: 20,        // 段前1磅
+                    after: 20,         // 段后1磅
+                    line: 200,         // 固定值10磅行距
+                    lineRule: 'exact'  // 设置为固定值行距
+                  }
+                }),
+
+                // 得分信息
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `得分：${score}`,
+                      size: 18, // 9pt字体
+                      bold: true
+                    })
+                  ],
+                  spacing: {
+                    before: 20,        // 段前1磅
+                    after: 20,         // 段后1磅
+                    line: 200,         // 固定值10磅行距
+                    lineRule: 'exact'  // 设置为固定值行距
+                  }
+                }),
+
+                // 批改时间
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `批改时间：${gradedTime}`,
+                      size: 18, // 9pt字体
+                      bold: true
+                    })
+                  ],
+                  spacing: {
+                    before: 20,        // 段前1磅
+                    after: 20,         // 段后1磅
+                    line: 200,         // 固定值10磅行距
+                    lineRule: 'exact'  // 设置为固定值行距
+                  }
+                }),
+
+                // 批改意见
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "批改意见",
+                      bold: true,
+                      size: 18, // 9pt字体
+                      color: "2E74B5"
+                    })
+                  ],
+                  heading: HeadingLevel.HEADING_2,
+                  spacing: {
+                    before: 20,        // 段前1磅
+                    after: 20,         // 段后1磅
+                    line: 200,         // 固定值10磅行距
+                    lineRule: 'exact'  // 设置为固定值行距
+                  }
+                }),
+
+                // 添加批改意见段落
+                ...(() => {
+                  const paragraphs: any[] = [];
+                  if (feedback) {
+                    const feedbackLines = feedback.split('\n').filter(line => line.trim());
+                    feedbackLines.forEach(line => {
+                      paragraphs.push(
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: line.trim(),
+                              size: 18 // 9pt字体
+                            })
+                          ],
+                          spacing: {
+                            before: 0,
+                            after: 120,
+                            line: 200,        // 10磅行距
+                            lineRule: 'exact'  // 固定值行距
+                          }
+                        })
+                      );
+                    });
+                  } else {
+                    paragraphs.push(
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: "暂无批改意见",
+                            size: 18 // 9pt字体
+                          })
+                        ],
+                        spacing: {
+                          before: 0,
+                          after: 120,
+                          line: 200,        // 10磅行距
+                            lineRule: 'exact'  // 固定值行距
+                        }
+                      })
+                    );
+                  }
+                  return paragraphs;
+                })(),
+
+                // 高分范文（如果有）
+                ...(improvedVersion ? [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: "高分范文",
+                        bold: true,
+                        size: 18, // 9pt字体
+                        color: "2E74B5"
+                      })
+                    ],
+                    heading: HeadingLevel.HEADING_2,
+                    spacing: {
+                      before: 300,
+                      after: 150,
+                      line: 200  // 10磅行距
+                    }
+                  }),
+
+                  // 添加范文段落
+                  ...(() => {
+                    const paragraphs: any[] = [];
+
+                    // 清理范文文本
+                    let cleanText = improvedVersion
+                      .replace(/\*\*(.*?)\*\*/g, '$1') // 移除加粗标记
+                      .replace(/\*(.*?)\*/g, '$1')     // 移除斜体标记
+                      .replace(/`(.*?)`/g, '$1')       // 移除代码标记
+                      .replace(/#{1,6}\s+/g, '')        // 移除标题标记
+                      .replace(/\n{3,}/g, '\n\n')       // 合并多余空行
+                      .trim();
+
+                    if (cleanText) {
+                      // 按换行符分割段落
+                      const textParagraphs = cleanText.split('\n').filter(p => p.trim());
+                      textParagraphs.forEach(paragraph => {
+                        paragraphs.push(
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: paragraph.trim(),
+                                size: 18 // 9pt字体
+                              })
+                            ],
+                            spacing: {
+                              before: 0,
+                              after: 120,
+                              line: 200,        // 10磅行距
+                            lineRule: 'exact'  // 固定值行距
+                            }
+                          })
+                        );
+                      });
+                    }
+
+                    return paragraphs;
+                  })()
+                ] : []),
+
+                // 页脚信息
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `生成时间：${new Date().toLocaleDateString('zh-CN')} | AI生成批改报告，仅供参考学习`,
+                      size: 18, // 9pt字体
+                      italics: true,
+                      color: "666666"
+                    })
+                  ],
+                  alignment: AlignmentType.CENTER,
+                  spacing: {
+                    before: 400,
+                    after: 0,
+                    line: 200  // 10磅行距
+                  }
+                })
+              ]
+            }]
+          });
+
+          // 生成buffer
+          const buffer = await Packer.toBuffer(doc);
+          const blob = new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          });
+          const url = URL.createObjectURL(blob);
+
+          // 下载文件
+          const fileName = `${studentName}_批改报告_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.docx`;
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+
+          console.log(`✅ 已生成学生查阅文件: ${fileName}`);
+          return fileName;
+        } catch (error) {
+          console.error(`❌ 生成${studentName}的学生查阅文件失败:`, error);
+          return null;
+        }
+      });
+
+      // 等待所有文件生成完成
+      const fileNames = await Promise.all(promises);
+      const successfulFiles = fileNames.filter(name => name !== null);
+
+      if (successfulFiles.length > 0) {
+        alert(`已成功导出${successfulFiles.length}个学生的批改报告文件`);
+        console.log('🎓 所有学生查阅文件导出完成');
+      } else {
+        alert('没有找到可导出的批改数据');
+      }
+    } catch (error) {
+      console.error('❌ 批量导出学生查阅文件失败:', error);
+      alert('导出失败，请稍后重试');
     }
   };
 
@@ -876,6 +1166,10 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
         <Button onClick={exportToWordFiles} variant="outline" className="flex items-center gap-2">
           <FileText className="w-4 h-4" />
           导出Word（一个学生一个word文件）
+        </Button>
+        <Button onClick={exportStudentReviewFiles} variant="outline" className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white border-green-600">
+          <FileText className="w-4 h-4" />
+          学生查阅（完整批改）
         </Button>
       </div>
 
