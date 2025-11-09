@@ -424,14 +424,14 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     let completedCount = 0;
 
     // 分批并行处理图片，优化并发数平衡性能和稳定性
-    const batchSize = 26; // 超级并发数：26张图片可以一次性并行处理，极限性能优化
+    const batchSize = 3; // 优化并发数：3张图片并行处理，避免API限流和网络拥堵
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {
       batches.push(uploadedImages.slice(i, i + batchSize));
     }
 
-    console.log(`🚀 开始高性能并行处理 ${uploadedImages.length} 张图片，并发数: ${batchSize} 张/批次`);
+    console.log(`🚀 开始批量处理 ${uploadedImages.length} 张图片，并发数: ${batchSize} 张/批次（优化版）`);
 
     // 性能监控
     const startTime = Date.now();
@@ -442,9 +442,9 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
       if (batch.length === uploadedImages.length) {
-        console.log(`⚡ 超级并行模式：一次性处理全部 ${batch.length} 张图片！`);
+        console.log(`📦 处理批次 1/1，包含 ${batch.length} 张图片`);
       } else {
-        console.log(`处理批次 ${batchIndex + 1}/${batches.length}，包含 ${batch.length} 张图片`);
+        console.log(`📦 处理批次 ${batchIndex + 1}/${batches.length}，包含 ${batch.length} 张图片`);
       }
 
       const batchPromises = batch.map(async (image, batchLocalIndex) => {
