@@ -729,9 +729,45 @@ export default function Home() {
     try {
       const texts: string[] = []
       for (const img of images) {
-        const res = await fetch('/api/ai/image-recognition',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:img})})
+        // 使用异步OCR API避免超时问题
+        const res = await fetch('/api/ai/image-recognition-async',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({imageBase64:img, async: true})
+        })
         const d = await res.json()
-        if (d.success && d.result) texts.push(d.result)
+
+        if (d.success && d.taskId) {
+          // 轮询异步任务结果
+          const pollResult = async (taskId: string, maxAttempts = 60): Promise<string | null> => {
+            for (let i = 0; i < maxAttempts; i++) {
+              await new Promise(resolve => setTimeout(resolve, 5000)) // 等待5秒
+
+              const statusRes = await fetch(`/api/ai/image-recognition-async/${taskId}`)
+              const statusData = await statusRes.json()
+
+              if (statusData.status === 'completed' && statusData.result) {
+                return statusData.result.text
+              } else if (statusData.status === 'failed') {
+                throw new Error(statusData.error || 'OCR识别失败')
+              }
+
+              // 更新进度
+              if (i % 6 === 0) { // 每30秒提醒一次
+                console.log(`OCR识别进行中... 已等待${Math.floor((i+1)*5/60)}分钟`)
+              }
+            }
+            throw new Error('OCR识别超时，请重试')
+          }
+
+          const result = await pollResult(d.taskId)
+          if (result) texts.push(result)
+        } else if (d.success && d.result) {
+          // 同步模式结果（fallback）
+          texts.push(d.result)
+        } else {
+          throw new Error(d.error || 'OCR识别失败')
+        }
       }
       if(texts.length){
         setText(prev => prev + (prev ? '\n\n' : '') + texts.join('\n\n'));
