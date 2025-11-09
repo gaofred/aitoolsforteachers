@@ -40,16 +40,16 @@ export class CloudMistService {
    * 根据模型名称选择合适的API Key
    */
   private static getApiKey(model: string): string | null {
+    // 火山引擎豆包模型使用火山引擎API Key
+    if (model.includes('doubao') || model.includes('volcengine') || model.includes('volc')) {
+      return process.env.VOLCENGINE_API_KEY || null;
+    }
+
     // 谷歌模型使用专用API Key
     if (model.includes('google') || model.includes('gemini') || model.includes('bard')) {
       return process.env.CLOUDMIST_GOOGLE_API_KEY || null;
     }
-    
-    // 火山引擎模型使用火山引擎API Key
-    if (model.includes('doubao') || model.includes('volcengine') || model.includes('volc')) {
-      return process.env.VOLCENGINE_API_KEY || null;
-    }
-    
+
     // 其他模型使用通用API Key
     return process.env.CLOUDMIST_API_KEY || null;
   }
@@ -91,22 +91,23 @@ export class CloudMistService {
    * 简化的文本生成方法
    */
   static async generateText(
-    prompt: string, 
+    prompt: string,
     model: string = 'gpt-3.5-turbo',
-    systemPrompt?: string
+    systemPrompt?: string,
+    maxTokens: number = 1000
   ): Promise<string> {
     const messages: CloudMistMessage[] = [];
-    
+
     if (systemPrompt) {
       messages.push({ role: 'system', content: systemPrompt });
     }
-    
+
     messages.push({ role: 'user', content: prompt });
 
     const response = await this.chatCompletions({
       model,
       messages,
-      max_tokens: 1000,
+      max_tokens: maxTokens,
       temperature: 0.7
     });
 

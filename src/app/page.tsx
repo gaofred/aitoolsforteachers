@@ -146,6 +146,7 @@ const navigationData = [
       </svg>
     ),
     items: [
+      { id: "music-generator", title: "词汇编排成歌曲，并生成单词填空题", active: true, cost: 12, route: "/tools/audio/music-generator" },
       { id: "listening-generator", title: "英语听力生成器", cost: 8, disabled: true }
     ]
   },
@@ -1708,6 +1709,12 @@ The future of AI depends on our ability to balance innovation with responsibilit
                           hover: "from-red-600 to-pink-700",
                           overlay: "from-red-500/10 to-pink-500/10",
                           text: "text-red-600"
+                        },
+                        media: {
+                          bg: "from-violet-500 to-purple-600",
+                          hover: "from-violet-600 to-purple-700",
+                          overlay: "from-violet-500/10 to-purple-500/10",
+                          text: "text-violet-600"
                         }
                       };
                       return themes[categoryId as keyof typeof themes] || themes.reading;
