@@ -178,13 +178,15 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           reader.readAsDataURL(image.file);
         });
 
-        const response = await fetch('/api/ai/image-recognition', {
+        // 使用异步OCR API避免超时问题
+        const response = await fetch('/api/ai/image-recognition-async', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            imageBase64: base64
+            imageBase64: base64,
+            async: true // 启用异步模式
           })
         });
 
@@ -192,7 +194,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         let data;
         try {
           const responseText = await response.text();
-          console.log('🔍 OCR API原始响应前200字符:', responseText.substring(0, 200));
+          console.log('🔍 异步OCR API响应前200字符:', responseText.substring(0, 200));
 
           // 检查响应是否为JSON格式
           const trimmedText = responseText.trim();
@@ -207,17 +209,43 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           throw new Error(`API响应解析失败: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
         }
 
-        console.log('🔥🔥🔥 OCR API响应数据检查：', {
+        console.log('🔥🔥🔥 异步OCR API响应数据检查：', {
           success: data.success,
+          taskId: data.taskId,
           result: data.result ? data.result.substring(0, 100) + '...' : 'null',
-          englishOnly: data.englishOnly ? data.englishOnly.substring(0, 100) + '...' : 'null',
           imageId: image.id,
-          provider: data.provider,
-          fallback: data.fallback
+          syncMode: data.syncMode
         });
 
-        if (data.success && data.result) {
-          // 解析OCR结果，使用完整原文解析姓名，但从英文内容中提取作文
+        // 处理异步响应
+        if (data.success && data.taskId) {
+          // 轮询异步任务结果
+          const pollResult = async (taskId: string, maxAttempts = 60): Promise<OCRResult | null> => {
+            for (let i = 0; i < maxAttempts; i++) {
+              await new Promise(resolve => setTimeout(resolve, 5000)) // 等待5秒
+
+              const statusRes = await fetch(`/api/ai/image-recognition-async/${taskId}`)
+              const statusData = await statusRes.json()
+
+              if (statusData.status === 'completed' && statusData.result) {
+                console.log(`✅ 异步OCR识别完成 (${image.id.substring(0, 8)}...)`)
+                // 解析OCR结果
+                return parseOCRResult(statusData.result.text, statusData.result.englishOnly || statusData.result.text, image.id);
+              } else if (statusData.status === 'failed') {
+                throw new Error(statusData.error || 'OCR识别失败')
+              }
+
+              // 更新进度
+              if (i % 6 === 0) { // 每30秒提醒一次
+                console.log(`🔄 异步OCR识别进行中 (${image.id.substring(0, 8)}...) - 已等待${Math.floor((i+1)*5/60)}分钟`)
+              }
+            }
+            throw new Error('OCR识别超时，请重试')
+          }
+
+          return await pollResult(data.taskId)
+        } else if (data.success && data.result) {
+          // 同步模式结果（fallback）
           const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id);
           return parsedResult;
         } else {
