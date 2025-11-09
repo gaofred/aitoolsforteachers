@@ -4,5 +4,13 @@
       "path": "/api/cron/daily-points-reset",
       "schedule": "0 16 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/ocr/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/ai/image-recognition/route.ts": {
+      "maxDuration": 300
+    }
+  }
 }
