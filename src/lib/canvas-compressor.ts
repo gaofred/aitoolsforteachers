@@ -8,6 +8,7 @@ export interface CanvasCompressionOptions {
   maxWidthOrHeight?: number;
   quality?: number; // 0.0 - 1.0
   mimeType?: string;
+  recursionDepth?: number; // 递归深度，防止无限递归
 }
 
 /**
@@ -21,7 +22,8 @@ export async function compressImageWithCanvas(
     maxSizeMB = 0.5,
     maxWidthOrHeight = 1200,
     quality = 0.5,
-    mimeType = 'image/jpeg'
+    mimeType = 'image/jpeg',
+    recursionDepth = 0
   } = options;
 
   return new Promise((resolve, reject) => {
@@ -53,12 +55,32 @@ export async function compressImageWithCanvas(
             lastModified: Date.now()
           });
 
-          console.log('Canvas压缩完成:', {
+          const compressionRatio = ((1 - compressedFile.size / file.size) * 100).toFixed(1);
+
+          console.log('🎨 Canvas压缩完成:', {
+            文件名: file.name,
             原始大小: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
             压缩后: `${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`,
-            压缩率: `${((1 - compressedFile.size / file.size) * 100).toFixed(1)}%`,
-            尺寸: `${width}x${height}`
+            压缩率: `${compressionRatio}%`,
+            尺寸: `${width}x${height}`,
+            原始尺寸: `${img.width}x${img.height}`,
+            压缩质量: quality,
+            目标大小: `${maxSizeMB}MB`,
+            是否达标: compressedFile.size <= maxSizeMB * 1024 * 1024 ? '✅ 达标' : '❌ 未达标'
           });
+
+          // 如果压缩后仍然大于目标大小，进行强制压缩
+          if (compressedFile.size > maxSizeMB * 1024 * 1024 && recursionDepth < 5) { // 限制递归深度
+            console.log(`⚠️ Canvas压缩未达标，进行强制压缩... 目标: ${maxSizeMB}MB, 当前: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB, 递归深度: ${recursionDepth + 1}`);
+
+            // 递归调用，使用更激进的参数
+            return compressImageWithCanvas(file, {
+              ...options,
+              quality: Math.max(0.1, quality * 0.6), // 更激进地降低质量
+              maxWidthOrHeight: Math.max(300, maxWidthOrHeight * 0.7), // 更激进地降低分辨率
+              recursionDepth: recursionDepth + 1
+            }).then(resolve).catch(reject);
+          }
 
           resolve(compressedFile);
         }, mimeType, quality);
