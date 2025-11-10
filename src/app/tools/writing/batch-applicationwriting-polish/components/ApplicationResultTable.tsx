@@ -9,6 +9,7 @@ import { Download, Eye, EyeOff, FileText, Star, FileDown, BrainCircuit, Trending
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, PageBreak, TabStopType, TabStopPosition, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
 import type { ApplicationBatchTask } from "../types";
 
 interface ApplicationResultTableProps {
@@ -383,138 +384,87 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
     alert(`Excel文件已导出：${fileName}`);
   };
 
-  // 导出单个学生Word文档
+  // 导出单个学生Word文档（ZIP打包）
   const exportToWordFiles = async () => {
     if (completedAssignments.length === 0) {
       alert('没有可导出的数据');
       return;
     }
 
-    console.log('开始生成Word文档...');
+    console.log('📄 开始生成Word文档ZIP包...');
 
-    const promises = completedAssignments.map(async (assignment) => {
-      const studentName = assignment.student.name;
-      const content = assignment.ocrResult.editedText || assignment.ocrResult.content;
-      const feedback = assignment.gradingResult?.feedback || '';
-      const improvedVersion = assignment.gradingResult?.improvedVersion || '';
-      const score = assignment.gradingResult?.score || 0;
-      const gradedTime = assignment.gradingResult?.gradedAt ? new Date(assignment.gradingResult.gradedAt).toLocaleString() : '';
+    try {
+      // 创建ZIP实例
+      const zip = new JSZip();
 
-      try {
-        // 创建Word文档
-        const doc = new Document({
-          sections: [{
-            properties: {},
-            children: [
-              // 标题
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: "应用文批改报告",
-                    bold: true,
-                    size: 32,
-                    color: "2E74B5"
-                  })
-                ],
-                heading: HeadingLevel.TITLE,
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 400 }
-              }),
+      const promises = completedAssignments.map(async (assignment) => {
+        const studentName = assignment.student.name;
+        const content = assignment.ocrResult.editedText || assignment.ocrResult.content;
+        const feedback = assignment.gradingResult?.feedback || '';
+        const improvedVersion = assignment.gradingResult?.improvedVersion || '';
+        const score = assignment.gradingResult?.score || 0;
+        const gradedTime = assignment.gradingResult?.gradedAt ? new Date(assignment.gradingResult.gradedAt).toLocaleString() : '';
 
-              // 学生信息
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `学生姓名：${studentName}`,
-                    bold: true,
-                    size: 24
-                  })
-                ],
-                spacing: { after: 200 }
-              }),
-
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `得分：${score}`,
-                    bold: true,
-                    size: 20
-                  })
-                ],
-                spacing: { after: 100 }
-              }),
-
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `批改时间：${gradedTime}`,
-                    bold: true,
-                    size: 20
-                  })
-                ],
-                spacing: { after: 400 }
-              }),
-
-              // 原文内容
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: "原文内容",
-                    bold: true,
-                    size: 24,
-                    color: "2E74B5"
-                  })
-                ],
-                heading: HeadingLevel.HEADING_1,
-                spacing: { before: 20, after: 20 }
-              }),
-
-              // 添加原文段落
-              ...content.split('\n').filter(line => line.trim()).map(line =>
+        try {
+          // 创建Word文档
+          const doc = new Document({
+            sections: [{
+              properties: {},
+              children: [
+                // 标题
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: line.trim(),
-                      size: 22
+                      text: "应用文批改报告",
+                      bold: true,
+                      size: 32,
+                      color: "2E74B5"
                     })
                   ],
-                  spacing: { after: 0 }
-                })
-              ),
+                  heading: HeadingLevel.TITLE,
+                  alignment: AlignmentType.CENTER,
+                  spacing: { after: 400 }
+                }),
 
-              // 批改意见
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: "批改意见",
-                    bold: true,
-                    size: 24,
-                    color: "2E74B5"
-                  })
-                ],
-                heading: HeadingLevel.HEADING_1,
-                spacing: { before: 20, after: 20 }
-              }),
-
-              // 添加批改意见段落
-              ...feedback.split('\n').filter(line => line.trim()).map(line =>
+                // 学生信息
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: line.trim(),
-                      size: 22
+                      text: `学生姓名：${studentName}`,
+                      bold: true,
+                      size: 24
                     })
                   ],
-                  spacing: { after: 0 }
-                })
-              ),
+                  spacing: { after: 200 }
+                }),
 
-              // 高分范文
-              ...(improvedVersion ? [
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: "高分范文",
+                      text: `得分：${score}`,
+                      bold: true,
+                      size: 20
+                    })
+                  ],
+                  spacing: { after: 100 }
+                }),
+
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `批改时间：${gradedTime}`,
+                      bold: true,
+                      size: 20
+                    })
+                  ],
+                  spacing: { after: 400 }
+                }),
+
+                // 原文内容
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "原文内容",
                       bold: true,
                       size: 24,
                       color: "2E74B5"
@@ -524,8 +474,8 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                   spacing: { before: 20, after: 20 }
                 }),
 
-                // 添加范文段落
-                ...improvedVersion.split('\n').filter(line => line.trim()).map(line =>
+                // 添加原文段落
+                ...content.split('\n').filter(line => line.trim()).map(line =>
                   new Paragraph({
                     children: [
                       new TextRun({
@@ -535,43 +485,101 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     ],
                     spacing: { after: 0 }
                   })
-                )
-              ] : [])
-            ]
-          }]
-        });
+                ),
 
-        // 生成buffer
-        const buffer = await Packer.toBuffer(doc);
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-        const url = URL.createObjectURL(blob);
+                // 批改意见
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "批改意见",
+                      bold: true,
+                      size: 24,
+                      color: "2E74B5"
+                    })
+                  ],
+                  heading: HeadingLevel.HEADING_1,
+                  spacing: { before: 20, after: 20 }
+                }),
 
-        // 下载文件
-        const fileName = `${studentName}_应用文批改报告_${new Date().toLocaleDateString().replace(/\//g, '-')}.docx`;
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+                // 添加批改意见段落
+                ...feedback.split('\n').filter(line => line.trim()).map(line =>
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: line.trim(),
+                        size: 22
+                      })
+                    ],
+                    spacing: { after: 0 }
+                  })
+                ),
 
-        console.log(`已生成并下载: ${fileName}`);
-        return fileName;
-      } catch (error) {
-        console.error(`生成${studentName}的Word文档失败:`, error);
-        throw error;
-      }
-    });
+                // 高分范文
+                ...(improvedVersion ? [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: "高分范文",
+                        bold: true,
+                        size: 24,
+                        color: "2E74B5"
+                      })
+                    ],
+                    heading: HeadingLevel.HEADING_1,
+                    spacing: { before: 20, after: 20 }
+                  }),
 
-    try {
+                  // 添加范文段落
+                  ...improvedVersion.split('\n').filter(line => line.trim()).map(line =>
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: line.trim(),
+                          size: 22
+                        })
+                      ],
+                      spacing: { after: 0 }
+                    })
+                  )
+                ] : [])
+              ]
+            }]
+          });
+
+          // 生成buffer并添加到ZIP
+          const buffer = await Packer.toBuffer(doc);
+          const fileName = `${studentName}_应用文批改报告.docx`;
+          zip.file(fileName, buffer);
+
+          console.log(`✅ 已添加到ZIP包: ${fileName}`);
+          return fileName;
+        } catch (error) {
+          console.error(`❌ 生成${studentName}的Word文档失败:`, error);
+          return null;
+        }
+      });
+
       // 等待所有文档生成完成
       const fileNames = await Promise.all(promises);
-      alert(`已成功导出${fileNames.length}个学生的Word批改报告文件`);
-      console.log('所有Word文件导出完成');
+      const successfulFiles = fileNames.filter(name => name !== null);
+
+      if (successfulFiles.length > 0) {
+        // 生成ZIP文件
+        console.log('📦 正在生成ZIP包...');
+        const zipBuffer = await zip.generateAsync({ type: 'blob' });
+
+        // 下载ZIP文件
+        const zipFileName = `学生批改报告_${completedAssignments.length}人_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.zip`;
+        saveAs(zipBuffer, zipFileName);
+
+        console.log(`✅ ZIP包下载完成: ${zipFileName}`);
+        alert(`已成功导出${successfulFiles.length}个学生的批改报告ZIP包`);
+      } else {
+        alert('没有找到可导出的批改数据');
+      }
     } catch (error) {
-      console.error('批量导出Word文件失败:', error);
-      alert('部分文件导出失败，请稍后重试');
+      console.error('❌ 生成ZIP包失败:', error);
+      alert('生成ZIP包失败，请稍后重试');
     }
   };
 
@@ -799,17 +807,20 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
     }
   };
 
-  // 导出学生查阅Word文件（保留完整批改内容，仅移除原文）
+  // 导出学生查阅Word文件（打包成ZIP，保留完整批改内容，仅移除原文）
   const exportStudentReviewFiles = async () => {
     if (completedAssignments.length === 0) {
       alert('没有可导出的数据');
       return;
     }
 
-    console.log('🎓 开始生成学生查阅Word文档...');
+    console.log('🎓 开始生成学生查阅Word文档ZIP包...');
 
     try {
-      // 为每个学生生成单独的Word文件
+      // 创建ZIP实例
+      const zip = new JSZip();
+
+      // 为每个学生生成Word文档并添加到ZIP
       const promises = completedAssignments.map(async (assignment, index) => {
         const studentName = assignment.student.name;
         const content = assignment.ocrResult.editedText || assignment.ocrResult.content || '';
@@ -1048,24 +1059,14 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             }]
           });
 
-          // 生成buffer
+          // 生成buffer并添加到ZIP
           const buffer = await Packer.toBuffer(doc);
-          const blob = new Blob([buffer], {
-            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-          });
-          const url = URL.createObjectURL(blob);
-
-          // 下载文件
           const fileName = `${studentName}_批改报告_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.docx`;
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
 
-          console.log(`✅ 已生成学生查阅文件: ${fileName}`);
+          // 将Word文档添加到ZIP包中
+          zip.file(fileName, buffer);
+
+          console.log(`✅ 已添加学生查阅文件到ZIP包: ${fileName}`);
           return fileName;
         } catch (error) {
           console.error(`❌ 生成${studentName}的学生查阅文件失败:`, error);
@@ -1078,14 +1079,31 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
       const successfulFiles = fileNames.filter(name => name !== null);
 
       if (successfulFiles.length > 0) {
-        alert(`已成功导出${successfulFiles.length}个学生的批改报告文件`);
-        console.log('🎓 所有学生查阅文件导出完成');
+        // 生成ZIP包
+        console.log('📦 开始生成ZIP包...');
+        const zipBuffer = await zip.generateAsync({ type: 'arraybuffer' });
+
+        // 下载ZIP包
+        const zipBlob = new Blob([zipBuffer], { type: 'application/zip' });
+        const zipUrl = URL.createObjectURL(zipBlob);
+        const zipFileName = `学生查阅批改报告_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.zip`;
+
+        const zipLink = document.createElement('a');
+        zipLink.href = zipUrl;
+        zipLink.download = zipFileName;
+        document.body.appendChild(zipLink);
+        zipLink.click();
+        document.body.removeChild(zipLink);
+        URL.revokeObjectURL(zipUrl);
+
+        alert(`已成功导出${successfulFiles.length}个学生的批改报告ZIP包`);
+        console.log('🎓 学生查阅ZIP包导出完成');
       } else {
         alert('没有找到可导出的批改数据');
       }
     } catch (error) {
       console.error('❌ 批量导出学生查阅文件失败:', error);
-      alert('导出失败，请稍后重试');
+      alert('生成ZIP包失败，请稍后重试');
     }
   };
 
@@ -1165,11 +1183,11 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
         </Button>
         <Button onClick={exportToWordFiles} variant="outline" className="flex items-center gap-2">
           <FileText className="w-4 h-4" />
-          导出Word（一个学生一个word文件）
+          导出Word（ZIP包-含原文）
         </Button>
         <Button onClick={exportStudentReviewFiles} variant="outline" className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white border-green-600">
           <FileText className="w-4 h-4" />
-          学生查阅（完整批改）
+          学生查阅（完整批改ZIP包）
         </Button>
       </div>
 

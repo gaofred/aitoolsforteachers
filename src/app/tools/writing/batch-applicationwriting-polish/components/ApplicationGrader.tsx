@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,46 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedPreviews, setExpandedPreviews] = useState<{[key: string]: boolean}>({});
   const { userPoints, refreshUser } = useUser();
+
+  // 防抖的积分刷新函数 - 批改期间暂停
+  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
+  const debouncedRefreshPoints = useCallback(() => {
+    // 如果正在批改，不进行用户状态刷新，避免干扰批改流程
+    if (isGrading) {
+      console.log('⏸️ 批改进行中，暂停用户状态刷新（保护登录状态）');
+      return;
+    }
+
+    // 如果刚刚完成批改，额外延迟确保状态稳定
+    if (isGradingCompleted) {
+      console.log('⏸️ 批改刚完成，延迟刷新用户状态（确保状态稳定）');
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      refreshTimeoutRef.current = setTimeout(() => {
+        console.log('🪙 批改完成后延迟刷新用户积分');
+        refreshUser().catch(error => {
+          console.warn('批改后刷新用户信息失败:', error);
+          // 静默处理，不影响用户体验
+        });
+      }, 3000);
+      return;
+    }
+
+    // 清除之前的定时器
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    // 设置新的定时器，延迟1秒执行
+    refreshTimeoutRef.current = setTimeout(() => {
+      console.log('🪙 防抖刷新用户积分');
+      refreshUser().catch(error => {
+        console.warn('刷新用户信息失败:', error);
+        // 刷新失败不影响批改继续进行
+      });
+    }, 1000);
+  }, [refreshUser, isGrading, isGradingCompleted]);
 
   if (!task) return null;
 
@@ -246,7 +286,12 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
     }));
     setTask({ ...task, assignments: updatedAssignments });
 
-    setCurrentGrading(`批量批改 ${task.assignments.length} 个学生...`);
+    // 计算预估时间
+      const estimatedTimePerStudent = 7; // 每个学生预估7秒
+      const estimatedTotalTime = Math.ceil((task.assignments.length * estimatedTimePerStudent) / 20); // 并行20个，除以20
+      const estimatedMinutes = Math.ceil(estimatedTotalTime / 60);
+
+      setCurrentGrading(`准备批量批改 ${task.assignments.length} 个学生，预计需要 ${estimatedMinutes} 分钟...`);
 
     try {
       // 获取认证token
@@ -262,30 +307,35 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
 
       const authToken = getAuthToken();
 
-      // 分批处理，限制并发数为15
-      const batchSize = 15; // 与批量API保持一致
+      // 真正的并行处理，限制并发数为20
+      const batchSize = 20; // 20个学生同时并行批改
       const batches = [];
 
       for (let i = 0; i < updatedAssignments.length; i += batchSize) {
         batches.push(updatedAssignments.slice(i, i + batchSize));
       }
 
-      console.log('开始分批批改:', {
+      console.log('开始并行批改:', {
         totalAssignments: task.assignments.length,
         batchSize,
-        totalBatches: batches.length
+        totalBatches: batches.length,
+        estimatedTimeMinutes: estimatedMinutes
       });
 
       let gradedCount = 0;
       const errors: string[] = [];
       const resultsAssignments = [...updatedAssignments];
+      const gradingStartTime = Date.now(); // 记录开始时间
 
-      // 分批并行处理
+      // 真正的并行处理 - 使用Promise.all确保同时执行
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         const batch = batches[batchIndex];
+        const currentProgress = Math.round(((batchIndex) / batches.length) * 100);
+        const nextProgress = Math.round(((batchIndex + 1) / batches.length) * 100);
 
-        setCurrentGrading(`处理批次 ${batchIndex + 1}/${batches.length} (${batch.length}个学生)...`);
+        setCurrentGrading(`🚀 并行处理批次 ${batchIndex + 1}/${batches.length} (${batch.length}个学生同时批改) [${currentProgress}% → ${nextProgress}%]...`);
 
+        // 创建所有Promise并让它们同时执行
         const batchPromises = batch.map(async (assignment) => {
           try {
             setCurrentGrading(`正在批改: ${assignment.student.name}`);
@@ -335,17 +385,20 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
 
               gradedCount++;
 
-              // 实时更新进度
+              // 实时更新进度 - 避免并发竞争
               setProcessingStats(prev => ({
                 ...prev,
                 gradedApplications: gradedCount
               }));
 
-              // 实时更新任务状态
-              setTask(prevTask => ({
-                ...prevTask!,
-                assignments: [...resultsAssignments]
-              }));
+              // 实时更新任务状态 - 使用函数式更新避免竞争条件
+              setTask(prevTask => {
+                if (!prevTask) return prevTask;
+                return {
+                  ...prevTask,
+                  assignments: [...resultsAssignments]
+                };
+              });
 
               console.log(`✅ ${assignment.student.name} 批改完成，得分: ${gradingResult.score}`);
 
@@ -359,7 +412,7 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
             const errorMsg = `${assignment.student.name}: ${error instanceof Error ? error.message : '批改失败'}`;
             errors.push(errorMsg);
 
-            // 更新作业状态为失败
+            // 更新作业状态为失败 - 使用函数式更新避免竞争条件
             const index = task.assignments.findIndex(a => a.id === assignment.id);
             if (index !== -1) {
               resultsAssignments[index] = {
@@ -367,16 +420,51 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
                 status: 'failed' as const,
                 error: error instanceof Error ? error.message : '批改失败'
               };
+
+              // 立即更新状态
+              setTask(prevTask => {
+                if (!prevTask) return prevTask;
+                return {
+                  ...prevTask,
+                  assignments: [...resultsAssignments]
+                };
+              });
             }
 
             return { success: false, assignmentId: assignment.id, error: errorMsg };
           }
         });
 
-        // 等待当前批次完成
-        await Promise.allSettled(batchPromises);
+        // 真正的并行执行 - 等待当前批次所有请求同时完成
+        console.log(`🚀 开始并行执行批次 ${batchIndex + 1}/${batches.length}，同时处理 ${batch.length} 个学生`);
 
-        console.log(`批次 ${batchIndex + 1} 完成，累计完成: ${gradedCount}/${task.assignments.length}`);
+        const startTime = Date.now();
+        const batchResults = await Promise.allSettled(batchPromises);
+        const endTime = Date.now();
+
+        // 批次完成后立即同步状态
+        setTask(prevTask => {
+          if (!prevTask) return prevTask;
+          return {
+            ...prevTask,
+            assignments: [...resultsAssignments]
+          };
+        });
+
+        console.log(`✅ 批次 ${batchIndex + 1} 并行完成，耗时: ${((endTime - startTime) / 1000).toFixed(2)}秒`);
+        console.log(`📊 批次结果统计:`, {
+          total: batchResults.length,
+          fulfilled: batchResults.filter(r => r.status === 'fulfilled').length,
+          rejected: batchResults.filter(r => r.status === 'rejected').length
+        });
+
+        // 更新当前进度状态 - 添加百分比显示
+        const currentCompletedCount = gradedCount + batchResults.filter(r => r.status === 'fulfilled').length;
+        const progressPercentage = Math.round((currentCompletedCount / updatedAssignments.length) * 100);
+        const remainingBatches = batches.length - batchIndex - 1;
+        const estimatedRemainingMinutes = Math.ceil((remainingBatches * estimatedTotalTime) / batches.length / 60);
+
+        setCurrentGrading(`✅ 批次 ${batchIndex + 1}/${batches.length} 完成 [${progressPercentage}%] - 已完成 ${currentCompletedCount}/${updatedAssignments.length} 名学生${remainingBatches > 0 ? `，预计剩余 ${estimatedRemainingMinutes} 分钟` : ''}`);
       }
 
       // 计算平均分
@@ -390,7 +478,7 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
       const failedCount = resultsAssignments.filter(a => a.status === 'failed').length;
       const successfulCount = resultsAssignments.filter(a => a.status === 'completed').length;
 
-      // 最终更新状态
+      // 最终更新状态 - 确保状态同步
       setProcessingStats({
         totalImages: 0,
         processedImages: 0,
@@ -401,35 +489,77 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
         processingTime: 0
       });
 
-      setTask({ ...task, assignments: resultsAssignments });
-      setIsGrading(false);
-      setCurrentGrading(`批量批改完成！成功${successfulCount}份，失败${failedCount}份`);
-      setParallelProgress(null);
+      // 最终状态同步 - 使用函数式更新确保一致性
+      setTask(prevTask => ({
+        ...prevTask!,
+        assignments: resultsAssignments
+      }));
+
+      // 重要：先设置完成状态，再重置批改状态，避免竞争条件
       setIsGradingCompleted(true);
+      setParallelProgress(null);
+
+      // 延迟重置批改状态，确保UI更新完成
+      setTimeout(() => {
+        setIsGrading(false);
+        console.log('🔄 批改状态已重置，可以安全刷新用户状态');
+      }, 1000);
+
+      // 计算实际用时
+      const actualTotalTime = Math.round((Date.now() - gradingStartTime) / 1000);
+      const actualMinutes = Math.floor(actualTotalTime / 60);
+      const actualSeconds = actualTotalTime % 60;
+
+      setCurrentGrading(`🎉 批量批改完成 [100%]！成功${successfulCount}份，失败${failedCount}份，实际用时 ${actualMinutes}分${actualSeconds}秒`);
 
       // 3秒后清除批改完成消息
       setTimeout(() => {
         setCurrentGrading('');
       }, 3000);
 
-      // 刷新用户点数
+      // 延迟刷新用户点数，确保批改完全结束
       setTimeout(() => {
-        refreshUser().catch(error => {
-          console.warn('刷新用户信息失败:', error);
-        });
-      }, 500);
+        console.log('🔄 批改完成，延迟刷新用户点数');
+        debouncedRefreshPoints();
+      }, 2000);
 
     } catch (error) {
       console.error('批量批改过程中发生错误:', error);
-      setCurrentGrading(`批量批改失败: ${error.message}`);
-      setIsGrading(false);
+      setCurrentGrading(`批量批改失败: ${error instanceof Error ? error.message : '未知错误'}`);
 
-      // 恢复作业状态
-      const failedAssignments = task.assignments.map(assignment => ({
-        ...assignment,
-        status: 'pending' as const
-      }));
-      setTask({ ...task, assignments: failedAssignments });
+      // 恢复作业状态 - 使用函数式更新确保一致性
+      setTask(prevTask => {
+        if (!prevTask) return prevTask;
+        const failedAssignments = prevTask.assignments.map(assignment => ({
+          ...assignment,
+          status: 'pending' as const
+        }));
+        return {
+          ...prevTask,
+          assignments: failedAssignments
+        };
+      });
+
+      // 重置批改状态和并行进度
+      setParallelProgress(null);
+      setIsGradingCompleted(false);
+
+      // 延迟重置批改状态，确保错误处理完成
+      setTimeout(() => {
+        setIsGrading(false);
+        console.log('❌ 批改失败，状态已重置');
+      }, 1000);
+
+      // 清除错误消息
+      setTimeout(() => {
+        setCurrentGrading('');
+      }, 5000);
+
+      // 即使出错也要刷新用户点数，确保状态一致
+      setTimeout(() => {
+        console.log('🔄 错误处理后刷新用户状态');
+        debouncedRefreshPoints();
+      }, 3000);
     }
   };
 
@@ -465,12 +595,8 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
         // 显示重新批改成功提示（包含点数消耗）
         console.log(`✅ 重新批改完成：${assignment.student.name}，消耗1点数`);
 
-        // 刷新用户点数（延迟执行）
-        setTimeout(() => {
-          refreshUser().catch(error => {
-            console.warn('刷新用户信息失败:', error);
-          });
-        }, 500);
+        // 刷新用户点数（使用防抖）
+        debouncedRefreshPoints();
       }
     } catch (error) {
       console.error(`重新批改学生 ${assignment.student.name} 的作文失败:`, error);
@@ -524,12 +650,8 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
     setIsGrading(false);
     setCurrentGrading('');
 
-    // 刷新用户点数（延迟执行）
-    setTimeout(() => {
-      refreshUser().catch(error => {
-        console.warn('刷新用户信息失败:', error);
-      });
-    }, 500);
+    // 刷新用户点数（使用防抖）
+    debouncedRefreshPoints();
   };
 
   // 重新批改所有作文
@@ -660,12 +782,8 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
         setCurrentGrading('');
       }, 3000);
 
-      // 刷新用户点数
-      setTimeout(() => {
-        refreshUser().catch(error => {
-          console.warn('刷新用户信息失败:', error);
-        });
-      }, 500);
+      // 刷新用户点数（使用防抖）
+      debouncedRefreshPoints();
 
     } catch (error) {
       console.error('重新批改过程中发生错误:', error);
@@ -731,13 +849,20 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span>批改进度</span>
-                    <span>{processingStats.gradedApplications}/{task.assignments.length}</span>
+                    <span className="font-bold text-blue-600">{progress}% ({processingStats.gradedApplications}/{task.assignments.length})</span>
                   </div>
-                  <Progress value={progress} className="w-full" />
+                  <Progress value={progress} className="w-full h-3" />
                   {currentGrading && (
-                    <div className="text-sm text-blue-600 flex items-center gap-1">
-                      <Clock className="w-3 h-3 animate-spin" />
-                      正在批改: {currentGrading}
+                    <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center gap-2">
+                      <Clock className="w-4 h-4 animate-spin text-blue-600" />
+                      <div className="flex-1">
+                        <div className="font-medium text-blue-800">{currentGrading}</div>
+                        {isGrading && (
+                          <div className="text-xs text-blue-600 mt-1">
+                            请耐心等待，系统正在并行处理中...
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1044,14 +1169,25 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
         <div className="flex items-center gap-3">
           {/* 开始批改按钮 - 只在未开始批改时显示 */}
           {!isGrading && !isGradingCompleted && (
-            <Button
-              onClick={gradeAllApplications}
-              disabled={!hasEnoughPoints}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-            >
-              <Star className="w-4 h-4" />
-              {hasEnoughPoints ? `开始批改 (${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
-            </Button>
+            <div className="space-y-2">
+              {/* 时间预估提示 */}
+              <div className="text-center">
+                <div className="text-xs text-gray-500 mb-1">
+                  ⏱️ 预计需要 {Math.ceil((task.assignments.length * 7) / 20 / 60)} 分钟
+                </div>
+                <div className="text-xs text-blue-600">
+                  20个学生并行处理，请耐心等待
+                </div>
+              </div>
+              <Button
+                onClick={gradeAllApplications}
+                disabled={!hasEnoughPoints}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-blue-600 w-full"
+              >
+                <Star className="w-4 h-4" />
+                {hasEnoughPoints ? `开始批量批改 (${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
+              </Button>
+            </div>
           )}
 
           {/* 批改状态按钮 - 只在批改中或完成后显示 */}
