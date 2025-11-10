@@ -1,13 +1,5 @@
-// 动态导入 compressorjs 以避免构建时依赖问题
-const importCompressor = async () => {
-  try {
-    const module = await import('compressorjs');
-    return module.default;
-  } catch (error) {
-    console.warn('compressorjs 加载失败，将跳过图片压缩:', error);
-    return null;
-  }
-};
+import Compressor from 'compressorjs';
+console.log('✅ compressorjs 直接导入成功:', typeof Compressor);
 
 export interface CompressionOptions {
   maxSizeMB?: number;
@@ -26,10 +18,8 @@ export async function compressImageForOCR(
   file: File,
   options: CompressionOptions = {}
 ): Promise<File> {
-  const Compressor = await importCompressor();
-
   if (!Compressor) {
-    console.log('compressorjs 不可用，跳过图片压缩');
+    console.error('❌ compressorjs 不可用，跳过图片压缩');
     return file;
   }
 
