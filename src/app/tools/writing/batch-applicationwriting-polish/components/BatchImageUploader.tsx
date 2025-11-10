@@ -433,10 +433,12 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     setIsProcessing(false);
   };
 
-  const canProceed = uploadedImages.length > 0 && uploadedImages.some(img => img.status !== 'pending'); // 只要开始OCR识别了就可以进行下一步
+  const canProceed = uploadedImages.length > 0 && uploadedImages.some(img => img.status !== 'pending'); // 只要开始OCR识别了就可以进行下一步（防止卡死）
   const hasProcessedImages = uploadedImages.some(img => img.status === 'completed');
   const canStartOCR = uploadedImages.length > 0 && uploadedImages.every(img => img.status === 'pending');
   const hasCompressingImages = uploadedImages.some(img => img.status === 'compressing');
+  const hasProcessingImages = uploadedImages.some(img => img.status === 'processing' || img.status === 'compressing'); // 正在处理的图片
+  const hasFailedImages = uploadedImages.some(img => img.status === 'failed'); // 有失败的图片
 
   return (
     <div className="space-y-6">
@@ -572,8 +574,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                 <Button
                   variant="outline"
                   onClick={clearAllImages}
-                  disabled={isProcessing}
                   className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                  title={hasProcessingImages ? "警告：有图片正在处理中，清空可能会中断OCR识别" : "清空全部图片"}
                 >
                   <Trash2 className="w-4 h-4" />
                   清空全部
@@ -610,8 +612,9 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                     />
                     <button
                       onClick={() => removeImage(image.id)}
-                      disabled={isProcessing}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50"
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      title={image.status === 'processing' || image.status === 'compressing' ?
+                        "警告：正在处理中，删除可能会中断OCR识别" : "删除图片"}
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -726,6 +729,9 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                 <p className="text-xs text-blue-600 mt-1">
                   为了确保识别准确性，系统正在使用AI技术对每张图片进行深度分析，请耐心等待处理完成。
                 </p>
+                <p className="text-xs text-amber-600 mt-1 font-medium">
+                  💡 紧急退出：如果识别卡住或失败，可以点击"下一步"或删除问题图片继续操作
+                </p>
               </div>
             </div>
           </CardContent>
@@ -761,10 +767,18 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
           <Button
             onClick={onNext}
-            disabled={!canProceed || isProcessing}
+            disabled={!canProceed}
             className="px-8"
+            title={hasProcessingImages ?
+              "警告：有图片正在处理中，进入下一步可能会丢失处理中的数据" :
+              hasFailedImages ?
+                "有失败的图片，建议先处理失败的图片或继续下一步" :
+              "进入下一步确认学生作文内容"}
           >
             下一步：学生作文内容确认
+            {hasFailedImages && (
+              <span className="ml-2 text-amber-500">⚠️</span>
+            )}
           </Button>
         </div>
       </div>

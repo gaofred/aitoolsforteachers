@@ -15,6 +15,36 @@ export async function GET() {
       length: 0,
       error: '环境变量未配置'
     },
+    SiliconFlow_KEY: process.env.SiliconFlow_KEY ? {
+      exists: true,
+      length: process.env.SiliconFlow_KEY.length,
+      prefix: process.env.SiliconFlow_KEY.substring(0, 10) + '...',
+      suffix: '...' + process.env.SiliconFlow_KEY.substring(process.env.SiliconFlow_KEY.length - 10)
+    } : {
+      exists: false,
+      length: 0,
+      error: '环境变量未配置'
+    },
+    ZEABUR_API_KEY: process.env.ZEABUR_API_KEY ? {
+      exists: true,
+      length: process.env.ZEABUR_API_KEY.length,
+      prefix: process.env.ZEABUR_API_KEY.substring(0, 10) + '...',
+      suffix: '...' + process.env.ZEABUR_API_KEY.substring(process.env.ZEABUR_API_KEY.length - 10)
+    } : {
+      exists: false,
+      length: 0,
+      error: '环境变量未配置'
+    },
+    GEEKAI_API_KEY: process.env.GEEKAI_API_KEY ? {
+      exists: true,
+      length: process.env.GEEKAI_API_KEY.length,
+      prefix: process.env.GEEKAI_API_KEY.substring(0, 10) + '...',
+      suffix: '...' + process.env.GEEKAI_API_KEY.substring(process.env.GEEKAI_API_KEY.length - 10)
+    } : {
+      exists: false,
+      length: 0,
+      error: '环境变量未配置'
+    },
     // 检查其他相关环境变量
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? '✅ 已配置' : '❌ 未配置',
     DATABASE_URL: process.env.DATABASE_URL ? '✅ 已配置' : '❌ 未配置',
