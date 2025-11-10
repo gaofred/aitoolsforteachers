@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Image, X, Eye, Trash2, Camera, Loader2, RefreshCw } from "lucide-react";
+import { Upload, Image, X, Eye, Trash2, Camera, Loader2 } from "lucide-react";
 import type { ApplicationBatchTask, ApplicationAssignment, OCRResult, ProcessingStats } from "../types";
 import { compressImageForOCR, adaptiveCompressImage } from "@/lib/image-compressor";
 
@@ -22,7 +22,7 @@ interface UploadedImage {
   file: File;
   originalFile: File; // 保存原始文件
   preview: string;
-  status: 'pending' | 'compressing' | 'processing' | 'completed' | 'failed' | 'retrying';
+  status: 'pending' | 'compressing' | 'processing' | 'completed' | 'failed';
   ocrResult?: OCRResult;
   error?: string;
   compressionInfo?: {
@@ -30,8 +30,6 @@ interface UploadedImage {
     compressedSize: number;
     compressionRatio: number;
   };
-  retryCount?: number; // 重试次数
-  maxRetries: number; // 最大重试次数
 }
 
 const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
@@ -59,9 +57,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       originalFile: file,
       file, // 临时设置为原文件，压缩后会更新
       preview: URL.createObjectURL(file),
-      status: 'pending',
-      retryCount: 0,
-      maxRetries: 1 // 最多重试1次
+      status: 'pending'
     }));
 
     setUploadedImages(prev => [...prev, ...newImages]);
@@ -164,177 +160,80 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     setUploadedImages([]);
   };
 
-  // OCR识别单张图片
+  // OCR识别单张图片（移除重试机制，失败直接报错）
   const processImage = async (image: UploadedImage): Promise<OCRResult | null> => {
-    const attemptOCR = async (): Promise<OCRResult | null> => {
+    try {
+      // 将文件转换为base64
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(image.file);
+      });
+
+      // 使用专门的作文OCR API，提供更好的作文识别效果
+      const response = await fetch('/api/ai/essay-ocr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageBase64: base64
+        })
+      });
+
+      // 安全解析JSON响应，防止非JSON响应导致的解析错误
+      let data;
       try {
-        // 将文件转换为base64
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target?.result as string);
-          reader.readAsDataURL(image.file);
-        });
+        const responseText = await response.text();
+        console.log('🔍 作文OCR API响应前200字符:', responseText.substring(0, 200));
 
-        // 使用专门的作文OCR API，提供更好的作文识别效果
-        const response = await fetch('/api/ai/essay-ocr', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            imageBase64: base64
-          })
-        });
-
-        // 安全解析JSON响应，防止非JSON响应导致的解析错误
-        let data;
-        try {
-          const responseText = await response.text();
-          console.log('🔍 作文OCR API响应前200字符:', responseText.substring(0, 200));
-
-          // 检查响应是否为JSON格式
-          const trimmedText = responseText.trim();
-          if (!trimmedText.startsWith('{') && !trimmedText.startsWith('[')) {
-            console.error('❌ 作文OCR API返回非JSON格式响应:', responseText.substring(0, 500));
-            throw new Error(`API返回非JSON格式响应: ${responseText.substring(0, 200)}...`);
-          }
-
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('❌ 作文OCR JSON解析失败:', parseError);
-          throw new Error(`API响应解析失败: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        // 检查响应是否为JSON格式
+        const trimmedText = responseText.trim();
+        if (!trimmedText.startsWith('{') && !trimmedText.startsWith('[')) {
+          console.error('❌ 作文OCR API返回非JSON格式响应:', responseText.substring(0, 500));
+          throw new Error(`API返回非JSON格式响应: ${responseText.substring(0, 200)}...`);
         }
 
-        console.log('📝📝📝 作文OCR API响应数据检查：', {
-          success: data.success,
-          result: data.result ? data.result.substring(0, 100) + '...' : 'null',
-          englishOnly: data.englishOnly ? data.englishOnly.substring(0, 100) + '...' : 'null',
-          imageId: image.id,
-          model: data.metadata?.model,
-          processingTime: data.metadata?.processingTime
-        });
-
-        if (data.success && data.result) {
-          // 直接解析OCR结果，使用作文OCR的英文分离结果
-          const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id);
-          console.log(`✅ 作文OCR识别完成 (${image.id.substring(0, 8)}...)`)
-          return parsedResult;
-        } else {
-          // 构建详细错误信息
-          let errorMessage = data.error || '作文OCR识别失败';
-          if (data.details) {
-            if (typeof data.details === 'string') {
-              errorMessage += ` (${data.details})`;
-            } else if (data.details.networkError) {
-              errorMessage += ` (网络错误: ${data.details.networkError})`;
-            }
-          }
-          throw new Error(errorMessage);
-        }
-      } catch (error) {
-        console.error(`OCR处理失败 (尝试 ${image.retryCount ? image.retryCount + 1 : 1}):`, error);
-        throw error;
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ 作文OCR JSON解析失败:', parseError);
+        throw new Error(`API响应解析失败: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
       }
-    };
 
-    try {
-      return await attemptOCR();
-    } catch (error) {
-      // 如果还有重试次数，则重试
-      if (image.retryCount! < image.maxRetries) {
-        console.log(`🔄 图片 ${image.id} 开始重试 (${image.retryCount! + 1}/${image.maxRetries})`);
+      console.log('📝📝📝 作文OCR API响应数据检查：', {
+        success: data.success,
+        result: data.result ? data.result.substring(0, 100) + '...' : 'null',
+        englishOnly: data.englishOnly ? data.englishOnly.substring(0, 100) + '...' : 'null',
+        imageId: image.id,
+        model: data.metadata?.model,
+        processingTime: data.metadata?.processingTime
+      });
 
-        // 更新重试状态
-        setUploadedImages(prev =>
-          prev.map(img =>
-            img.id === image.id
-              ? { ...img, status: 'retrying', retryCount: img.retryCount! + 1 }
-              : img
-          )
-        );
-
-        // 延迟1秒后重试
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        try {
-          const result = await attemptOCR();
-          console.log(`✅ 图片 ${image.id} 重试成功`);
-          return result;
-        } catch (retryError) {
-          console.error(`❌ 图片 ${image.id} 重试失败:`, retryError);
-          throw retryError;
-        }
+      if (data.success && data.result) {
+        // 直接解析OCR结果，使用作文OCR的英文分离结果
+        const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id);
+        console.log(`✅ 作文OCR识别完成 (${image.id.substring(0, 8)}...)`)
+        return parsedResult;
       } else {
-        // 重试次数用尽，直接抛出错误
-        throw error;
-      }
-    }
-  };
-
-  // 手动重试单个图片
-  const retrySingleImage = async (imageId: string) => {
-    const image = uploadedImages.find(img => img.id === imageId);
-    if (!image) {
-      console.error('找不到要重试的图片:', imageId);
-      return;
-    }
-
-    // 重置重试计数和状态
-    const updatedImage = { ...image, status: 'processing' as const, retryCount: 0, error: undefined };
-    setUploadedImages(prev => prev.map(img => img.id === imageId ? updatedImage : img));
-
-    try {
-      console.log(`🔄 手动重试图片: ${imageId}`);
-
-      // 重新处理图片
-      const ocrResult = await processImage(updatedImage);
-
-      if (ocrResult) {
-        // 创建作业记录
-        const assignment = {
-          id: `assignment_${Date.now()}_${Math.random()}`,
-          student: {
-            id: `temp_${ocrResult.studentName}_${imageId}`,
-            name: ocrResult.studentName,
-            createdAt: new Date()
-          },
-          ocrResult,
-          status: 'pending' as const,
-          createdAt: new Date()
-        };
-
-        // 更新图片状态为完成
-        setUploadedImages(prev => prev.map(img =>
-          img.id === imageId ? { ...img, status: 'completed', ocrResult, error: undefined } : img
-        ));
-
-        // 更新任务中的作业
-        if (task) {
-          setTask({
-            ...task,
-            assignments: [...(task.assignments || []), assignment]
-          });
+        // 构建详细错误信息
+        let errorMessage = data.error || '作文OCR识别失败';
+        if (data.details) {
+          if (typeof data.details === 'string') {
+            errorMessage += ` (${data.details})`;
+          } else if (data.details.networkError) {
+            errorMessage += ` (网络错误: ${data.details.networkError})`;
+          }
         }
-
-        console.log(`✅ 手动重试成功: ${ocrResult.studentName}`);
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error(`❌ 手动重试失败: ${imageId}`, error);
-
-      // 更新图片状态为失败
-      setUploadedImages(prev => prev.map(img =>
-        img.id === imageId
-          ? {
-              ...img,
-              status: 'failed',
-              error: error instanceof Error ? error.message : '手动重试失败',
-              retryCount: img.retryCount || 0
-            }
-          : img
-      ));
+      console.error(`❌ OCR处理失败:`, error);
+      // 直接抛出错误，不再重试
+      throw error;
     }
   };
 
+  
   // 解析OCR结果 - 简化版：只区分中英文内容，不提取姓名
   const parseOCRResult = (originalText: string, englishOnlyText: string, imageId: string): OCRResult => {
     const lines = originalText.split('\n').filter(line => line.trim());
@@ -734,7 +633,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                           variant={
                             image.status === 'completed' ? 'default' :
                             image.status === 'processing' || image.status === 'compressing' ? 'secondary' :
-                            image.status === 'failed' || image.status === 'retrying' ? 'destructive' : 'outline'
+                            image.status === 'failed' ? 'destructive' : 'outline'
                           }
                           className="text-xs"
                         >
@@ -747,28 +646,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                           {image.status === 'pending' && '待处理'}
                           {image.status === 'processing' && '处理中'}
                           {image.status === 'completed' && '已完成'}
-                          {image.status === 'retrying' && (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                              重试中 ({image.retryCount}/{image.maxRetries})
-                            </>
-                          )}
                           {image.status === 'failed' && '失败'}
                         </Badge>
-
-                        {/* 失败图片的手动重试按钮 */}
-                        {image.status === 'failed' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => retrySingleImage(image.id)}
-                            className="h-6 px-2 text-xs"
-                            title="手动重试识图"
-                          >
-                            <RefreshCw className="w-3 h-3 mr-1" />
-                            重试
-                          </Button>
-                        )}
                       </div>
                     </div>
 
