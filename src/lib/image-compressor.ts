@@ -34,9 +34,9 @@ export async function compressImageForOCR(
   }
 
   const defaultOptions: CompressionOptions = {
-    maxSizeMB: 5, // 增加到5MB，确保中文信息清晰度
-    maxWidthOrHeight: 3072, // 增加到3072，提升小字体识别能力
-    quality: 0.98, // 提高到98%质量，减少中文笔画模糊
+    maxSizeMB: 0.8, // 限制为800KB，确保远低于1MB
+    maxWidthOrHeight: 1600, // 大幅降低分辨率，但仍保持文字可识别
+    quality: 0.6, // 显著降低质量，优先保证文件大小
     useWebWorker: true, // 使用Web Worker避免阻塞UI
   };
 
@@ -101,9 +101,9 @@ export function needsCompression(
   file: File,
   options: CompressionOptions = {}
 ): Promise<boolean> {
-  const { maxSizeMB = 1, maxWidthOrHeight = 2048 } = options;
+  const { maxSizeMB = 0.8, maxWidthOrHeight = 1600 } = options;
 
-  // 检查文件大小 - 降低阈值，1MB以上就开始压缩
+  // 检查文件大小 - 800KB以上就开始压缩
   const fileSizeMB = file.size / (1024 * 1024);
   if (fileSizeMB > maxSizeMB) {
     console.log(`图片 ${file.name} 需要压缩: ${fileSizeMB.toFixed(2)}MB > ${maxSizeMB}MB`);
