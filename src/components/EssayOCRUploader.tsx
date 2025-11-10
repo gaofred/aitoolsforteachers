@@ -94,14 +94,14 @@ const EssayOCRUploader: React.FC<EssayOCRUploaderProps> = ({
           )
         );
 
-        // 作文OCR使用高质量的压缩设置
+        // 作文OCR使用适配Vercel限制的压缩设置
         const originalSize = image.originalFile.size;
         const originalSizeMB = (originalSize / 1024 / 1024).toFixed(2);
 
         const compressedFile = await compressImageForOCR(image.originalFile, {
-          maxSizeMB: 8, // 作文图片可以更大，保证文字清晰
-          maxWidthOrHeight: 4096, // 高分辨率，保证手写文字识别
-          quality: 0.98, // 高质量压缩
+          maxSizeMB: 3, // 限制为3MB，避免Vercel函数请求体过大
+          maxWidthOrHeight: 2048, // 适度降低分辨率，平衡质量和大小
+          quality: 0.9, // 适度降低质量，确保文件大小符合要求
         });
 
         // 计算压缩信息

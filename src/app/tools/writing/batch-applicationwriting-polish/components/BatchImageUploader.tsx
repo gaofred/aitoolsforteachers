@@ -93,11 +93,11 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         const originalSize = image.originalFile.size;
         const originalSizeMB = (originalSize / 1024 / 1024).toFixed(2);
 
-        // 使用作文OCR优化的压缩设置，保证文字识别质量
+        // 使用作文OCR优化的压缩设置，适配Vercel函数限制
         const compressedFile = await compressImageForOCR(image.originalFile, {
-          maxSizeMB: 6, // 增加到6MB，保证作文文字清晰度
-          maxWidthOrHeight: 3072, // 提高分辨率，保证手写文字识别
-          quality: 0.95, // 提高到95%质量，减少文字模糊
+          maxSizeMB: 3, // 限制为3MB，避免Vercel函数请求体过大
+          maxWidthOrHeight: 2048, // 适度降低分辨率，平衡质量和大小
+          quality: 0.9, // 适度降低质量，确保文件大小符合要求
         });
 
         // 计算压缩信息
