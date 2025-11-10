@@ -28,9 +28,9 @@ export async function compressImageForOCR(
   options: CompressionOptions = {}
 ): Promise<File> {
   const defaultOptions: CompressionOptions = {
-    maxSizeMB: 0.5, // 目标500KB
-    maxWidthOrHeight: 1200, // 最大分辨率1200px
-    quality: 0.5, // 压缩质量50%
+    maxSizeMB: 0.3, // 目标300KB，确保不超过Vercel限制
+    maxWidthOrHeight: 800, // 更激进的分辨率降低
+    quality: 0.3, // 更激进的质量降低
     useWebWorker: false, // 禁用Web Worker，避免兼容性问题
     preferCanvas: true, // 优先使用Canvas压缩
   };
