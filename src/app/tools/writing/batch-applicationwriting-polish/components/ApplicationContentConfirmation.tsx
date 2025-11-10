@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Save, X, User, Wand2, Sparkles, Eye, EyeOff } from "lucide-react";
 import type { ApplicationBatchTask } from "../types";
@@ -76,6 +77,8 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
   const [formattedPreviews, setFormattedPreviews] = useState<{[key: string]: string}>({});
   const [batchFormattingInProgress, setBatchFormattingInProgress] = useState(false);
   const [formattingInProgress, setFormattingInProgress] = useState<{[key: string]: boolean}>({});
+  const [editingStudentNames, setEditingStudentNames] = useState<{[key: string]: boolean}>({});
+  const [editedStudentNames, setEditedStudentNames] = useState<{[key: string]: string}>({});
 
   // 在进入下一步前保存所有编辑的内容
   const handleNextWithSave = () => {
@@ -162,6 +165,53 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
       setEditedTexts({
         ...editedTexts,
         [assignmentId]: assignment.ocrResult.editedText || assignment.ocrResult.content
+      });
+    }
+  };
+
+  // 学生姓名编辑功能
+  const handleEditStudentName = (assignmentId: string, currentName: string) => {
+    setEditingStudentNames({ ...editingStudentNames, [assignmentId]: true });
+    setEditedStudentNames({ ...editedStudentNames, [assignmentId]: currentName });
+  };
+
+  const handleSaveStudentName = (assignmentId: string) => {
+    if (!task) return;
+
+    const newName = editedStudentNames[assignmentId];
+    if (newName !== undefined && newName.trim()) {
+      const updatedAssignments = task.assignments.map(assignment => {
+        if (assignment.id === assignmentId) {
+          return {
+            ...assignment,
+            student: {
+              ...assignment.student,
+              name: newName.trim()
+            }
+          };
+        }
+        return assignment;
+      });
+
+      setTask({
+        ...task,
+        assignments: updatedAssignments
+      });
+
+      console.log(`✅ 学生姓名已更新: ${assignmentId} -> ${newName.trim()}`);
+    }
+
+    setEditingStudentNames({ ...editingStudentNames, [assignmentId]: false });
+  };
+
+  const handleCancelStudentName = (assignmentId: string) => {
+    setEditingStudentNames({ ...editingStudentNames, [assignmentId]: false });
+    // 恢复原始姓名
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (assignment) {
+      setEditedStudentNames({
+        ...editedStudentNames,
+        [assignmentId]: assignment.student.name
       });
     }
   };
@@ -490,7 +540,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <User className="w-5 h-5 text-blue-600" />
-                    作文 {startIndex + index + 1} - {assignment.student.name}
+                    作文 {startIndex + index + 1} - {editedStudentNames[assignment.id] || assignment.student.name}
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     {showFormattingSuggestions[assignment.id] && (
@@ -545,8 +595,48 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                   <div className="flex items-center gap-4">
                     <User className="w-4 h-4 text-blue-600" />
                     <div>
-                      <div className="font-medium text-blue-600 text-sm">
-                        识别学生: {assignment.student.name}
+                      <div className="font-medium text-blue-600 text-sm flex items-center gap-2">
+                        识别学生:
+                        {editingStudentNames[assignment.id] ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={editedStudentNames[assignment.id] || assignment.student.name}
+                              onChange={(e) => setEditedStudentNames({ ...editedStudentNames, [assignment.id]: e.target.value })}
+                              className="h-6 w-24 text-xs"
+                              placeholder="请输入学生姓名"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveStudentName(assignment.id)}
+                              className="h-6 px-2 text-xs"
+                            >
+                              <Save className="w-3 h-3 mr-1" />
+                              保存
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleCancelStudentName(assignment.id)}
+                              className="h-6 px-2 text-xs"
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              取消
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span>{assignment.student.name}</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditStudentName(assignment.id, assignment.student.name)}
+                              className="h-6 px-2 text-xs"
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              编辑
+                            </Button>
+                          </div>
+                        )}
                       </div>
                       <div className="text-xs text-gray-500 space-y-1">
                         <div>原文长度: {assignment.ocrResult.originalText.length} 字符</div>
