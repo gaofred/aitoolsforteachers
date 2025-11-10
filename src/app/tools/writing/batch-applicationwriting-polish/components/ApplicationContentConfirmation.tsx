@@ -954,16 +954,6 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
             </Button>
           )}
 
-  
-          <Button
-            onClick={handleNextWithSave}
-            disabled={assignments.length === 0}
-            className="px-8"
-          >
-            下一步：姓名匹配确认
-          </Button>
-          )}
-
           <Button
             onClick={handleNextWithSave}
             disabled={assignments.length === 0}
