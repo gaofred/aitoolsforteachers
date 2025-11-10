@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Image, X, Eye, Trash2, Loader2, RefreshCw } from "lucide-react";
-import { compressImageForOCR } from "@/lib/image-compressor";
+import { compressImageForOCR, adaptiveCompressImage } from "@/lib/image-compressor";
 
 interface EssayOCRResult {
   text: string;
@@ -94,16 +94,12 @@ const EssayOCRUploader: React.FC<EssayOCRUploaderProps> = ({
           )
         );
 
-        // 作文OCR使用超强压缩设置，确保所有图片压缩到500KB以下
+        // 作文OCR使用自适应压缩，确保所有图片压缩到500KB以下
         const originalSize = image.originalFile.size;
         const originalSizeMB = (originalSize / 1024 / 1024).toFixed(2);
 
-        const compressedFile = await compressImageForOCR(image.originalFile, {
-          maxSizeMB: 0.5, // 限制为500KB，确保强制压缩
-          maxWidthOrHeight: 1200, // 大幅降低分辨率，但仍保持文字可识别
-          quality: 0.5, // 显著降低质量，优先保证文件大小
-          useWebWorker: false, // 禁用Web Worker，避免兼容性问题
-        });
+        console.log(`📝 开始自适应压缩作文图片: ${image.originalFile.name}`);
+        const compressedFile = await adaptiveCompressImage(image.originalFile, 0.5, 3);
 
         // 计算压缩信息
         const compressionInfo = {

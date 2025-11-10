@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Image, X, Eye, Trash2, Camera, Loader2, RefreshCw } from "lucide-react";
 import type { ApplicationBatchTask, ApplicationAssignment, OCRResult, ProcessingStats } from "../types";
-import { compressImageForOCR } from "@/lib/image-compressor";
+import { compressImageForOCR, adaptiveCompressImage } from "@/lib/image-compressor";
 
 interface BatchImageUploaderProps {
   task: ApplicationBatchTask | null;
@@ -94,12 +94,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         const originalSizeMB = (originalSize / 1024 / 1024).toFixed(2);
 
         // 使用超强压缩设置，确保所有图片压缩到500KB以下
-        const compressedFile = await compressImageForOCR(image.originalFile, {
-          maxSizeMB: 0.5, // 限制为500KB，确保强制压缩
-          maxWidthOrHeight: 1200, // 大幅降低分辨率，但仍保持文字可识别
-          quality: 0.5, // 显著降低质量，优先保证文件大小
-          useWebWorker: false, // 禁用Web Worker，避免兼容性问题
-        });
+        console.log(`📝 开始自适应压缩应用文图片: ${image.originalFile.name}`);
+        const compressedFile = await adaptiveCompressImage(image.originalFile, 0.5, 3);
 
         // 计算压缩信息
         const compressionInfo = {
