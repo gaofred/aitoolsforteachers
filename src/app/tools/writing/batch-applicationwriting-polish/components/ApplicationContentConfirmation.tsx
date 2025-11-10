@@ -55,6 +55,7 @@ interface ApplicationContentConfirmationProps {
   setTask: (task: ApplicationBatchTask | null) => void;
   onNext: () => void;
   onPrev: () => void;
+  onMediumStandard: () => void;
   editingAssignments: {[key: string]: boolean};
   setEditingAssignments: (editing: {[key: string]: boolean}) => void;
   editedTexts: {[key: string]: string};
@@ -66,6 +67,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
   setTask,
   onNext,
   onPrev,
+  onMediumStandard,
   editingAssignments,
   setEditingAssignments,
   editedTexts,
@@ -811,7 +813,8 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
             </Card>
           ))}
           </div>
-        </>
+
+          </>
       )}
 
       {/* 操作按钮 */}
@@ -949,6 +952,16 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                 </>
               )}
             </Button>
+          )}
+
+  
+          <Button
+            onClick={handleNextWithSave}
+            disabled={assignments.length === 0}
+            className="px-8"
+          >
+            下一步：姓名匹配确认
+          </Button>
           )}
 
           <Button

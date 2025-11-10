@@ -53,6 +53,7 @@ export interface ApplicationBatchTask {
   createdAt: Date;
   completedAt?: Date;
   pointsCost: number;
+  useMediumStandard?: boolean; // 是否使用中等标准（去掉宽容一分评判）
 }
 
 // 处理统计

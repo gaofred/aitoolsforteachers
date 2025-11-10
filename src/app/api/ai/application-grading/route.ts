@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { studentName, topic, content, gradingType = 'both', userId } = body;
+    const { studentName, topic, content, gradingType = 'both', userId, useMediumStandard = false } = body;
 
     if (!studentName || !topic || !content) {
       console.log('应用文批改API - 参数验证失败', {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 构建批改提示词
-    const buildGradingPrompt = (studentName: string, topic: string, content: string, type: 'scoring' | 'revision' | 'both') => {
+    const buildGradingPrompt = (studentName: string, topic: string, content: string, type: 'scoring' | 'revision' | 'both', useMediumStandard: boolean = false) => {
       const basePrompt = `# 请依据##题目要求，修改上述学生作文（注意，回复语言主体用汉语）
 
 ## 题目要求
@@ -191,8 +191,23 @@ Word count : 80 - 130 words`;
 
 #步骤
 1 换行，指出学生作文是否偏离题意（与用户输入的"作文题目"相比对，是否符合"作文题目"的要点要求？）如果完全偏离题意，6分以下打分。##应用文词数 中的"英语单词数"少于60的，直接3分以下打分。直接跳到步骤
-2.注意以下几点：**特别提醒：针对中国高中生，评分标准应该相对宽容**。注意，单词错误多（比如多于10处才算多），语法错误多影响表达（但不影响理解的前提下可宽容），句式都是简单句（句式过于简单的），或字数不足（如少于80个单词），满足以上条件之一的，9分以下打分。##应用文词数 中的"英语单词数"少于60的，视为字数严重不足，按最高第一档（1-3分）打分。注意，先不要打分，wait, step by step.
-3 现在，请给学生打分！按照我上面给你的打分标准，从答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数（1-15分）。**注意：针对中国高中生，请适当宽容1分**。注意：
+2.注意以下几点：**特别提醒：针对中国高中生，评分标准应该${useMediumStandard ? '更加严格' : '相对宽容'}**。注意，单词错误多（比如多于${useMediumStandard ? '5' : '10'}处才算多），语法错误多影响表达（${useMediumStandard ? '且影响理解时不可宽容' : '但不影响理解的前提下可宽容'}），句式都是简单句（句式过于简单的），或字数不足（如少于80个单词），满足以上条件之一的，9分以下打分。##应用文词数 中的"英语单词数"少于60的，视为字数严重不足，按最高第一档（1-3分）打分。注意，先不要打分，wait, step by step.
+3 现在，请给学生打分！按照我上面给你的打分标准，从答题要点、逻辑性、语言表达的地道性、单词拼写错误等方面给出合理的分数（1-15分）。
+
+**评分标准说明**：
+${useMediumStandard ? `
+**中等标准模式**：
+- 严格按照评分标准打分，不额外加分
+- 评分要求更加严格，请从严扣分
+- 直接按照评分标准给出分数，不因为是中国高中生而放宽要求
+- 对于语法错误、用词不当等问题要严格按照标准扣分` : `
+**宽松标准模式**：
+- 评分标准相对宽松，对小错误可以从轻处理
+- 可以在严格评分基础上，酌情增加1-2分作为鼓励
+- 针对中国高中生，请适当宽容1分，不要因为小错误过度扣分
+- 对于语法错误、用词不当等问题可以适度宽容处理`}
+
+注意：
    - 必须根据学生作文的具体表现来打分，不要随意给分
    - 语言表达方向要严格按照## 评分标准| 你的提供范文的标准进行评分
    - 英语单词数少于80的，要扣3分
@@ -284,7 +299,7 @@ Word count : 80 - 130 words`;
       }
     };
 
-    const prompt = buildGradingPrompt(studentName, topic, content, gradingType as 'scoring' | 'revision' | 'both');
+    const prompt = buildGradingPrompt(studentName, topic, content, gradingType as 'scoring' | 'revision' | 'both', useMediumStandard);
 
     // 检查极客智坊API Key配置
     if (!GEEKAI_API_KEY) {

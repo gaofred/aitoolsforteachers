@@ -15,6 +15,7 @@ interface BatchGradingRequest {
     gradingType?: 'scoring' | 'revision' | 'both';
   }>;
   gradingType: 'scoring' | 'revision' | 'both';
+  useMediumStandard?: boolean;
 }
 
 export async function POST(request: NextRequest) {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { assignments, gradingType = 'both' } = body as BatchGradingRequest;
+    const { assignments, gradingType = 'both', useMediumStandard = false } = body as BatchGradingRequest;
 
     if (!assignments || assignments.length === 0) {
       console.log('应用文批量批改API - 参数验证失败: 没有作业数据');
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 构建批改提示词函数
-    const buildGradingPrompt = (studentName: string, topic: string, content: string, type: 'scoring' | 'revision' | 'both') => {
+    const buildGradingPrompt = (studentName: string, topic: string, content: string, type: 'scoring' | 'revision' | 'both', useMediumStandard: boolean = false) => {
       const basePrompt = `# 请依据##题目要求，修改上述学生作文（注意，回复语言主体用汉语）
 
 ## 题目要求
@@ -188,7 +189,21 @@ Word count : 80 - 130 words`;
   **理由**: 修正拼写错误（creat→create），补充具体行动指南。
 
 **步骤4：给学生打分**
-按照上面的打分标准，从答题要点、逻辑性、语言表达、单词拼写等方面给出合理分数。**重要提醒**：如果完全偏离题意，直接打6分以下。词数少于80个单词要扣3分。针对中国高中生，请适当宽容1分，不要因为小错误过度扣分。
+按照上面的打分标准，从答题要点、逻辑性、语言表达、单词拼写等方面给出合理分数。**重要提醒**：如果完全偏离题意，直接打6分以下。词数少于80个单词要扣3分。
+
+**评分标准说明**：
+${useMediumStandard ? `
+**中等标准模式**：
+- 严格按照评分标准打分，不额外加分
+- 评分要求更加严格，请从严扣分
+- 直接按照评分标准给出分数，不因为是中国高中生而放宽要求
+- 对于语法错误、用词不当等问题要严格按照标准扣分` : `
+**宽松标准模式**：
+- 评分标准相对宽松，对小错误可以从轻处理
+- 可以在严格评分基础上，酌情增加1-2分作为鼓励
+- 针对中国高中生，请适当宽容1分，不要因为小错误过度扣分
+- 对于语法错误、用词不当等问题可以适度宽容处理`}
+
 输出格式：##学生姓名+  打分：XX分。
 
 **步骤5：专家评价**
@@ -490,7 +505,8 @@ Word count : 80 - 130 words`;
             assignment.studentName,
             assignment.topic,
             assignment.content,
-            gradingType
+            gradingType,
+            useMediumStandard
           );
 
           // 调用极客智坊AI API

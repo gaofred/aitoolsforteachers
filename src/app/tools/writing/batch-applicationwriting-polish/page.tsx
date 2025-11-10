@@ -132,6 +132,18 @@ const BatchApplicationWritingPolish = () => {
     }
   };
 
+  // 处理中等标准（去掉宽容一分评判）
+  const handleMediumStandard = () => {
+    if (currentStep < steps.length) {
+      // 设置中等标准标志到task中
+      setTask(prev => prev ? {
+        ...prev,
+        useMediumStandard: true // 去掉宽容一分评判
+      } : null);
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
   // 用户未登录时的显示
   // 未登录时自动跳转到登录页面
   useEffect(() => {
@@ -317,6 +329,7 @@ const BatchApplicationWritingPolish = () => {
                 setTask={setTask}
                 onNext={handleNextStep}
                 onPrev={handlePrevStep}
+                onMediumStandard={handleMediumStandard}
                 editingAssignments={editingAssignments}
                 setEditingAssignments={setEditingAssignments}
                 editedTexts={editedTexts}
@@ -340,6 +353,7 @@ const BatchApplicationWritingPolish = () => {
                 setTask={setTask}
                 onNext={handleNextStep}
                 onPrev={handlePrevStep}
+                onMediumStandard={handleMediumStandard}
                 processingStats={processingStats}
                 setProcessingStats={setProcessingStats}
                 isGradingCompleted={isGradingCompleted}
