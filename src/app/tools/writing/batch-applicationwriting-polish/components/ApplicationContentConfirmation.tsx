@@ -730,6 +730,17 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
           上一步
         </Button>
         <div className="flex items-center gap-3">
+          {/* 批量提取学生姓名按钮 */}
+          {currentAssignments.length > 0 && (
+            <Button
+              onClick={batchExtractNames}
+              className="flex items-center gap-2"
+              variant="default"
+            >
+              <Wand2 className="w-4 h-4" />
+              批量提取学生姓名
+            </Button>
+          )}
           {/* 批量AI排版按钮 */}
           {currentAssignments.length > 0 && (
             <Button
