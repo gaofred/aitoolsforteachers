@@ -45,6 +45,13 @@ export async function compressImageForOCR(
   // 优先使用Canvas压缩方案（浏览器原生，更稳定）
   if (finalOptions.preferCanvas && supportsCanvasCompression()) {
     console.log('🎨 使用Canvas压缩方案（浏览器原生）...');
+    console.log('📊 压缩前文件信息:', {
+      文件名: file.name,
+      原始大小: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      目标大小: `${finalOptions.maxSizeMB}MB`,
+      目标质量: finalOptions.quality,
+      最大尺寸: finalOptions.maxWidthOrHeight
+    });
     try {
       const canvasOptions: CanvasCompressionOptions = {
         maxSizeMB: finalOptions.maxSizeMB,
@@ -54,7 +61,7 @@ export async function compressImageForOCR(
       };
 
       const result = await compressImageWithCanvas(file, canvasOptions);
-      console.log('✅ Canvas压缩成功！');
+      console.log('✅ Canvas压缩成功！压缩后大小:', `${(result.size / 1024 / 1024).toFixed(2)}MB`);
       return result;
     } catch (error) {
       console.error('❌ Canvas压缩失败，尝试备用方案:', error);
@@ -221,6 +228,13 @@ export async function adaptiveCompressImage(
   maxAttempts: number = 3
 ): Promise<File> {
   console.log(`🎯 开始自适应压缩，目标: ${targetSizeMB}MB，原文件: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+  console.log(`🎯 自适应压缩 - 文件详情:`, {
+    文件名: file.name,
+    文件类型: file.type,
+    原始大小: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+    目标大小: `${targetSizeMB}MB`,
+    最大尝试次数: maxAttempts
+  });
 
   let currentFile = file;
 
