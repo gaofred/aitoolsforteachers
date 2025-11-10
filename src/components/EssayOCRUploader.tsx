@@ -94,15 +94,15 @@ const EssayOCRUploader: React.FC<EssayOCRUploaderProps> = ({
           )
         );
 
-        // 作文OCR使用超强压缩设置，确保所有图片压缩到1MB以下
+        // 作文OCR使用超强压缩设置，确保所有图片压缩到500KB以下
         const originalSize = image.originalFile.size;
         const originalSizeMB = (originalSize / 1024 / 1024).toFixed(2);
 
         const compressedFile = await compressImageForOCR(image.originalFile, {
-          maxSizeMB: 0.8, // 限制为800KB，确保远低于1MB
-          maxWidthOrHeight: 1600, // 大幅降低分辨率，但仍保持文字可识别
-          quality: 0.6, // 显著降低质量，优先保证文件大小
-          useWebWorker: true, // 启用Web Worker提高压缩性能
+          maxSizeMB: 0.5, // 限制为500KB，确保强制压缩
+          maxWidthOrHeight: 1200, // 大幅降低分辨率，但仍保持文字可识别
+          quality: 0.5, // 显著降低质量，优先保证文件大小
+          useWebWorker: false, // 禁用Web Worker，避免兼容性问题
         });
 
         // 计算压缩信息

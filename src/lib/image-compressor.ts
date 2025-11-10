@@ -24,21 +24,32 @@ export async function compressImageForOCR(
   }
 
   const defaultOptions: CompressionOptions = {
-    maxSizeMB: 0.8, // 限制为800KB，确保远低于1MB
-    maxWidthOrHeight: 1600, // 大幅降低分辨率，但仍保持文字可识别
-    quality: 0.6, // 显著降低质量，优先保证文件大小
-    useWebWorker: true, // 使用Web Worker避免阻塞UI
+    maxSizeMB: 0.5, // 进一步降低到500KB，确保强制压缩
+    maxWidthOrHeight: 1200, // 进一步降低分辨率
+    quality: 0.5, // 进一步降低质量
+    useWebWorker: false, // 禁用Web Worker，避免兼容性问题
   };
 
   const finalOptions = { ...defaultOptions, ...options };
+
+  console.log('🔧 压缩配置:', {
+    原始文件: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+    最终配置: finalOptions,
+  });
 
   return new Promise((resolve, reject) => {
     new (Compressor as any)(file, {
       ...finalOptions,
       success(result) {
+        console.log('✅ 压缩成功:', {
+          原始大小: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+          压缩后: `${(result.size / 1024 / 1024).toFixed(2)}MB`,
+          压缩率: `${((1 - result.size / file.size) * 100).toFixed(1)}%`,
+        });
         resolve(result as File);
       },
       error(err) {
+        console.error('❌ 压缩失败:', err);
         reject(new Error(`图片压缩失败: ${err.message}`));
       },
     });
