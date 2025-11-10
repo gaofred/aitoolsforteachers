@@ -93,11 +93,11 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         const originalSize = image.originalFile.size;
         const originalSizeMB = (originalSize / 1024 / 1024).toFixed(2);
 
-        // 使用更激进的压缩设置确保API兼容性
+        // 使用作文OCR优化的压缩设置，保证文字识别质量
         const compressedFile = await compressImageForOCR(image.originalFile, {
-          maxSizeMB: 2, // 目标大小2MB
-          maxWidthOrHeight: 1920, // 限制分辨率，提升OCR效率
-          quality: 0.85, // 稍微降低质量以减小文件大小
+          maxSizeMB: 6, // 增加到6MB，保证作文文字清晰度
+          maxWidthOrHeight: 3072, // 提高分辨率，保证手写文字识别
+          quality: 0.95, // 提高到95%质量，减少文字模糊
         });
 
         // 计算压缩信息
@@ -122,7 +122,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         );
 
         const compressedSizeMB = (compressedFile.size / 1024 / 1024).toFixed(2);
-        console.log(`🔥 图片压缩完成: ${image.originalFile.name}`, {
+        console.log(`📝 作文图片压缩完成: ${image.originalFile.name}`, {
           原始大小: `${originalSizeMB}MB`,
           压缩后大小: `${compressedSizeMB}MB`,
           压缩率: `${compressionInfo.compressionRatio}%`,
@@ -178,8 +178,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           reader.readAsDataURL(image.file);
         });
 
-        // 使用同步OCR API进行快速识别，避免轮询延迟
-        const response = await fetch('/api/ai/image-recognition', {
+        // 使用专门的作文OCR API，提供更好的作文识别效果
+        const response = await fetch('/api/ai/essay-ocr', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -193,42 +193,43 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         let data;
         try {
           const responseText = await response.text();
-          console.log('🔍 同步OCR API响应前200字符:', responseText.substring(0, 200));
+          console.log('🔍 作文OCR API响应前200字符:', responseText.substring(0, 200));
 
           // 检查响应是否为JSON格式
           const trimmedText = responseText.trim();
           if (!trimmedText.startsWith('{') && !trimmedText.startsWith('[')) {
-            console.error('❌ API返回非JSON格式响应:', responseText.substring(0, 500));
+            console.error('❌ 作文OCR API返回非JSON格式响应:', responseText.substring(0, 500));
             throw new Error(`API返回非JSON格式响应: ${responseText.substring(0, 200)}...`);
           }
 
           data = JSON.parse(responseText);
         } catch (parseError) {
-          console.error('❌ JSON解析失败:', parseError);
+          console.error('❌ 作文OCR JSON解析失败:', parseError);
           throw new Error(`API响应解析失败: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
         }
 
-        console.log('🔥🔥🔥 同步OCR API响应数据检查：', {
+        console.log('📝📝📝 作文OCR API响应数据检查：', {
           success: data.success,
           result: data.result ? data.result.substring(0, 100) + '...' : 'null',
           englishOnly: data.englishOnly ? data.englishOnly.substring(0, 100) + '...' : 'null',
           imageId: image.id,
-          provider: data.provider
+          model: data.metadata?.model,
+          processingTime: data.metadata?.processingTime
         });
 
         if (data.success && data.result) {
-          // 直接解析OCR结果，无需轮询等待
+          // 直接解析OCR结果，使用作文OCR的英文分离结果
           const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id);
-          console.log(`✅ 同步OCR识别完成 (${image.id.substring(0, 8)}...)`)
+          console.log(`✅ 作文OCR识别完成 (${image.id.substring(0, 8)}...)`)
           return parsedResult;
         } else {
           // 构建详细错误信息
-          let errorMessage = data.error || 'OCR识别失败';
+          let errorMessage = data.error || '作文OCR识别失败';
           if (data.details) {
             if (typeof data.details === 'string') {
               errorMessage += ` (${data.details})`;
-            } else if (data.details.primaryError) {
-              errorMessage += ` (${data.details.primaryError})`;
+            } else if (data.details.networkError) {
+              errorMessage += ` (网络错误: ${data.details.networkError})`;
             }
           }
           throw new Error(errorMessage);
@@ -396,15 +397,15 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     const errors: string[] = [];
     let completedCount = 0;
 
-    // 分批并行处理图片，优化并发数平衡性能和稳定性
-    const batchSize = 8; // 平衡并发数：8张图片并行处理，兼顾效率与稳定性
+    // 适度并发处理，配合作文OCR的优化性能
+    const batchSize = 5; // 适度并发：5张图片同时处理，配合作文OCR的高质量识别
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {
       batches.push(uploadedImages.slice(i, i + batchSize));
     }
 
-    console.log(`🚀 开始批量处理 ${uploadedImages.length} 张图片，并发数: ${batchSize} 张/批次（平衡版）`);
+    console.log(`📝 开始作文批量处理 ${uploadedImages.length} 张图片，并发数: ${batchSize} 张/批次（作文OCR版）`);
 
     // 性能监控
     const startTime = Date.now();
