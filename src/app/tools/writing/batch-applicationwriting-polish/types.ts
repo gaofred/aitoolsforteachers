@@ -15,6 +15,7 @@ export interface OCRResult {
   content: string; // 应用文内容
   confidence: number;
   processedAt: Date;
+  imageData?: string; // 图片Base64数据
 }
 
 // 应用文批改结果

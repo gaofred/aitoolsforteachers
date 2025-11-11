@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Save, X, User, Wand2, Sparkles, Eye, EyeOff } from "lucide-react";
+import { Edit, Save, X, User, Wand2, Sparkles, Eye, EyeOff, Search, ZoomIn } from "lucide-react";
 import type { ApplicationBatchTask } from "../types";
 import { formatEssayText, intelligentParagraphFormatting, needsFormatting, previewFormatting } from "@/lib/text-formatter";
 import { extractStudentName } from "@/lib/name-extractor";
@@ -81,6 +81,37 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
   const [formattingInProgress, setFormattingInProgress] = useState<{[key: string]: boolean}>({});
   const [editingStudentNames, setEditingStudentNames] = useState<{[key: string]: boolean}>({});
   const [editedStudentNames, setEditedStudentNames] = useState<{[key: string]: string}>({});
+  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentImageTitle, setCurrentImageTitle] = useState('');
+
+  // 处理图片放大
+  const handleImageEnlarge = (imageData: string, studentName: string) => {
+    setEnlargedImage(imageData);
+    setCurrentImageTitle(`学生作文图片 - ${studentName}`);
+    setShowImageModal(true);
+  };
+
+  // 关闭图片放大
+  const handleCloseImageModal = () => {
+    setShowImageModal(false);
+    setEnlargedImage(null);
+    setCurrentImageTitle('');
+  };
+
+  // ESC键关闭模态框
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showImageModal) {
+        handleCloseImageModal();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showImageModal]);
 
   // 在进入下一步前保存所有编辑的内容
   const handleNextWithSave = () => {
@@ -685,9 +716,11 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                   </div>
                 </div>
 
-                {/* 作文内容 */}
-                <div>
-                  <div className="font-medium text-gray-700 mb-2 text-sm">作文内容:</div>
+                {/* 作文内容 - 两栏布局 */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* 左栏：作文内容编辑/显示 */}
+                  <div>
+                    <div className="font-medium text-gray-700 mb-2 text-sm">作文内容:</div>
                   {editingAssignments[assignment.id] ? (
                     <div className="space-y-2">
                       <Textarea
@@ -808,6 +841,45 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                       )}
                     </div>
                   )}
+                  </div>
+
+                  {/* 右栏：原始图片 */}
+                  <div>
+                    <div className="font-medium text-gray-700 mb-2 text-sm">原始图片:</div>
+                    {assignment.ocrResult.imageData ? (
+                      <div className="space-y-2">
+                        <div className="border rounded-lg overflow-hidden bg-gray-50 relative group">
+                          <img
+                            src={assignment.ocrResult.imageData}
+                            alt={`学生作文图片 - ${assignment.student.name}`}
+                            className="w-full h-auto max-h-96 object-contain"
+                            style={{ maxHeight: '400px' }}
+                          />
+                          {/* 放大镜按钮 */}
+                          <button
+                            onClick={() => handleImageEnlarge(assignment.ocrResult.imageData!, assignment.student.name)}
+                            className="absolute top-2 right-2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-700 p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                            title="放大查看"
+                          >
+                            <ZoomIn className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="text-xs text-gray-500 text-center">
+                          📸 原始作文图片，方便核对OCR识别结果
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+                        <div className="text-gray-500">
+                          <svg className="w-12 h-12 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <div className="text-sm">图片数据不可用</div>
+                          <div className="text-xs mt-1">请返回上传步骤重新上传图片</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -963,6 +1035,60 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
           </Button>
         </div>
       </div>
+
+      {/* 图片放大查看模态框 */}
+      {showImageModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={handleCloseImageModal}
+        >
+          <div
+            className="relative max-w-7xl max-h-full bg-white rounded-lg shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 关闭按钮 */}
+            <button
+              onClick={handleCloseImageModal}
+              className="absolute top-2 right-2 z-10 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-700 p-2 rounded-full shadow-lg"
+              title="关闭"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* 标题 */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {currentImageTitle}
+              </h3>
+            </div>
+
+            {/* 图片容器 */}
+            <div className="p-6 overflow-auto" style={{ maxHeight: '80vh' }}>
+              <img
+                src={enlargedImage!}
+                alt={currentImageTitle}
+                className="max-w-full h-auto object-contain"
+                style={{ maxHeight: '70vh' }}
+              />
+            </div>
+
+            {/* 底部操作栏 */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-600">
+                  💡 提示：可以使用鼠标滚轮或触摸手势进行缩放
+                </p>
+                <Button
+                  onClick={handleCloseImageModal}
+                  className="bg-gray-600 hover:bg-gray-700"
+                >
+                  关闭
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

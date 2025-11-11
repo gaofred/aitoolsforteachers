@@ -278,8 +278,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       });
 
       if (data.success && data.result) {
-        // 直接解析OCR结果，使用作文OCR的英文分离结果
-        const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id);
+        // 直接解析OCR结果，使用作文OCR的英文分离结果，包含图片数据
+        const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id, base64);
         console.log(`✅ 作文OCR识别完成 (${image.id.substring(0, 8)}...)`)
         return parsedResult;
       } else {
@@ -303,7 +303,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
   
   // 解析OCR结果 - 简化版：只区分中英文内容，不提取姓名
-  const parseOCRResult = (originalText: string, englishOnlyText: string, imageId: string): OCRResult => {
+  const parseOCRResult = (originalText: string, englishOnlyText: string, imageId: string, imageData?: string): OCRResult => {
     const lines = originalText.split('\n').filter(line => line.trim());
 
     // 提取中文内容（所有包含中文字符的行）
@@ -319,6 +319,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       原文长度: originalText.length,
       中文内容长度: chineseContent.length,
       英文内容长度: content.length,
+      包含图片数据: !!imageData,
       优化: "跳过姓名提取，专注文字识别"
     });
 
@@ -329,7 +330,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       chineseContent,
       content,
       confidence: 0.9, // 提升置信度，因为更专注于识别
-      processedAt: new Date()
+      processedAt: new Date(),
+      imageData: imageData // 保存图片数据
     };
   };
 
