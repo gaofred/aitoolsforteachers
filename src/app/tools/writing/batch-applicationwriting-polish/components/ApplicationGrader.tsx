@@ -1178,75 +1178,58 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
         </Button>
 
         <div className="flex items-center gap-3">
-          {/* 批量修改按钮 - 未开始批改时显示 */}
-          {!isGrading && !isGradingCompleted && (
+          {/* 批量修改按钮 - 初始状态或需要重新批改时显示 */}
+          {!isGrading && (
             <div className="space-y-2">
-              {/* 时间预估提示 */}
+              {/* 提示信息 - 根据是否有批改结果显示不同提示 */}
               <div className="text-center">
-                <div className="text-xs text-gray-500 mb-1">
-                  ⏱️ 预计需要 {Math.ceil((task.assignments.length * 7) / 20 / 60)} 分钟
-                </div>
-                <div className="text-xs text-blue-600">
-                  20个学生并行处理，请耐心等待
-                </div>
+                {task.assignments.some(a => a.status === 'completed') ? (
+                  <>
+                    <div className="text-xs text-gray-500 mb-1">
+                      🔄 发现已完成的批改结果
+                    </div>
+                    <div className="text-xs text-orange-600">
+                      可选择标准重新批改或查看当前结果
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xs text-gray-500 mb-1">
+                      ⏱️ 预计需要 {Math.ceil((task.assignments.length * 7) / 20 / 60)} 分钟
+                    </div>
+                    <div className="text-xs text-blue-600">
+                      20个学生并行处理，请耐心等待
+                    </div>
+                  </>
+                )}
               </div>
+
               {/* 批量修改按钮 */}
               <div className="flex gap-2">
                 <Button
                   onClick={gradeAllApplicationsMedium}
                   disabled={!hasEnoughPoints}
                   className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white border-amber-500 flex-1"
-                  title="去掉宽容1分，批改更严格"
+                  title={task.assignments.some(a => a.status === 'completed') ? "使用中等标准重新批改，去掉宽容1分" : "去掉宽容1分，批改更严格"}
                 >
                   <FileText className="w-4 h-4" />
-                  {hasEnoughPoints ? `批量修改（中等标准）(${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
+                  {hasEnoughPoints ?
+                    (task.assignments.some(a => a.status === 'completed') ? `重新批改（中等标准）(${totalPointsNeeded}点)` : `批量修改（中等标准）(${totalPointsNeeded}点)`)
+                    : `点数不足 (${totalPointsNeeded}点)`
+                  }
                 </Button>
 
                 <Button
                   onClick={gradeAllApplicationsLenient}
                   disabled={!hasEnoughPoints}
                   className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white border-green-600 flex-1"
-                  title="保留宽容1分，批改更人性化"
+                  title={task.assignments.some(a => a.status === 'completed') ? "使用宽松标准重新批改，保留宽容1分" : "保留宽容1分，批改更人性化"}
                 >
                   <Star className="w-4 h-4" />
-                  {hasEnoughPoints ? `批量修改（宽松标准）(${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* 批量修改按钮 - 批改完成后显示，用于重新批改 */}
-          {isGradingCompleted && !isGrading && (
-            <div className="space-y-2">
-              {/* 重新批改提示 */}
-              <div className="text-center">
-                <div className="text-xs text-gray-500 mb-1">
-                  🔄 如需重新批改，可选择批改标准
-                </div>
-                <div className="text-xs text-orange-600">
-                  重新批改将消耗对应点数
-                </div>
-              </div>
-              {/* 重新批改按钮 */}
-              <div className="flex gap-2">
-                <Button
-                  onClick={gradeAllApplicationsMedium}
-                  disabled={!hasEnoughPoints}
-                  className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white border-amber-500 flex-1"
-                  title="使用中等标准重新批改，去掉宽容1分"
-                >
-                  <FileText className="w-4 h-4" />
-                  {hasEnoughPoints ? `重新批改（中等标准）(${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
-                </Button>
-
-                <Button
-                  onClick={gradeAllApplicationsLenient}
-                  disabled={!hasEnoughPoints}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white border-green-600 flex-1"
-                  title="使用宽松标准重新批改，保留宽容1分"
-                >
-                  <Star className="w-4 h-4" />
-                  {hasEnoughPoints ? `重新批改（宽松标准）(${totalPointsNeeded}点)` : `点数不足 (${totalPointsNeeded}点)`}
+                  {hasEnoughPoints ?
+                    (task.assignments.some(a => a.status === 'completed') ? `重新批改（宽松标准）(${totalPointsNeeded}点)` : `批量修改（宽松标准）(${totalPointsNeeded}点)`)
+                    : `点数不足 (${totalPointsNeeded}点)`
+                  }
                 </Button>
               </div>
             </div>
