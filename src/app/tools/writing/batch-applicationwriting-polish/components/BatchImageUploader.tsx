@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,66 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [ocrProgressMessage, setOcrProgressMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 数据持久化key
+  const STORAGE_KEY = `batch_ocr_${task?.id || 'default'}`;
+
+  // 从localStorage恢复数据
+  useEffect(() => {
+    try {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+
+        // 检查数据是否匹配当前任务
+        if (parsed.taskId === task?.id && parsed.uploadedImages) {
+          console.log('🔄 从localStorage恢复OCR数据:', {
+            taskId: parsed.taskId,
+            imageCount: parsed.uploadedImages.length,
+            timestamp: parsed.timestamp
+          });
+
+          setUploadedImages(parsed.uploadedImages);
+          setOcrProgressMessage(parsed.ocrProgressMessage || '');
+          setIsProcessing(parsed.isProcessing || false);
+        }
+      }
+    } catch (error) {
+      console.warn('恢复OCR数据失败:', error);
+      // 清理损坏的数据
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [task?.id, STORAGE_KEY]);
+
+  // 保存数据到localStorage
+  useEffect(() => {
+    if (uploadedImages.length > 0 || isProcessing) {
+      try {
+        const dataToSave = {
+          taskId: task?.id,
+          uploadedImages,
+          isProcessing,
+          ocrProgressMessage,
+          timestamp: Date.now()
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        console.log('💾 OCR数据已保存到localStorage:', {
+          taskId: task?.id,
+          imageCount: uploadedImages.length,
+          isProcessing
+        });
+      } catch (error) {
+        console.warn('保存OCR数据失败:', error);
+      }
+    }
+  }, [uploadedImages, isProcessing, ocrProgressMessage, task?.id, STORAGE_KEY]);
+
+  // 清理过期数据的函数
+  const clearStoredData = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    console.log('🗑️ OCR数据已清理');
+  };
 
   // 处理文件上传
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,6 +210,12 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       if (imageToRemove) {
         URL.revokeObjectURL(imageToRemove.preview);
       }
+
+      // 如果没有剩余图片，清理localStorage
+      if (updated.length === 0) {
+        clearStoredData();
+      }
+
       return updated;
     });
   };
@@ -158,6 +224,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   const clearAllImages = () => {
     uploadedImages.forEach(img => URL.revokeObjectURL(img.preview));
     setUploadedImages([]);
+    // 清理localStorage数据
+    clearStoredData();
   };
 
   // OCR识别单张图片（移除重试机制，失败直接报错）
@@ -524,6 +592,18 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
             onChange={handleFileUpload}
             className="hidden"
           />
+
+          {/* 数据保存说明 */}
+          {uploadedImages.length > 0 && (
+            <div className="flex items-center gap-2 p-3 bg-blue-50 rounded border border-blue-200">
+              <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                <span className="text-white text-xs">💾</span>
+              </div>
+              <label className="text-sm text-blue-700">
+                已自动保存 - 您的图片和OCR结果已保存，返回此页面时数据不会丢失
+              </label>
+            </div>
+          )}
 
           {/* 压缩说明 */}
           <div className="flex items-center gap-2 p-3 bg-green-50 rounded border border-green-200">

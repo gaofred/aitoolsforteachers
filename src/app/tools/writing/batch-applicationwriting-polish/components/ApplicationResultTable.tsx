@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Eye, EyeOff, FileText, Star, FileDown, BrainCircuit, TrendingUp, AlertCircle, Coins } from "lucide-react";
+import { Download, Eye, EyeOff, FileText, Star, FileDown, BrainCircuit, TrendingUp, AlertCircle, Coins, RefreshCw } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, PageBreak, TabStopType, TabStopPosition, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
@@ -14,12 +14,14 @@ import type { ApplicationBatchTask } from "../types";
 
 interface ApplicationResultTableProps {
   task: ApplicationBatchTask | null;
+  setTask: React.Dispatch<React.SetStateAction<ApplicationBatchTask | null>>;
   onPrev: () => void;
   isGradingCompleted: boolean;
 }
 
 const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
   task,
+  setTask,
   onPrev,
   isGradingCompleted
 }) => {
@@ -32,18 +34,104 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
   const [commonIssuesAnalysis, setCommonIssuesAnalysis] = useState<string | null>(null);
   const [isAnalyzingCommonIssues, setIsAnalyzingCommonIssues] = useState(false);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [retryingAssignments, setRetryingAssignments] = useState<{[key: string]: boolean}>({});
+
+  // 单独重试批改功能
+  const retrySingleAssignment = async (assignmentId: string) => {
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) return;
+
+    setRetryingAssignments(prev => ({ ...prev, [assignmentId]: true }));
+
+    try {
+      // 调用批改API
+      const requestData = {
+        studentName: assignment.student.name,
+        topic: task.topic,
+        content: assignment.ocrResult.editedText || assignment.ocrResult.originalText || assignment.ocrResult.content,
+        gradingType: 'both',
+        userId: task.userId || ''
+      };
+
+      // 获取认证token
+      const getAuthToken = () => {
+        if (typeof window !== 'undefined') {
+          let token = localStorage.getItem('sb-access-token');
+          if (token) return token;
+          token = sessionStorage.getItem('sb-access-token');
+          if (token) return token;
+        }
+        return '';
+      };
+
+      const authToken = getAuthToken();
+      const response = await fetch('/api/ai/application-grading', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        credentials: 'include',
+        body: JSON.stringify(requestData)
+      });
+
+      if (!response.ok) {
+        let errorMessage = '批改失败';
+        if (response.status === 404) {
+          errorMessage = '批改失败：服务不可用，请稍后重试';
+        } else if (response.status === 500) {
+          errorMessage = '批改失败：服务器内部错误';
+        } else {
+          errorMessage = `批改失败：HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // 更新作业状态
+        const gradingResult: any = {
+          score: data.result.score,
+          feedback: data.result.feedback,
+          improvedVersion: data.result.improvedVersion,
+          gradingDetails: data.result.gradingDetails,
+          gradedAt: new Date()
+        };
+
+        // 更新任务状态
+        const updatedAssignments = task.assignments.map(a =>
+          a.id === assignmentId
+            ? { ...a, status: 'completed' as const, gradingResult }
+            : a
+        );
+
+        setTask({ ...task, assignments: updatedAssignments });
+        alert(`${assignment.student.name} 的作文重试批改成功！`);
+      } else {
+        throw new Error(data.error || '批改失败');
+      }
+    } catch (error) {
+      console.error('重试批改失败:', error);
+      alert(`${assignment.student.name} 的作文重试批改失败: ${error.message}`);
+    } finally {
+      setRetryingAssignments(prev => ({ ...prev, [assignmentId]: false }));
+    }
+  };
 
   if (!task) return null;
 
   const assignments = task.assignments || [];
   const completedAssignments = assignments.filter(a => a.status === 'completed' && a.gradingResult);
+  const failedAssignments = assignments.filter(a => a.status === 'failed' || (a.status === 'completed' && !a.gradingResult));
 
-  // 分页设置：每页5个学生
+  // 分页设置：每页5个学生（包含失败的）
   const itemsPerPage = 5;
-  const totalPages = Math.ceil(completedAssignments.length / itemsPerPage);
+  const allDisplayedAssignments = [...completedAssignments, ...failedAssignments];
+  const totalPages = Math.ceil(allDisplayedAssignments.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentAssignments = completedAssignments.slice(startIndex, endIndex);
+  const currentAssignments = allDisplayedAssignments.slice(startIndex, endIndex);
 
   // 切换详细结果显示
   const toggleResultExpansion = (assignmentId: string) => {
@@ -1144,14 +1232,18 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{completedAssignments.length}</div>
               <div className="text-gray-600">已完成批改</div>
             </div>
             <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{failedAssignments.length}</div>
+              <div className="text-gray-600">批改失败</div>
+            </div>
+            <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {(completedAssignments.reduce((sum, a) => sum + (a.gradingResult?.score || 0), 0) / completedAssignments.length).toFixed(1)}
+                {completedAssignments.length > 0 ? (completedAssignments.reduce((sum, a) => sum + (a.gradingResult?.score || 0), 0) / completedAssignments.length).toFixed(1) : '0'}
               </div>
               <div className="text-gray-600">平均分数</div>
             </div>
@@ -1191,53 +1283,33 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
         </Button>
       </div>
 
-      {/* 分页控制 */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            显示 {startIndex + 1}-{Math.min(endIndex, completedAssignments.length)} / {completedAssignments.length}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-            >
-              上一页
-            </Button>
-            <span className="text-sm text-gray-600">
-              第 {currentPage} / {totalPages} 页
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-            >
-              下一页
-            </Button>
-          </div>
-        </div>
-      )}
 
       {currentAssignments.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-center text-gray-500">
-            暂无批改完成的数据
+            {completedAssignments.length === 0 && failedAssignments.length === 0
+              ? '暂无批改数据'
+              : '当前页没有批改数据'}
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="space-y-4">
             {currentAssignments.map((assignment, index) => {
-              const globalIndex = completedAssignments.findIndex(a => a.id === assignment.id) + 1;
+              const globalIndex = allDisplayedAssignments.findIndex(a => a.id === assignment.id) + 1;
+              const isFailed = failedAssignments.includes(assignment);
+
               return (
-              <Card key={assignment.id} className="border border-gray-200">
+              <Card key={assignment.id} className={`border ${isFailed ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">
+                    <CardTitle className="text-lg flex items-center gap-2">
                       作文 {globalIndex}
+                      {isFailed && (
+                        <Badge variant="destructive" className="text-xs">
+                          批改失败
+                        </Badge>
+                      )}
                     </CardTitle>
                     <div className="flex items-center gap-2">
                       {assignment.ocrResult.editedText && (
@@ -1245,7 +1317,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                           已编辑
                         </Badge>
                       )}
-                      {!expandedResults[assignment.id] && (
+                      {!expandedResults[assignment.id] && !isFailed && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -1256,27 +1328,52 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                           查看详情
                         </Button>
                       )}
+                      {isFailed && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => retrySingleAssignment(assignment.id)}
+                          disabled={retryingAssignments[assignment.id]}
+                          className="flex items-center gap-1 text-orange-600 hover:text-orange-700 border-orange-200"
+                        >
+                          {retryingAssignments[assignment.id] ? (
+                            <>
+                              <div className="w-3 h-3 border border-orange-600 border-t-transparent rounded-full animate-spin" />
+                              重试中...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-3 h-3" />
+                              重试批改
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* 基本信息 */}
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className={`flex items-center justify-between p-3 rounded-lg ${
+                    isFailed ? 'bg-red-100' : 'bg-blue-50'
+                  }`}>
                     <div className="flex items-center gap-4">
-                      <FileText className="w-4 h-4 text-blue-600" />
+                      <FileText className={`w-4 h-4 ${isFailed ? 'text-red-600' : 'text-blue-600'}`} />
                       <div>
-                        <div className="font-medium text-blue-600 text-sm">
+                        <div className={`font-medium text-sm ${
+                          isFailed ? 'text-red-600' : 'text-blue-600'
+                        }`}>
                           学生: {assignment.student.name}
                         </div>
                         <div className="text-xs text-gray-500">
-                          得分: {assignment.gradingResult?.score || 0}
+                          {isFailed ? '状态: 批改失败' : `得分: ${assignment.gradingResult?.score || 0}`}
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* 详细信息 */}
-                  {expandedResults[assignment.id] && assignment.gradingResult && (
+                  {expandedResults[assignment.id] && !isFailed && assignment.gradingResult && (
                     <div className="space-y-4">
                       {/* 批改意见 */}
                       <div>
@@ -1352,8 +1449,31 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     </div>
                   )}
 
+                  {/* 失败信息显示 */}
+                  {isFailed && (
+                    <div className="bg-red-100 p-4 rounded-lg border border-red-200">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                        <div className="space-y-2">
+                          <div className="font-medium text-red-800">
+                            批改失败
+                          </div>
+                          <div className="text-sm text-red-700">
+                            该学生作文的AI批改过程中出现了错误，可能是由于网络问题、内容格式问题或AI服务暂时不可用。
+                          </div>
+                          <div className="text-sm text-red-600">
+                            原文内容预览：
+                          </div>
+                          <div className="text-xs text-gray-600 bg-white p-2 rounded border border-gray-200 max-h-20 overflow-y-auto">
+                            {(assignment.ocrResult.editedText || assignment.ocrResult.content || '无内容').substring(0, 200)}...
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* 简要批改信息 */}
-                  {!expandedResults[assignment.id] && assignment.gradingResult && (
+                  {!expandedResults[assignment.id] && !isFailed && assignment.gradingResult && (
                     <div className="bg-blue-50 p-3 rounded border border-blue-200">
                       <div className="text-sm text-blue-800">
                         {assignment.gradingResult.feedback.substring(0, 150)}...
@@ -1366,6 +1486,69 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             })}
           </div>
         </>
+      )}
+
+      {/* 批改失败学生名单 */}
+      {failedAssignments.length > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg text-red-800 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              批改失败学生名单
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-sm text-red-700">
+                以下学生的作文批改失败，显示在上面列表中，您可以点击“重试批改”按钮单独重新批改：
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {failedAssignments.map(assignment => (
+                  <Badge
+                    key={assignment.id}
+                    variant="destructive"
+                    className="text-sm bg-red-100 text-red-800 border-red-200 hover:bg-red-200"
+                  >
+                    {assignment.student.name}
+                  </Badge>
+                ))}
+              </div>
+              <div className="text-xs text-red-600 mt-2">
+                <strong>提示：</strong>批改失败可能由网络问题、内容格式问题或AI服务暂时不可用导致。建议稍后重试。
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 分页控制 - 移至学生作文列表下方 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            显示 {startIndex + 1}-{Math.min(endIndex, allDisplayedAssignments.length)} / {allDisplayedAssignments.length}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            >
+              上一页
+            </Button>
+            <span className="text-sm text-gray-600">
+              第 {currentPage} / {totalPages} 页
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            >
+              下一页
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* 操作按钮 */}

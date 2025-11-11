@@ -183,7 +183,15 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
 
         if (!response.ok) {
           console.error('HTTP错误响应:', response.status, response.statusText);
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          let errorMessage = '批改失败';
+          if (response.status === 404) {
+            errorMessage = '批改失败：服务不可用，请稍后重试';
+          } else if (response.status === 500) {
+            errorMessage = '批改失败：服务器内部错误';
+          } else {
+            errorMessage = `批改失败：HTTP ${response.status}`;
+          }
+          throw new Error(errorMessage);
         }
 
         let data;
@@ -378,7 +386,15 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
             });
 
             if (!response.ok) {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              let errorMessage = '批改失败';
+              if (response.status === 404) {
+                errorMessage = '批改失败：服务不可用，请稍后重试';
+              } else if (response.status === 500) {
+                errorMessage = '批改失败：服务器内部错误';
+              } else {
+                errorMessage = `批改失败：HTTP ${response.status}`;
+              }
+              throw new Error(errorMessage);
             }
 
             const data = await response.json();
@@ -863,45 +879,6 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
                 </div>
               </div>
 
-              {/* 进度条 */}
-              {isGrading && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>批改进度</span>
-                    <span className="font-bold text-blue-600">{progress}% ({processingStats.gradedApplications}/{task.assignments.length})</span>
-                  </div>
-                  <Progress value={progress} className="w-full h-3" />
-                  {currentGrading && (
-                    <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center gap-2">
-                      <Clock className="w-4 h-4 animate-spin text-blue-600" />
-                      <div className="flex-1">
-                        <div className="font-medium text-blue-800">{currentGrading}</div>
-                        {isGrading && (
-                          <div className="text-xs text-blue-600 mt-1">
-                            请耐心等待，系统正在并行处理中...
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 并行处理进度 */}
-                  {parallelProgress && (
-                    <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
-                      <div className="text-xs text-blue-700 mb-1">
-                        <strong>并行批模式</strong> - 第 {parallelProgress.batchIndex}/{parallelProgress.totalBatches} 批
-                      </div>
-                      <div className="text-xs text-blue-600">
-                        当前进度: {parallelProgress.completedInBatch}/{parallelProgress.totalInBatch} 个学生
-                      </div>
-                      <Progress
-                        value={(parallelProgress.completedInBatch / parallelProgress.totalInBatch) * 100}
-                        className="mt-1 h-1"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* 点数余额提示 */}
               {!hasEnoughPoints && task.assignments.length > 0 && (
@@ -961,49 +938,6 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
 
           {/* 批改结果列表 */}
           <>
-            {/* 分页控制 */}
-            {task.assignments.length > 7 && (
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">
-                      显示第 {(currentPage - 1) * 7 + 1} - {Math.min(currentPage * 7, task.assignments.length)} 条，共 {task.assignments.length} 条记录
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        上一页
-                      </Button>
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: Math.ceil(task.assignments.length / 7) }, (_, i) => i + 1).map(page => (
-                          <Button
-                            key={page}
-                            variant={currentPage === page ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(page)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {page}
-                          </Button>
-                        ))}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(task.assignments.length / 7), prev + 1))}
-                        disabled={currentPage === Math.ceil(task.assignments.length / 7)}
-                      >
-                        下一页
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             <div className="space-y-4">
               {task.assignments
@@ -1149,6 +1083,95 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
               );
                 })}
             </div>
+
+            {/* 分页控制 */}
+            {task.assignments.length > 7 && (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                      显示第 {(currentPage - 1) * 7 + 1} - {Math.min(currentPage * 7, task.assignments.length)} 条，共 {task.assignments.length} 条记录
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        上一页
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.ceil(task.assignments.length / 7) }, (_, i) => i + 1).map(page => (
+                          <Button
+                            key={page}
+                            variant={currentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(task.assignments.length / 7), prev + 1))}
+                        disabled={currentPage === Math.ceil(task.assignments.length / 7)}
+                      >
+                        下一页
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 批改进度 */}
+            {isGrading && (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium text-gray-700 text-center">批改进度</div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>进度</span>
+                      <span className="font-bold text-blue-600">{progress}% ({processingStats.gradedApplications}/{task.assignments.length})</span>
+                    </div>
+                    <Progress value={progress} className="w-full h-2" />
+                    {currentGrading && (
+                      <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center gap-2">
+                        <Clock className="w-4 h-4 animate-spin text-blue-600" />
+                        <div className="flex-1">
+                          <div className="font-medium text-blue-800">{currentGrading}</div>
+                          {isGrading && (
+                            <div className="text-xs text-blue-600 mt-1">
+                              请耐心等待，系统正在并行处理中...
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 并行处理进度 */}
+                    {parallelProgress && (
+                      <div className="p-2 bg-blue-50 rounded border border-blue-200">
+                        <div className="text-xs text-blue-700 mb-1">
+                          <strong>并行批改模式</strong> - 第 {parallelProgress.batchIndex}/{parallelProgress.totalBatches} 批
+                        </div>
+                        <div className="text-xs text-blue-600">
+                          当前进度: {parallelProgress.completedInBatch}/{parallelProgress.totalInBatch} 个学生
+                        </div>
+                        <Progress
+                          value={(parallelProgress.completedInBatch / parallelProgress.totalInBatch) * 100}
+                          className="mt-1 h-1"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </>
 
           {/* 错误信息 */}

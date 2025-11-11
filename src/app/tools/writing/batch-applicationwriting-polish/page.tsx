@@ -365,6 +365,7 @@ const BatchApplicationWritingPolish = () => {
             {currentStep === 7 && (
               <ApplicationResultTable
                 task={task}
+                setTask={setTask}
                 onPrev={handlePrevStep}
                 isGradingCompleted={isGradingCompleted}
               />
