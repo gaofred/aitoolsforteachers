@@ -23,6 +23,7 @@ export interface OCRResult {
   sentences: string[];
   confidence: number;
   processedAt: Date;
+  imageData?: string; // 图片Base64数据
 }
 
 export interface NameMatch {

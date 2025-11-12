@@ -8,12 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Upload, Plus, Download, FileText, Clipboard, CheckCircle, AlertCircle, X } from "lucide-react";
 import * as XLSX from 'xlsx';
-import type { Student, BatchTask } from "../types";
+import type { Student } from "../types";
 
 interface StudentNameInputProps {
-  task: BatchTask | null;
-  setTask: (task: BatchTask | null) => void;
-  onNext?: () => void;
+  students: Student[];
+  onStudentsChange: (students: Student[]) => void;
 }
 
 interface ImportPreview {
@@ -24,22 +23,9 @@ interface ImportPreview {
 }
 
 export const StudentNameInput: React.FC<StudentNameInputProps> = ({
-  task,
-  setTask,
-  onNext
+  students,
+  onStudentsChange
 }) => {
-  // 从task中获取students，如果task为null则使用空数组
-  const students = task?.students || [];
-
-  // 更新学生列表的函数
-  const updateStudents = (newStudents: Student[]) => {
-    if (task) {
-      setTask({
-        ...task,
-        students: newStudents
-      });
-    }
-  };
   const [newStudentName, setNewStudentName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [showPasteInput, setShowPasteInput] = useState(false);
@@ -57,13 +43,13 @@ export const StudentNameInput: React.FC<StudentNameInputProps> = ({
       confirmed: true
     };
 
-    updateStudents([...students, newStudent]);
+    onStudentsChange([...students, newStudent]);
     setNewStudentName("");
   };
 
   // 删除学生
   const removeStudent = (studentId: string) => {
-    updateStudents(students.filter(s => s.id !== studentId));
+    onStudentsChange(students.filter(s => s.id !== studentId));
   };
 
   // 解析文本内容，提取学生姓名
@@ -138,7 +124,7 @@ export const StudentNameInput: React.FC<StudentNameInputProps> = ({
       confirmed: true
     }));
     
-    updateStudents([...students, ...newStudents]);
+    onStudentsChange([...students, ...newStudents]);
     setImportPreview(null);
     setPasteText("");
     setShowPasteInput(false);
@@ -260,7 +246,7 @@ export const StudentNameInput: React.FC<StudentNameInputProps> = ({
   // 清空所有学生
   const clearAll = () => {
     if (students.length > 0 && confirm('确定要清空所有学生姓名吗？')) {
-      updateStudents([]);
+      onStudentsChange([]);
     }
   };
 
@@ -277,7 +263,7 @@ export const StudentNameInput: React.FC<StudentNameInputProps> = ({
       confirmed: true
     }));
 
-    updateStudents([...students, ...sampleStudents]);
+    onStudentsChange([...students, ...sampleStudents]);
   };
 
   return (

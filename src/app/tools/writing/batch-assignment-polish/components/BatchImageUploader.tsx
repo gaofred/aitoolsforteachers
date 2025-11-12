@@ -216,8 +216,8 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
       const base64Data = await base64Promise;
 
-      // 调用OCR API
-      const response = await fetch('/api/ai/image-recognition', {
+      // 调用极客智坊OCR API（与批量应用文相同）
+      const response = await fetch('/api/ai/essay-ocr', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -228,20 +228,27 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error(`OCR API错误: ${response.status}`);
+        throw new Error(`极客智坊OCR API错误: ${response.status}`);
       }
 
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || 'OCR识别失败');
+        throw new Error(data.error || '极客智坊OCR识别失败');
       }
 
-      const ocrText = data.result;
-      console.log(`OCR识别原文 (尝试${retryCount + 1}):`, ocrText);
+      // 极客智坊返回格式：使用result字段，优先使用englishOnly字段（如果存在）
+      const ocrText = data.englishOnly || data.result;
+      console.log(`🤖 极客智坊OCR识别 (尝试${retryCount + 1}):`, ocrText);
+      console.log(`📊 极客智坊OCR信息:`, {
+        模型: data.metadata?.model || 'glm-4.1v-thinking-flashx',
+        处理时间: data.metadata?.processingTime || '未知',
+        原文长度: data.metadata?.originalLength || '未知',
+        纯英文长度: data.metadata?.englishOnlyLength || '未知'
+      });
 
       // 简化处理：直接使用基础解析，不再进行AI提取
-      const parsedResult = parseOCRResult(ocrText, image.id);
+      const parsedResult = parseOCRResult(ocrText, image.id, base64Data);
 
       // 更新图片状态
       setImages(prev => prev.map(img =>
@@ -281,8 +288,8 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   };
 
   // 解析OCR结果 - 优化中文姓名识别
-  const parseOCRResult = (ocrText: string, imageId: string): OCRResult => {
-    console.log('OCR识别的原始文本:', ocrText);
+  const parseOCRResult = (ocrText: string, imageId: string, imageData?: string): OCRResult => {
+    console.log('🤖 极客智坊OCR识别的原始文本:', ocrText);
 
     // 尝试提取学生姓名和英文句子
     const lines = ocrText.split('\n').filter(line => line.trim());
@@ -363,7 +370,8 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       originalText: ocrText, // 保存完整的OCR原文
       sentences: sentences.length > 0 ? sentences : [englishText.trim() || ocrText],
       confidence: 0.8, // 模拟置信度
-      processedAt: new Date()
+      processedAt: new Date(),
+      imageData // 保存图片Base64数据
     };
   };
 
@@ -632,7 +640,7 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           {isProcessing && (
             <div className="mt-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">OCR处理进度</span>
+                <span className="text-sm font-medium">极客智坊OCR处理进度</span>
                 <span className="text-sm text-gray-600">
                   {Math.round(processingProgress)}%
                 </span>
@@ -675,7 +683,7 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  开始OCR识别
+                  开始极客智坊OCR识别
                 </>
               )}
             </Button>

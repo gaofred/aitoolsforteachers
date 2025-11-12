@@ -55,7 +55,7 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
 
   // 自动匹配学生姓名
   const autoMatchNames = () => {
-    const matches: NameMatch[] = assignments?.map(assignment => {
+    const matches: NameMatch[] = assignments.map(assignment => {
       const ocrName = assignment.ocrResult.studentName;
       let bestMatch: Student | null = null;
       let bestSimilarity = 0;
@@ -94,7 +94,7 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
   };
 
   useEffect(() => {
-    if (assignments?.length > 0 && students?.length > 0) {
+    if (assignments.length > 0 && students.length > 0) {
       autoMatchNames();
     }
   }, [assignments, students]);
@@ -206,12 +206,12 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
       .filter(m => m.matchedStudent && m.confirmed)
       .map(m => m.matchedStudent!.id);
 
-    return students?.filter(s => !matchedStudentIds.includes(s.id)) || [];
+    return students.filter(s => !matchedStudentIds.includes(s.id));
   };
 
   // 完成匹配并更新作业
   const completeMatching = () => {
-    const updatedAssignments = assignments?.map((assignment, index) => {
+    const updatedAssignments = assignments.map((assignment, index) => {
       const match = nameMatches[index];
       if (match && match.matchedStudent && confirmedMatches.has(`match_${index}`)) {
         return {
@@ -237,10 +237,10 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
   };
 
   const stats = {
-    total: nameMatches?.length || 0,
-    autoMatched: nameMatches?.filter(m => m.confidence > 0.8).length || 0,
+    total: nameMatches.length,
+    autoMatched: nameMatches.filter(m => m.confidence > 0.8).length,
     confirmed: confirmedMatches.size,
-    unmatched: nameMatches?.filter(m => !m.matchedStudent).length || 0
+    unmatched: nameMatches.filter(m => !m.matchedStudent).length
   };
 
   return (
@@ -299,7 +299,7 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
 
       {/* 匹配列表 */}
       <div className="space-y-4">
-        {nameMatches?.map((match, index) => (
+        {nameMatches.map((match, index) => (
           <Card
             key={index}
             className={`border-2 ${getMatchStatusColor(match, confirmedMatches.has(`match_${index}`))}`}
@@ -465,7 +465,7 @@ export const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> =
                 </div>
 
                 {/* 手动选择学生 */}
-                {!match.matchedStudent && students?.length > 0 && !confirmedMatches.has(`match_${index}`) && (
+                {!match.matchedStudent && students.length > 0 && !confirmedMatches.has(`match_${index}`) && (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-600">选择已有学生:</span>
                     <Select
