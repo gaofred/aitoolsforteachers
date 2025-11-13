@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     // 构建作文内容文本
     const essaysContent = studentEssays.map((essay, index) => {
-      return `学生${index + 1}（${essay.studentName}）:\n${essay.content}\n`;
+      return `${essay.studentName}:\n${essay.content}\n`;
     }).join('\n---\n');
 
     // 构建给Gemini的提示词
@@ -85,6 +85,8 @@ ${topic}
 
 ## 学生作文内容
 ${essaysContent}
+
+**重要提示：** 在分析中请直接使用学生的真实姓名进行举例和说明，不要使用"学生1"、"学生2"等编号。这样可以让分析报告更具个性化和针对性。
 
 请按照以下结构进行分析：
 

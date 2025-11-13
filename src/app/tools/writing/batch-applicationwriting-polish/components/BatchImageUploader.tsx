@@ -566,6 +566,12 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                   （例如：姓名：李白）
                 </div>
               </div>
+              <div className="flex items-start gap-2">
+                <span className="text-amber-600 mt-1">•</span>
+                <div>
+                  <strong>图片方向：</strong><span className="text-blue-600">图片需要是正的，请不要横着，或上下颠倒</span>
+                </div>
+              </div>
               <div className="mt-3 p-2 bg-amber-100 rounded border border-amber-300">
                 <p className="text-xs font-medium text-amber-800">
                   💡 提示：清晰的格式有助于提高OCR识别准确率，确保学生姓名能够被正确提取。不太规范的图片，有可能识别很慢，甚至报错。

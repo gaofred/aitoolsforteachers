@@ -91,7 +91,7 @@ const BatchContinuationWritingPolish = () => {
       setIsMobile(mobile);
 
       if (mobile) {
-        console.log('检测到移动设备访问批量修改读后续写功能');
+        // console.log('检测到移动设备访问批量修改读后续写功能');
       }
     };
 
@@ -170,58 +170,58 @@ const BatchContinuationWritingPolish = () => {
     );
   }
 
-  // 移动设备访问限制
-  if (isMobile) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-6">
-        <Card className="w-full max-w-md mx-auto shadow-lg border-orange-200">
-          <CardContent className="p-8 text-center">
-            {/* 移动设备图标 */}
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center">
-                <svg className="w-10 h-10 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </div>
+  // 移动设备访问限制 - 已取消，允许移动端访问
+  // if (isMobile) {
+  //   return (
+  //     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-6">
+  //       <Card className="w-full max-w-md mx-auto shadow-lg border-orange-200">
+  //         <CardContent className="p-8 text-center">
+  //           {/* 移动设备图标 */}
+  //           <div className="flex justify-center mb-6">
+  //             <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center">
+  //               <svg className="w-10 h-10 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  //                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+  //               </svg>
+  //             </div>
+  //           </div>
 
-            {/* 标题 */}
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              设备限制
-            </h2>
+  //           {/* 标题 */}
+  //           <h2 className="text-2xl font-bold text-gray-900 mb-4">
+  //             设备限制
+  //           </h2>
 
-            {/* 说明文案 */}
-            <p className="text-gray-600 mb-6 leading-relaxed">
-              批量修改读后续写属于非常繁重的任务，需要处理大量图片和复杂的AI分析。
-            </p>
-            <p className="text-orange-600 font-medium mb-6">
-              请在电脑上操作，以获得更好的使用体验。
-            </p>
+  //           {/* 说明文案 */}
+  //           <p className="text-gray-600 mb-6 leading-relaxed">
+  //             批量修改读后续写属于非常繁重的任务，需要处理大量图片和复杂的AI分析。
+  //           </p>
+  //           <p className="text-orange-600 font-medium mb-6">
+  //             请在电脑上操作，以获得更好的使用体验。
+  //           </p>
 
-            {/* 电脑图标 */}
-            <div className="flex justify-center mb-6">
-              <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
+  //           {/* 电脑图标 */}
+  //           <div className="flex justify-center mb-6">
+  //             <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  //               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+  //             </svg>
+  //           </div>
 
-            {/* 返回首页按钮 */}
-            <Button
-              onClick={() => router.push('/')}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              返回首页
-            </Button>
+  //           {/* 返回首页按钮 */}
+  //           <Button
+  //             onClick={() => router.push('/')}
+  //             className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+  //           >
+  //             返回首页
+  //           </Button>
 
-            {/* 额外提示 */}
-            <p className="text-xs text-gray-500 mt-4">
-              如果您正在使用平板电脑，请尝试横屏模式或切换到桌面浏览器访问
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  //           {/* 额外提示 */}
+  //           <p className="text-xs text-gray-500 mt-4">
+  //             如果您正在使用平板电脑，请尝试横屏模式或切换到桌面浏览器访问
+  //           </p>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
