@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    if (userError || userData?.role !== 'ADMIN') {
+    if (userError || !userData || (userData as any).role !== 'ADMIN') {
       return NextResponse.json({
         success: false,
         error: "权限不足，需要管理员权限"
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabase.rpc('reset_daily_points', {
         p_user_id: userId,
         p_manual_reset: true
-      });
+      } as any);
 
       if (error) {
         console.error('用户重置失败:', error);
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         action: 'MANUAL_POINTS_RESET',
         details: resetResult,
         created_at: new Date().toISOString()
-      });
+      } as any);
 
     return NextResponse.json({
       success: true,
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    if (userError || userData?.role !== 'ADMIN') {
+    if (userError || !userData || (userData as any).role !== 'ADMIN') {
       return NextResponse.json({
         success: false,
         error: "权限不足，需要管理员权限"

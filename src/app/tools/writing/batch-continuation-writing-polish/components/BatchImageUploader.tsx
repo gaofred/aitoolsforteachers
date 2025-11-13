@@ -1,0 +1,954 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Upload, Image, X, Eye, Trash2, Camera, Loader2 } from "lucide-react";
+import type { ContinuationWritingBatchTask, ContinuationWritingAssignment, OCRResult, ProcessingStats } from "../types";
+import { compressImageForOCR, adaptiveCompressImage } from "@/lib/image-compressor";
+
+interface BatchImageUploaderProps {
+  task: ContinuationWritingBatchTask | null;
+  setTask: (task: ContinuationWritingBatchTask | null) => void;
+  onNext: () => void;
+  onPrev: () => void;
+  processingStats: ProcessingStats;
+  setProcessingStats: (stats: ProcessingStats) => void;
+}
+
+interface UploadedImage {
+  id: string;
+  file: File;
+  originalFile: File; // 保存原始文件
+  preview: string;
+  status: 'pending' | 'compressing' | 'processing' | 'completed' | 'failed';
+  ocrResult?: OCRResult;
+  error?: string;
+  compressionInfo?: {
+    originalSize: number;
+    compressedSize: number;
+    compressionRatio: number;
+  };
+}
+
+const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
+  task,
+  setTask,
+  onNext,
+  onPrev,
+  processingStats,
+  setProcessingStats
+}) => {
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [ocrProgressMessage, setOcrProgressMessage] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 计算状态
+  const hasProcessedImages = uploadedImages.some(img => img.status === 'completed');
+  const canStartOCR = uploadedImages.length > 0 && uploadedImages.every(img => img.status === 'pending');
+  const hasCompressingImages = uploadedImages.some(img => img.status === 'compressing');
+  const hasProcessingImages = uploadedImages.some(img => img.status === 'processing' || img.status === 'compressing');
+
+  // 数据持久化key
+  const STORAGE_KEY = `batch_ocr_continuation_${task?.id || 'default'}`;
+
+  // 从localStorage恢复数据
+  useEffect(() => {
+    try {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+
+        // 检查数据是否匹配当前任务
+        if (parsed.taskId === task?.id && parsed.uploadedImages) {
+          console.log('🔄 从localStorage恢复读后续写OCR数据:', {
+            taskId: parsed.taskId,
+            imageCount: parsed.uploadedImages.length,
+            timestamp: parsed.timestamp
+          });
+
+          setUploadedImages(parsed.uploadedImages);
+          setOcrProgressMessage(parsed.ocrProgressMessage || '');
+          setIsProcessing(parsed.isProcessing || false);
+        }
+      }
+    } catch (error) {
+      console.warn('恢复读后续写OCR数据失败:', error);
+      // 清理损坏的数据
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [task?.id, STORAGE_KEY]);
+
+  // 保存数据到localStorage
+  useEffect(() => {
+    if (uploadedImages.length > 0 || isProcessing) {
+      try {
+        const dataToSave = {
+          taskId: task?.id,
+          uploadedImages,
+          isProcessing,
+          ocrProgressMessage,
+          timestamp: Date.now()
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        console.log('💾 读后续写OCR数据已保存到localStorage:', {
+          taskId: task?.id,
+          imageCount: uploadedImages.length,
+          isProcessing
+        });
+      } catch (error) {
+        console.warn('保存读后续写OCR数据失败:', error);
+      }
+    }
+  }, [uploadedImages, isProcessing, ocrProgressMessage, task?.id, STORAGE_KEY]);
+
+  // 清理过期数据的函数
+  const clearStoredData = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    console.log('🗑️ 读后续写OCR数据已清理');
+  };
+
+  // 处理文件上传
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    // 读后续写作文无图片数量限制
+    const newImages: UploadedImage[] = Array.from(files).map(file => ({
+      id: `img_${Date.now()}_${Math.random()}`,
+      originalFile: file,
+      file, // 临时设置为原文件，压缩后会更新
+      preview: URL.createObjectURL(file),
+      status: 'pending'
+    }));
+
+    setUploadedImages(prev => [...prev, ...newImages]);
+
+    // 重置文件输入
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    // 异步压缩新上传的图片
+    console.log(`🔧 开始压缩 ${newImages.length} 张新上传的读后续写图片...`);
+    compressNewImages(newImages);
+  };
+
+  // 压缩新上传的图片
+  const compressNewImages = async (images: UploadedImage[]) => {
+    for (const image of images) {
+      try {
+        // 更新状态为压缩中
+        setUploadedImages(prev =>
+          prev.map(img =>
+            img.id === image.id
+              ? { ...img, status: 'compressing' }
+              : img
+          )
+        );
+
+        // 强制压缩所有图片，防止火山引擎API "Request Entity Too Large" 错误
+        const originalSize = image.originalFile.size;
+        const originalSizeMB = (originalSize / 1024 / 1024).toFixed(2);
+
+        // 使用超强压缩设置，确保所有图片压缩到500KB以下
+        console.log(`📝 开始自适应压缩读后续写图片: ${image.originalFile.name}`);
+        const compressedFile = await adaptiveCompressImage(image.originalFile, 0.5, 3);
+
+        // 计算压缩信息
+        const compressionInfo = {
+          originalSize: image.originalFile.size,
+          compressedSize: compressedFile.size,
+          compressionRatio: Math.round((1 - compressedFile.size / image.originalFile.size) * 100)
+        };
+
+        // 更新图片信息
+        setUploadedImages(prev =>
+          prev.map(img =>
+            img.id === image.id
+              ? {
+                  ...img,
+                  file: compressedFile,
+                  status: 'pending',
+                  compressionInfo
+                }
+              : img
+          )
+        );
+
+        const compressedSizeMB = (compressedFile.size / 1024 / 1024).toFixed(2);
+        console.log(`📝 读后续写图片压缩完成: ${image.originalFile.name}`, {
+          原始大小: `${originalSizeMB}MB`,
+          压缩后大小: `${compressedSizeMB}MB`,
+          压缩率: `${compressionInfo.compressionRatio}%`,
+          状态: compressionInfo.compressionRatio > 0 ? '✅ 成功压缩' : 'ℹ️ 已符合要求'
+        });
+
+      } catch (error) {
+        console.error(`压缩读后续写图片失败: ${image.originalFile.name}`, error);
+
+        // 压缩失败，使用原文件
+        setUploadedImages(prev =>
+          prev.map(img =>
+            img.id === image.id
+              ? {
+                  ...img,
+                  status: 'pending',
+                  error: '压缩失败，使用原文件'
+                }
+              : img
+          )
+        );
+      }
+    }
+  };
+
+  // 处理单个图片OCR
+  const processImage = async (image: UploadedImage): Promise<OCRResult | null> => {
+    try {
+      // 将文件转换为base64
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(image.file);
+      });
+
+      // 使用专门的作文OCR API，提供更好的读后续写识别效果
+      const response = await fetch('/api/ai/essay-ocr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageBase64: base64
+        })
+      });
+
+      // 安全解析JSON响应，防止非JSON响应导致的解析错误
+      let data;
+      try {
+        const responseText = await response.text();
+        console.log('🔍 读后续写OCR API响应前200字符:', responseText.substring(0, 200));
+
+        // 检查响应是否为JSON格式
+        const trimmedText = responseText.trim();
+        if (!trimmedText.startsWith('{') && !trimmedText.startsWith('[')) {
+          console.error('❌ 读后续写OCR API返回非JSON格式响应:', responseText.substring(0, 500));
+          throw new Error(`API返回非JSON格式响应: ${responseText.substring(0, 200)}...`);
+        }
+
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ 读后续写OCR JSON解析失败:', parseError);
+        throw new Error(`API响应解析失败: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      }
+
+      console.log('📝📝📝 读后续写OCR API响应数据检查：', {
+        success: data.success,
+        result: data.result ? data.result.substring(0, 100) + '...' : 'null',
+        englishOnly: data.englishOnly ? data.englishOnly.substring(0, 100) + '...' : 'null',
+        imageId: image.id,
+        model: data.metadata?.model,
+        processingTime: data.metadata?.processingTime
+      });
+
+      if (data.success && data.result) {
+        // 直接解析OCR结果，使用读后续写OCR的英文分离结果，包含图片数据
+        const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id, base64);
+        console.log(`✅ 读后续写OCR识别完成 (${image.id.substring(0, 8)}...)`)
+        return parsedResult;
+      } else {
+        // 构建详细错误信息
+        let errorMessage = data.error || '读后续写OCR识别失败';
+        if (data.details) {
+          if (typeof data.details === 'string') {
+            errorMessage += ` (${data.details})`;
+          } else if (data.details.networkError) {
+            errorMessage += ` (网络错误: ${data.details.networkError})`;
+          }
+        }
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error(`❌ OCR处理失败:`, error);
+      // 直接抛出错误，不再重试
+      throw error;
+    }
+  };
+
+  // 解析OCR结果 - 简化版：只区分中英文内容，不提取姓名
+  const parseOCRResult = (originalText: string, englishOnlyText: string, imageId: string, imageData?: string): OCRResult => {
+    const lines = originalText.split('\n').filter(line => line.trim());
+
+    // 提取中文内容（所有包含中文字符的行）
+    const chineseContent = lines
+      .filter(line => /[\u4e00-\u9fff]/.test(line.trim()))
+      .join('\n')
+      .trim();
+
+    // 英文作文内容直接使用API返回的纯英文版本
+    const content = englishOnlyText.trim();
+
+    console.log(`📝 读后续写OCR解析完成 (${imageId}):`, {
+      原文长度: originalText.length,
+      中文内容长度: chineseContent.length,
+      英文内容长度: content.length,
+      包含图片数据: !!imageData,
+      优化: "跳过姓名提取，专注文字识别"
+    });
+
+    return {
+      imageId,
+      studentName: "待确认", // 标记为待确认，在下一步骤中提取
+      originalText,
+      chineseContent,
+      content,
+      confidence: 0.9, // 提升置信度，因为更专注于识别
+      processedAt: new Date(),
+      imageData: imageData // 保存图片数据
+    };
+  };
+
+  // 批量处理所有图片（并行处理）- 读后续写专用版
+  const processAllImages = async () => {
+    if (uploadedImages.length === 0) return;
+
+    setIsProcessing(true);
+    setProcessingStats({
+      ...processingStats,
+      totalImages: uploadedImages.length,
+      processedImages: 0,
+      errors: []
+    });
+
+    // 将所有图片状态设置为处理中
+    setUploadedImages(prev => prev.map(img => ({ ...img, status: 'processing' })));
+
+    // 显示进度提醒 - 26张超级并行处理的极速性能
+    // 优化估计：26张并发，平均每张8秒（因为并发更高，整体效率提升），批次间延迟减少
+    const estimatedMinutes = Math.max(1, Math.ceil((uploadedImages.length * 8) / 60) + Math.ceil(uploadedImages.length / 26) * 0.5);
+    const message = `AI超级并行处理中... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（${Math.min(26, uploadedImages.length)}张同时处理，极速性能模式）。`;
+    console.log(`🎯 ${message}`);
+
+    // 设置进度消息
+    setOcrProgressMessage(message);
+
+    const assignments: ContinuationWritingAssignment[] = [];
+    const errors: string[] = [];
+    let completedCount = 0;
+
+    // 超级并行处理，最大化OCR识别效率
+    const batchSize = 26; // 超级并发：26张图片同时处理，最大化处理性能
+    const batches = [];
+
+    for (let i = 0; i < uploadedImages.length; i += batchSize) {
+      batches.push(uploadedImages.slice(i, i + batchSize));
+    }
+
+    console.log(`📝 开始读后续写批量处理 ${uploadedImages.length} 张图片，超级并发数: ${batchSize} 张/批次（极速OCR版）`);
+
+    // 性能监控
+    const startTime = Date.now();
+    const allAssignments: ContinuationWritingAssignment[] = [];
+    let totalCompletedCount = 0;
+
+    // 分批处理
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      if (batch.length === uploadedImages.length) {
+        console.log(`📦 处理批次 1/1，包含 ${batch.length} 张图片`);
+      } else {
+        console.log(`📦 处理批次 ${batchIndex + 1}/${batches.length}，包含 ${batch.length} 张图片`);
+      }
+
+      const batchPromises = batch.map(async (image, batchLocalIndex) => {
+        const globalIndex = batchIndex * batchSize + batchLocalIndex;
+        let assignment: ContinuationWritingAssignment | null = null;
+
+        try {
+          console.log(`开始并行处理图片 ${globalIndex + 1}/${uploadedImages.length}`);
+
+          const ocrResult = await processImage(image);
+
+          if (ocrResult) {
+            // 创建作业记录
+            assignment = {
+              id: `assignment_${Date.now()}_${Math.random()}_${globalIndex}`,
+              student: {
+                id: `temp_${ocrResult.studentName}_${globalIndex}`,
+                name: ocrResult.studentName,
+                createdAt: new Date()
+              },
+              ocrResult,
+              status: 'pending',
+              createdAt: new Date()
+            };
+
+            // 更新图片状态为完成
+            setUploadedImages(prev => prev.map(img =>
+              img.id === image.id ? { ...img, status: 'completed', ocrResult } : img
+            ));
+
+            console.log(`✅ 图片 ${globalIndex + 1} 处理完成: ${ocrResult.studentName}`);
+          }
+
+          return { success: true, globalIndex, assignment };
+
+        } catch (error) {
+          console.error(`❌ 处理图片 ${globalIndex + 1} 失败:`, error);
+          const errorMsg = `图片 ${globalIndex + 1}: ${error instanceof Error ? error.message : '处理失败'}`;
+          errors.push(errorMsg);
+
+          // 更新图片状态为失败
+          setUploadedImages(prev => prev.map(img =>
+            img.id === image.id ? {
+              ...img,
+              status: 'failed',
+              error: error instanceof Error ? error.message : '处理失败'
+            } : img
+          ));
+
+          return { success: false, globalIndex, error: errorMsg };
+        }
+      });
+
+      // 等待当前批次完成
+      console.log(`⏳ 等待批次 ${batchIndex + 1} 完成...`);
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      // 处理批次结果
+      batchResults.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          const { assignment } = result.value;
+          if (assignment) {
+            allAssignments.push(assignment);
+          }
+        }
+        totalCompletedCount++;
+      });
+
+      // 更新总体进度
+      setProcessingStats(prev => ({
+        ...prev,
+        processedImages: totalCompletedCount
+      }));
+
+      console.log(`✅ 批次 ${batchIndex + 1} 完成，累计完成 ${totalCompletedCount}/${uploadedImages.length}`);
+
+      // 批次间延迟，避免API限流（除了最后一批）
+      if (batchIndex < batches.length - 1) {
+        console.log(`⏳ 等待0.5秒后处理下一批次，避免API限流...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    console.log(`📊 所有批次处理完成: ${allAssignments.length}/${uploadedImages.length} 成功`);
+
+    // 更新任务
+    if (task) {
+      setTask({
+        ...task,
+        assignments: allAssignments
+      });
+    }
+
+    setProcessingStats(prev => ({
+      ...prev,
+      errors
+    }));
+
+    // 性能统计
+    const endTime = Date.now();
+    const totalTime = (endTime - startTime) / 1000; // 转换为秒
+    const avgTimePerImage = totalTime / uploadedImages.length;
+    const concurrencyRatio = Math.min(batchSize, uploadedImages.length);
+
+    console.log(`🎉 读后续写处理完成！超级性能统计：
+    📊 总图片数: ${uploadedImages.length} 张
+    ⚡ 超级并发数: ${concurrencyRatio} 张/批次
+    ⏱️ 总耗时: ${totalTime.toFixed(2)} 秒
+    📈 平均每张: ${avgTimePerImage.toFixed(2)} 秒
+    🚀 性能提升: ${(concurrencyRatio * 100).toFixed(0)}% 相比串行处理
+    🔥 极速模式: 26张并行处理，效率最大化！`);
+
+    setIsProcessing(false);
+    setOcrProgressMessage(`✅ OCR识别完成！成功处理 ${allAssignments.length}/${uploadedImages.length} 张图片`);
+
+    // 如果有失败的图片，显示错误信息
+    if (errors.length > 0) {
+      console.warn(`⚠️ 部分图片处理失败:`, errors);
+      setOcrProgressMessage(prev => `${prev}，${errors.length} 张图片失败`);
+    }
+
+    // 保存最终结果
+    setTimeout(() => {
+      clearStoredData(); // 处理完成后清理localStorage
+    }, 2000);
+  };
+
+  // 处理OCR识别
+  const processOCR = async (imageIds: string[]) => {
+    if (!task) return;
+
+    setIsProcessing(true);
+    setOcrProgressMessage('准备处理读后续写图片...');
+    clearStoredData(); // 开始处理前清理旧数据
+
+    const startTime = Date.now();
+
+    try {
+      // 更新统计信息
+      setProcessingStats(prev => ({
+        ...prev,
+        totalImages: prev.totalImages + imageIds.length,
+        processedImages: prev.processedImages,
+        totalApplications: prev.totalApplications
+      }));
+
+      // 逐个处理图片
+      for (let i = 0; i < imageIds.length; i++) {
+        const imageId = imageIds[i];
+        const imageData = uploadedImages.find(img => img.id === imageId);
+
+        if (!imageData) continue;
+
+        try {
+          setOcrProgressMessage(`正在处理第 ${i + 1}/${imageIds.length} 张读后续写图片...`);
+
+          // 更新状态为处理中
+          setUploadedImages(prev =>
+            prev.map(img =>
+              img.id === imageId ? { ...img, status: 'processing' } : img
+            )
+          );
+
+          // 强制压缩图片为base64，最大500KB
+          console.log(`🎯 强制压缩读后续写图片到500KB以下: ${imageData.originalFile.name}`);
+          const compressedImageBase64 = await compressImageForOCR(imageData.file);
+
+          // 发送OCR请求
+          const ocrResponse = await fetch('/api/ocr', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              image: compressedImageBase64,
+              type: 'application'
+            }),
+          });
+
+          if (!ocrResponse.ok) {
+            throw new Error(`OCR请求失败: ${ocrResponse.status}`);
+          }
+
+          const ocrData = await ocrResponse.json();
+
+          if (ocrData.error) {
+            throw new Error(ocrData.error);
+          }
+
+          console.log(`✅ 读后续写OCR识别成功: ${imageData.originalFile.name}`, {
+            学生姓名: ocrData.studentName || '未识别',
+            识别文本长度: ocrData.content?.length || 0,
+            置信度: ocrData.confidence || 0
+          });
+
+          // 创建OCR结果
+          const ocrResult: OCRResult = {
+            imageId,
+            studentName: ocrData.studentName || '',
+            originalText: ocrData.originalText || '',
+            chineseContent: ocrData.chineseContent || '',
+            content: ocrData.content || '',
+            confidence: ocrData.confidence || 0,
+            processedAt: new Date(),
+            imageData: compressedImageBase64
+          };
+
+          // 创建学生作业
+          const assignment: ContinuationWritingAssignment = {
+            id: `assign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            student: {
+              id: `student_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: ocrData.studentName || '未知学生',
+              createdAt: new Date()
+            },
+            ocrResult,
+            status: 'pending',
+            createdAt: new Date()
+          };
+
+          // 更新任务状态
+          setTask(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              assignments: [...prev.assignments, assignment]
+            };
+          });
+
+          // 更新图片状态
+          setUploadedImages(prev =>
+            prev.map(img =>
+              img.id === imageId
+                ? { ...img, status: 'completed', ocrResult }
+                : img
+            )
+          );
+
+          // 更新统计信息
+          setProcessingStats(prev => ({
+            ...prev,
+            processedImages: prev.processedImages + 1,
+            totalApplications: prev.totalApplications + 1
+          }));
+
+        } catch (error) {
+          console.error(`读后续写图片 ${imageId} OCR处理失败:`, error);
+          const errorMessage = error instanceof Error ? error.message : '处理失败';
+
+          // 更新图片状态为失败
+          setUploadedImages(prev =>
+            prev.map(img =>
+              img.id === imageId
+                ? { ...img, status: 'failed', error: errorMessage }
+                : img
+            )
+          );
+        }
+
+        // 添加延迟以避免API限流
+        if (i < imageIds.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      const processingTime = Date.now() - startTime;
+
+      // 更新最终统计信息
+      setProcessingStats(prev => ({
+        ...prev,
+        processingTime: prev.processingTime + processingTime,
+        errors: [
+          ...prev.errors,
+          ...uploadedImages
+            .filter(img => img.status === 'failed')
+            .map(img => `${img.originalFile.name}: ${img.error}`)
+        ]
+      }));
+
+      setOcrProgressMessage('读后续写OCR处理完成！');
+
+      // 保存最终状态到localStorage
+      const finalData = {
+        taskId: task?.id,
+        uploadedImages: uploadedImages.map(img => ({ ...img, status: img.status === 'completed' ? img.status : 'failed' })),
+        isProcessing: false,
+        ocrProgressMessage: '读后续写OCR处理完成！',
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalData));
+
+    } catch (error) {
+      console.error('批量读后续写OCR处理失败:', error);
+      setOcrProgressMessage('读后续写OCR处理过程中发生错误');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // 删除图片
+  const removeImage = (imageId: string) => {
+    setUploadedImages(prev => prev.filter(img => img.id !== imageId));
+  };
+
+  // 清空所有图片
+  const clearAllImages = () => {
+    if (isProcessing) return;
+    setUploadedImages([]);
+    clearStoredData();
+  };
+
+  // 重新处理失败的图片
+  const retryFailedImages = () => {
+    const failedImages = uploadedImages.filter(img => img.status === 'failed');
+    if (failedImages.length > 0) {
+      console.log(`🔄 重试 ${failedImages.length} 张失败的读后续写图片...`);
+      processOCR(failedImages.map(img => img.id));
+    }
+  };
+
+  // 查看图片
+  const viewImage = (imageData: string) => {
+    setPreviewImage(imageData);
+  };
+
+  const completedImages = uploadedImages.filter(img => img.status === 'completed');
+  const failedImages = uploadedImages.filter(img => img.status === 'failed');
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">批量OCR识别</h2>
+        <p className="text-gray-600 text-sm">
+          上传学生读后续写作业图片，系统将自动进行OCR文字识别。支持JPG、PNG等格式，建议图片清晰以提高识别准确率。
+          系统会自动压缩图片确保OCR识别的稳定性。
+        </p>
+      </div>
+
+      {/* 上传区域 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">上传读后续写作图片</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleFileUpload(e.dataTransfer.files);
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+              disabled={isProcessing}
+            />
+            <div className="flex flex-col items-center gap-2">
+              <Upload className="w-8 h-8 text-gray-400" />
+              <p className="text-gray-600">拖拽读后续写图片到此处或点击上传</p>
+              <p className="text-sm text-gray-500">支持JPG、PNG等格式，可批量上传，无数量限制</p>
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isProcessing}
+              >
+                选择读后续写图片
+              </Button>
+            </div>
+          </div>
+
+          {/* 操作按钮 */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2"
+              disabled={isProcessing}
+            >
+              <Image className="w-4 h-4" />
+              选择图片
+            </Button>
+
+            {uploadedImages.length > 0 && (
+              <>
+                <Button
+                  onClick={processAllImages}
+                  disabled={isProcessing || hasProcessedImages || !canStartOCR || hasCompressingImages}
+                  className="flex items-center gap-2"
+                >
+                  {isProcessing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      处理中...
+                    </>
+                  ) : hasCompressingImages ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      压缩中...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-4 h-4" />
+                      开始OCR识别
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={clearAllImages}
+                  className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                  title={hasProcessingImages ? "警告：有图片正在处理中，清空可能会中断OCR识别" : "清空全部图片"}
+                  disabled={isProcessing}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  清空全部
+                </Button>
+
+                {failedImages.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={retryFailedImages}
+                    disabled={isProcessing}
+                    className="flex items-center gap-2"
+                  >
+                    <Camera className="w-4 h-4" />
+                    重试失败项 ({failedImages.length})
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 图片列表 */}
+      {uploadedImages.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>已上传读后续写图片 ({uploadedImages.length})</span>
+              <div className="flex gap-2">
+                {completedImages.length > 0 && (
+                  <Badge variant="default" className="bg-green-100 text-green-800">
+                    成功 {completedImages.length}
+                  </Badge>
+                )}
+                {failedImages.length > 0 && (
+                  <Badge variant="destructive">
+                    失败 {failedImages.length}
+                  </Badge>
+                )}
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {uploadedImages.map((image) => (
+                <div key={image.id} className="border rounded-lg overflow-hidden">
+                  <div className="relative">
+                    <img
+                      src={image.preview}
+                      alt={image.originalFile.name}
+                      className="w-full h-32 object-cover"
+                    />
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => viewImage(image.preview)}
+                        className="p-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => removeImage(image.id)}
+                        disabled={isProcessing}
+                        className="p-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="absolute bottom-2 left-2">
+                      <Badge
+                        variant={image.status === 'completed' ? 'default' :
+                                image.status === 'failed' ? 'destructive' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {image.status === 'pending' && '等待中'}
+                        {image.status === 'compressing' && '压缩中'}
+                        {image.status === 'processing' && '识别中'}
+                        {image.status === 'completed' && '已完成'}
+                        {image.status === 'failed' && '失败'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="p-2">
+                    <p className="text-sm font-medium truncate">{image.originalFile.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {image.compressionInfo && (
+                        <>
+                          压缩率: {image.compressionInfo.compressionRatio}%
+                          ({(image.compressionInfo.originalSize / 1024).toFixed(1)}KB
+                          → {image.compressionInfo.compressedSize}KB)
+                        </>
+                      )}
+                    </p>
+                    {image.error && (
+                      <p className="text-xs text-red-600 mt-1">{image.error}</p>
+                    )}
+                    {image.ocrResult && (
+                      <p className="text-xs text-green-600 mt-1">
+                        识别到: {image.ocrResult.studentName || '未知学生'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 处理进度 */}
+      {isProcessing && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-800">{ocrProgressMessage}</p>
+                <div className="w-full bg-blue-100 rounded-full h-2 mt-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${(processingStats.processedImages / processingStats.totalImages) * 100}%`
+                    }}
+                  />
+                </div>
+              </div>
+              <span className="text-sm text-blue-600">
+                {processingStats.processedImages}/{processingStats.totalImages}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 图片预览 */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="max-w-4xl max-h-[90vh] mx-4">
+            <img
+              src={previewImage}
+              alt="预览图片"
+              className="w-full h-full object-contain rounded-lg"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 操作按钮 */}
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={onPrev}>
+          上一步
+        </Button>
+        <Button
+          onClick={onNext}
+          disabled={completedImages.length === 0}
+          className="px-8"
+        >
+          下一步：确认读后续写内容 ({completedImages.length}篇)
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default BatchImageUploader;

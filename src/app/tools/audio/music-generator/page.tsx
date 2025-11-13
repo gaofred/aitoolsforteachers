@@ -28,6 +28,7 @@ export default function MusicGeneratorPage() {
   const [exercise, setExercise] = useState("");
   const [isGeneratingExercise, setIsGeneratingExercise] = useState(false);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [section, setSection] = useState<'first' | 'second' | 'all'>('all');
 
   // 使用 useEffect 避免水合错误
   const [isClient, setIsClient] = useState(false);
@@ -397,7 +398,7 @@ export default function MusicGeneratorPage() {
           lyrics: generatedLyrics.trim(),
           userId: currentUser.id,
           difficulty,
-          section: 'all'
+          section
         }),
       });
 

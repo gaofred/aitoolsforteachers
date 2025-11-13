@@ -34,6 +34,11 @@ export default function TextbookVocabularyOrganisePage() {
   const [isCopyingExercise, setIsCopyingExercise] = useState(false);
   const [isExportingExercise, setIsExportingExercise] = useState(false);
 
+  // 词汇提取功能状态
+  const [isExtractingVocabulary, setIsExtractingVocabulary] = useState(false);
+  const [extractedVocabulary, setExtractedVocabulary] = useState<string | null>(null);
+  const [isCopyingExtracted, setIsCopyingExtracted] = useState(false);
+
   // OCR states
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -456,6 +461,78 @@ export default function TextbookVocabularyOrganisePage() {
     }
   };
 
+  // 词汇提取功能
+  const handleExtractVocabulary = async () => {
+    if (!vocabularyList.trim()) {
+      alert('请先在文本框中输入或上传文本内容');
+      return;
+    }
+
+    if (!currentUser) {
+      alert('请先登录');
+      return;
+    }
+
+    // 检查用户点数
+    if (userPoints < 1) {
+      alert('点数不足！词汇提取需要1点数');
+      return;
+    }
+
+    setIsExtractingVocabulary(true);
+    setExtractedVocabulary(null);
+
+    try {
+      const response = await fetch('/api/ai/extract-vocabulary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: vocabularyList.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setExtractedVocabulary(data.result);
+        // 成功时更新用户点数
+        refreshUser();
+        alert(`词汇提取成功！消耗1点数，剩余${data.remainingPoints}点`);
+      } else {
+        // 检查是否退还了点数
+        if (data.refunded && data.pointsRefunded) {
+          alert(`❌ 词汇提取失败\n\n💰 已退还 ${data.pointsRefunded} 点数到您的账户\n失败原因：${data.error || '系统错误，请稍后重试'}\n\n请检查网络连接后重试`);
+          refreshUser();
+        } else {
+          alert(data.error || '词汇提取失败，请稍后重试');
+        }
+      }
+    } catch (error) {
+      console.error('词汇提取请求失败:', error);
+      alert('⚠️ 网络连接出现问题\n\n请检查网络连接后重试\n如果问题持续存在，请联系客服');
+    } finally {
+      setIsExtractingVocabulary(false);
+    }
+  };
+
+  // 复制提取的词汇
+  const handleCopyExtracted = async () => {
+    if (!extractedVocabulary) return;
+
+    setIsCopyingExtracted(true);
+    try {
+      await navigator.clipboard.writeText(extractedVocabulary);
+      alert('已复制提取的词汇到剪贴板');
+    } catch (error) {
+      console.error('复制失败:', error);
+      alert('复制失败，请手动复制');
+    } finally {
+      setIsCopyingExtracted(false);
+    }
+  };
+
   // OCR functions
   const startCamera = async () => {
     try {
@@ -508,18 +585,21 @@ export default function TextbookVocabularyOrganisePage() {
         if (d.success && d.result) texts.push(d.result)
       }
       if (texts.length) {
-        // 过滤出英文单词
-        const words = texts.join(' ').match(/\b[a-zA-Z]+\b/g) || []
-        const uniqueWords = [...new Set(words.map(word => word.toLowerCase()))]
+        // 直接输出OCR识别的原文内容
+        const recognizedText = texts.join('\n\n')
 
-        // 更新词汇列表
+        // 更新词汇列表为OCR识别的原文
         setVocabularyList(prev => {
-          const existingWords = prev.split(/[\s,]+/).filter(w => w.trim()).map(w => w.toLowerCase())
-          const allWords = [...new Set([...existingWords, ...uniqueWords])]
-          return allWords.join(', ')
+          if (prev.trim()) {
+            // 如果已有内容，则在后面追加
+            return prev + '\n\n' + recognizedText
+          } else {
+            // 如果为空，则直接使用识别的文本
+            return recognizedText
+          }
         })
 
-        alert(`识别成功！发现 ${uniqueWords.length} 个词汇`)
+        alert(`识别成功！已将识别内容添加到文本框`)
       } else {
         alert('识别失败，未检测到文本')
       }
@@ -643,16 +723,16 @@ export default function TextbookVocabularyOrganisePage() {
                       onClick={() => setIsCameraOpen(true)}
                       className="flex items-center gap-2 text-sm border-blue-200 hover:bg-blue-50"
                     >
-                      📷 拍照识别词汇
+                      📷 拍照识别文本
                     </Button>
                   </div>
 
                   <Textarea
                     id="vocabulary"
-                    placeholder="请输入词汇列表，每行一个词汇或用逗号、分号分隔&#10;&#10;例如：&#10;student, teacher, classroom, library&#10;homework; exam; grade; subject&#10;&#10;💡 提示：也可以使用上方按钮拍照或上传图片自动识别词汇"
+                    placeholder="请输入词汇列表，每行一个词汇或用逗号、分号分隔&#10;&#10;例如：&#10;student, teacher, classroom, library&#10;homework; exam; grade; subject&#10;&#10;💡 提示：也可以使用上方按钮拍照或上传图片识别原文内容（直接输出OCR识别结果）"
                     value={vocabularyList}
                     onChange={(e) => setVocabularyList(e.target.value)}
-                    className="min-h-32 sm:min-h-40 w-full resize-none text-sm"
+                    className="min-h-64 sm:min-h-80 w-full resize-none text-sm"
                     onKeyPress={handleKeyPress}
                   />
                   <input
@@ -663,6 +743,73 @@ export default function TextbookVocabularyOrganisePage() {
                     onChange={handleImageUpload}
                     className="hidden"
                   />
+                </div>
+
+                {/* 词汇提取功能 */}
+                <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-purple-800 text-sm flex items-center gap-2">
+                      <span>✨</span>
+                      提取文本中的词汇
+                    </h4>
+                    <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
+                      消耗1点数
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-700 mb-3">
+                    使用AI智能提取文本中的重点词汇，支持中英文混合文本识别
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleExtractVocabulary}
+                      disabled={isExtractingVocabulary || !vocabularyList.trim()}
+                      size="sm"
+                      className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-xs"
+                    >
+                      {isExtractingVocabulary ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          提取中...
+                        </>
+                      ) : (
+                        <>
+                          <span>🔍</span>
+                          提取词汇
+                        </>
+                      )}
+                    </Button>
+                    {extractedVocabulary && (
+                      <>
+                        <Button
+                          onClick={handleCopyExtracted}
+                          disabled={isCopyingExtracted}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2 text-xs border-purple-200 hover:bg-purple-50"
+                        >
+                          {isCopyingExtracted ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                              复制中...
+                            </>
+                          ) : (
+                            <>
+                              <span>📋</span>
+                              复制
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  {extractedVocabulary && (
+                    <div className="mt-3 p-3 bg-white rounded-lg border border-purple-200">
+                      <div className="text-xs font-medium text-purple-700 mb-2">提取结果：</div>
+                      <div className="text-xs text-gray-700 max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                        {extractedVocabulary}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -687,7 +834,7 @@ export default function TextbookVocabularyOrganisePage() {
                     <li>• 提供配套译文展示用法</li>
                     <li>• 生成词汇成篇示范段落 (3点数)</li>
                     <li>• 创作针对性填空练习 (4点数)</li>
-                    <li>• 支持拍照/图片识别词汇</li>
+                    <li>• 支持拍照/图片识别原文内容</li>
                     <li>• 一键导出TXT文件</li>
                   </ul>
                 </div>
@@ -1075,7 +1222,7 @@ export default function TextbookVocabularyOrganisePage() {
       {isCameraOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-4 space-y-4">
-            <h3 className="text-lg font-semibold text-center">拍照识别词汇</h3>
+            <h3 className="text-lg font-semibold text-center">拍照识别文本</h3>
             {photo ? (
               <img src={photo} alt="拍摄的照片" className="w-full rounded-lg" />
             ) : (

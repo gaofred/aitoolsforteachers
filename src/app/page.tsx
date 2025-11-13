@@ -114,6 +114,7 @@ const navigationData = [
     items: [
       { id: "batch-assignment-polish", title: "批量润色学生句子", active: true, cost: 10, route: "/tools/writing/batch-assignment-polish" },
       { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 10, route: "/tools/writing/batch-applicationwriting-polish" },
+      { id: "batch-continuation-writing-polish", title: "批量修改学生读后续写", active: false, cost: 10, route: "/tools/writing/batch-continuation-writing-polish", disabled: true, note: "加紧开发中" },
       { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
       { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
       { id: "continuation-writing", title: "读后续写范文", cost: 6, route: "/tools/writing/continuation_writing_model_essay" },
@@ -1507,30 +1508,37 @@ The future of AI depends on our ability to balance innovation with responsibilit
                       }`}>
                         {category.items.map((item) => {
                           const isAvailable = !(item as any).disabled || item.id === "text-analysis";
+                          const hasNote = (item as any).note;
                           return (
-                            <button
-                              key={item.id}
-                              onClick={() => {
-                                if (isAvailable) {
-                                  handleItemClick(category.id, item.id);
-                                }
-                              }}
-                              disabled={!isAvailable}
-                              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                                isAvailable
-                                  ? 'text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 hover:text-purple-700 hover:font-medium border border-transparent hover:border-purple-200'
-                                  : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
-                              }`}
-                            >
-                              <span>{item.title}</span>
-                              <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
-                                isAvailable
-                                  ? 'bg-gray-100 text-gray-600 group-hover:bg-purple-100 group-hover:text-purple-700'
-                                  : 'bg-gray-300 text-gray-500'
-                              }`}>
-                                {isAvailable ? `${item.cost}点` : '敬请期待'}
-                              </span>
-                            </button>
+                            <div key={item.id} className="w-full">
+                              <button
+                                onClick={() => {
+                                  if (isAvailable) {
+                                    handleItemClick(category.id, item.id);
+                                  }
+                                }}
+                                disabled={!isAvailable}
+                                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
+                                  isAvailable
+                                    ? 'text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 hover:text-purple-700 hover:font-medium border border-transparent hover:border-purple-200'
+                                    : 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-60'
+                                }`}
+                              >
+                                <span>{item.title}</span>
+                                <span className={`text-xs px-2 py-1 rounded-full transition-all duration-200 ${
+                                  isAvailable
+                                    ? 'bg-gray-100 text-gray-600 group-hover:bg-purple-100 group-hover:text-purple-700'
+                                    : 'bg-gray-300 text-gray-500'
+                                }`}>
+                                  {isAvailable ? `${item.cost}点` : hasNote ? (item as any).note : '敬请期待'}
+                                </span>
+                              </button>
+                              {hasNote && (
+                                <div className="mt-1 text-xs text-gray-500 text-center px-2">
+                                  {(item as any).note}
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
