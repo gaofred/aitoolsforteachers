@@ -113,16 +113,16 @@ ${essaysContent}
 请用中文回复，内容要详细、实用，适合教师指导学生使用。`;
 
     try {
-      // 调用云雾谷歌Gemini 2.5 Pro API
+      // 调用极客智坊Gemini 2.5 Pro API
       console.log('🔑 API密钥检查:', {
-        hasApiKey: !!process.env.CLOUDMIST_GOOGLE_API_KEY,
-        apiKeyLength: process.env.CLOUDMIST_GOOGLE_API_KEY?.length || 0
+        hasApiKey: !!process.env.GEEKAI_API_KEY,
+        apiKeyLength: process.env.GEEKAI_API_KEY?.length || 0
       });
 
-      const response = await fetch('https://yunwu.ai/v1/chat/completions', {
+      const response = await fetch('https://geekai.co/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.CLOUDMIST_GOOGLE_API_KEY}`,
+          'Authorization': `Bearer ${process.env.GEEKAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -133,33 +133,34 @@ ${essaysContent}
               content: prompt
             }
           ],
-          temperature: 0.3,
-          max_tokens: 15000
+          temperature: 0.2,
+          max_tokens: 18000,
+          stream: false
         })
       });
 
-      console.log('🔍 Gemini API响应状态:', response.status);
+      console.log('🔍 极客智坊 Gemini API响应状态:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Gemini API调用失败:', {
+        console.error('❌ 极客智坊 Gemini API调用失败:', {
           status: response.status,
           statusText: response.statusText,
           errorText: errorText
         });
 
-        throw new Error(`Gemini API调用失败: ${response.status} ${response.statusText}`);
+        throw new Error(`极客智坊 Gemini API调用失败: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('✅ Gemini API响应成功:', {
+      console.log('✅ 极客智坊 Gemini API响应成功:', {
         hasChoices: !!data.choices,
         choicesLength: data.choices?.length,
         usage: data.usage
       });
 
       if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
-        throw new Error('Gemini API返回了无效的响应格式');
+        throw new Error('极客智坊 Gemini API返回了无效的响应格式');
       }
 
       const analysisResult = data.choices[0].message.content;
@@ -204,7 +205,7 @@ ${essaysContent}
       });
 
     } catch (apiError) {
-      console.error('❌ Gemini API调用失败:', apiError);
+      console.error('❌ 极客智坊 Gemini API调用失败:', apiError);
 
       // 如果已经扣除了积分，需要退款
       if (pointsDeducted && userId) {
@@ -227,7 +228,7 @@ ${essaysContent}
             console.log('✅ 积分退款成功: +3积分');
             return NextResponse.json({
               success: false,
-              error: `Gemini API调用失败，已退还3积分: ${apiError instanceof Error ? apiError.message : '未知错误'}`,
+              error: `极客智坊 Gemini API调用失败，已退还3积分: ${apiError instanceof Error ? apiError.message : '未知错误'}`,
               refunded: true
             }, { status: 500 });
           } else {
@@ -240,7 +241,7 @@ ${essaysContent}
 
       return NextResponse.json({
         success: false,
-        error: `Gemini API调用失败: ${apiError instanceof Error ? apiError.message : '未知错误'}`
+        error: `极客智坊 Gemini API调用失败: ${apiError instanceof Error ? apiError.message : '未知错误'}`
       }, { status: 500 });
     }
 

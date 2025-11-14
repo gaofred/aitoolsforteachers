@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Edit3, Check, X, Eye, EyeOff, Save, RotateCcw, AlertCircle, Search, Users, ZoomIn } from "lucide-react";
 import type { ContinuationWritingBatchTask, ContinuationWritingAssignment, Student } from "../types";
+import { countEnglishWords, getWordCountStats, updateOCRResultWordCount } from "../utils/wordCount";
 
 interface ContinuationWritingContentConfirmationProps {
   task: ContinuationWritingBatchTask | null;
@@ -38,6 +39,10 @@ const ContinuationWritingContentConfirmation: React.FC<ContinuationWritingConten
   const [showImageModal, setShowImageModal] = useState<boolean>(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // 分页状态管理
+  const [currentPage, setCurrentPage] = useState(1);
+  const studentsPerPage = 6; // 每页显示6个学生
+
   const assignments = task?.assignments || [];
 
   // 过滤后的作业列表
@@ -52,11 +57,62 @@ const ContinuationWritingContentConfirmation: React.FC<ContinuationWritingConten
     return matchesSearch && matchesFilter;
   });
 
-  // 计算统计信息
+  // 分页计算
+  const totalPages = Math.ceil(filteredAssignments.length / studentsPerPage);
+  const startIndex = (currentPage - 1) * studentsPerPage;
+  const endIndex = startIndex + studentsPerPage;
+  const paginatedAssignments = filteredAssignments.slice(startIndex, endIndex);
+
+  // 分页控制函数
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    goToPage(currentPage - 1);
+  };
+
+  const goToNextPage = () => {
+    goToPage(currentPage + 1);
+  };
+
+  // 当搜索或筛选条件变化时，重置到第一页
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, showChineseOnly]);
+
+  // 获取单个作业的字数统计
+  const getAssignmentWordCountStats = (assignment: ContinuationWritingAssignment) => {
+    const effectiveContent = assignment.ocrResult.editedText || assignment.ocrResult.content;
+    return getWordCountStats(effectiveContent);
+  };
+
+  // 计算统计信息（包含字数统计）
   const stats = {
     total: assignments.length,
     withChinese: assignments.filter(a => a.ocrResult.chineseContent.trim() !== '').length,
-    withoutChinese: assignments.filter(a => a.ocrResult.chineseContent.trim() === '').length
+    withoutChinese: assignments.filter(a => a.ocrResult.chineseContent.trim() === '').length,
+    // 字数统计
+    wordCountStats: assignments.map(assignment => {
+      const effectiveContent = assignment.ocrResult.editedText || assignment.ocrResult.content;
+      return getWordCountStats(effectiveContent);
+    }),
+    // 汇总字数信息
+    totalWordCount: assignments.reduce((sum, assignment) => {
+      const effectiveContent = assignment.ocrResult.editedText || assignment.ocrResult.content;
+      return sum + countEnglishWords(effectiveContent);
+    }, 0),
+    averageWordCount: assignments.length > 0 ?
+      assignments.reduce((sum, assignment) => {
+        const effectiveContent = assignment.ocrResult.editedText || assignment.ocrResult.content;
+        return sum + countEnglishWords(effectiveContent);
+      }, 0) / assignments.length : 0,
+    sufficientWordCountCount: assignments.filter(assignment => {
+      const effectiveContent = assignment.ocrResult.editedText || assignment.ocrResult.content;
+      return countEnglishWords(effectiveContent) >= 150;
+    }).length
   };
 
   // 切换编辑状态
@@ -85,12 +141,16 @@ const ContinuationWritingContentConfirmation: React.FC<ContinuationWritingConten
     if (assignment && editedTexts[assignmentId]) {
       const updatedAssignments = assignments.map(a => {
         if (a.id === assignmentId) {
+          // 更新OCR结果并重新计算字数
+          const updatedOCRResult = {
+            ...a.ocrResult,
+            editedText: editedTexts[assignmentId]
+          };
+          const updatedWithWordCount = updateOCRResultWordCount(updatedOCRResult);
+
           return {
             ...a,
-            ocrResult: {
-              ...a.ocrResult,
-              editedText: editedTexts[assignmentId]
-            }
+            ocrResult: updatedWithWordCount
           };
         }
         return a;
@@ -340,23 +400,58 @@ const ContinuationWritingContentConfirmation: React.FC<ContinuationWritingConten
       </div>
 
       {/* 统计信息 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
+              <div className="text-sm text-gray-600">总计作文数量</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-green-600">{stats.withChinese}</div>
+              <div className="text-sm text-gray-600">含中文内容</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-orange-600">{stats.withoutChinese}</div>
+              <div className="text-sm text-gray-600">纯英文内容</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 字数统计信息 */}
         <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-            <div className="text-sm text-gray-600">总计作文数量</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-green-600">{stats.withChinese}</div>
-            <div className="text-sm text-gray-600">含中文内容</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-orange-600">{stats.withoutChinese}</div>
-            <div className="text-sm text-gray-600">纯英文内容</div>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-blue-500" />
+              字数统计分析（代码精确统计）
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl font-bold text-gray-900">{Math.round(stats.averageWordCount)}</div>
+                <div className="text-xs text-gray-600">平均词数</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl font-bold text-gray-900">{stats.totalWordCount}</div>
+                <div className="text-xs text-gray-600">总词数</div>
+              </div>
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <div className="text-xl font-bold text-green-600">{stats.sufficientWordCountCount}</div>
+                <div className="text-xs text-gray-600">≥150词达标</div>
+              </div>
+              <div className="text-center p-3 bg-red-50 rounded-lg">
+                <div className="text-xl font-bold text-red-600">{stats.total - stats.sufficientWordCountCount}</div>
+                <div className="text-xs text-gray-600">&lt;150词需扣分</div>
+              </div>
+            </div>
+            <div className="mt-3 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+              <strong>评分规则：</strong>作文不满150词将直接降一档（扣5分）。请仔细核对字数统计，如有错误可编辑修正。
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -375,7 +470,7 @@ const ContinuationWritingContentConfirmation: React.FC<ContinuationWritingConten
                 className="pl-10"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant={showChineseOnly ? "default" : "outline"}
                 onClick={() => setShowChineseOnly(!showChineseOnly)}
@@ -388,7 +483,7 @@ const ContinuationWritingContentConfirmation: React.FC<ContinuationWritingConten
                 onClick={toggleAllEdits}
                 size="sm"
               >
-                {filteredAssignments.every(a => editingAssignments[a.id]) ? '取消全选' : '全选编辑'}
+                {paginatedAssignments.every(a => editingAssignments[a.id]) ? '取消全选' : '全选编辑'}
               </Button>
               <Button
                 onClick={extractStudentNames}
@@ -410,12 +505,21 @@ const ContinuationWritingContentConfirmation: React.FC<ContinuationWritingConten
               )}
             </div>
           </div>
+
+          {/* 分页信息显示 - 简化版 */}
+          {totalPages > 1 && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="text-sm text-gray-600">
+                显示 {startIndex + 1}-{Math.min(endIndex, filteredAssignments.length)} 项，共 {filteredAssignments.length} 项（第 {currentPage} / {totalPages} 页）
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* 作文列表 */}
       <div className="space-y-4">
-        {filteredAssignments.map((assignment) => (
+        {paginatedAssignments.map((assignment) => (
           <Card key={assignment.id} className="relative">
             <CardContent className="p-6">
               {/* 顶部栏：学生信息和操作按钮 */}
@@ -435,6 +539,22 @@ const ContinuationWritingContentConfirmation: React.FC<ContinuationWritingConten
                   <Badge variant="outline">
                     置信度: {Math.round(assignment.ocrResult.confidence * 100)}%
                   </Badge>
+                  {(() => {
+                    const wordStats = getAssignmentWordCountStats(assignment);
+                    return (
+                      <Badge
+                        variant="outline"
+                        className={
+                          wordStats.isSufficient
+                            ? "bg-green-100 text-green-800 border-green-200"
+                            : "bg-red-100 text-red-800 border-red-200"
+                        }
+                      >
+                        {wordStats.wordCount}词
+                        {wordStats.needsPenalty && " (-5分)"}
+                      </Badge>
+                    );
+                  })()}
                   {assignment.ocrResult.chineseContent.trim() && (
                     <Badge variant="secondary" className="bg-orange-100 text-orange-800">
                       含中文
@@ -641,18 +761,99 @@ const ContinuationWritingContentConfirmation: React.FC<ContinuationWritingConten
         </Card>
       )}
 
+          {/* 分页控件 - 页面底部 */}
+      {totalPages > 1 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                显示第 {startIndex + 1}-{Math.min(endIndex, filteredAssignments.length)} 项，共 {filteredAssignments.length} 项
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  size="sm"
+                >
+                  ← 上一页
+                </Button>
+
+                {/* 页码按钮 */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                    // 显示当前页周围的页码
+                    const shouldShow =
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - currentPage) <= 2;
+
+                    if (!shouldShow) return null;
+
+                    // 如果不是连续的页码，添加省略号
+                    const prevPage = page - 1;
+                    const shouldShowEllipsis = page > 2 && page - currentPage > 3;
+
+                    return (
+                      <React.Fragment key={page}>
+                        {shouldShowEllipsis && (
+                          <span className="text-gray-400 px-1">...</span>
+                        )}
+                        <Button
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => goToPage(page)}
+                          className={`h-8 w-8 p-0 ${currentPage === page ? 'bg-blue-600 text-white' : ''}`}
+                        >
+                          {page}
+                        </Button>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  size="sm"
+                >
+                  下一页 →
+                </Button>
+
+                <span className="text-sm text-gray-600 ml-2">
+                  第 {currentPage} / {totalPages} 页
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 操作按钮 */}
       <div className="flex justify-between">
         <Button variant="outline" onClick={onPrev}>
           上一步
         </Button>
-        <Button
-          onClick={onNext}
-          disabled={assignments.length === 0}
-          className="px-8"
-        >
-          下一步：学生姓名匹配确认
-        </Button>
+        <div className="flex gap-2">
+          {/* 一键提取学生姓名按钮 */}
+          <Button
+            variant="default"
+            onClick={extractStudentNames}
+            disabled={assignments.length === 0}
+            className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <Users className="w-4 h-4" />
+            一键提取学生姓名({assignments.length}个作业)
+          </Button>
+          <Button
+            onClick={onNext}
+            disabled={assignments.length === 0}
+            className="px-8"
+          >
+            下一步：学生姓名匹配确认
+          </Button>
+        </div>
       </div>
 
       {/* 图片放大查看模态框 */}

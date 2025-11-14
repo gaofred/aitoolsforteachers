@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Upload, Plus, Download, FileText, Clipboard, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Trash2, Upload, Plus, Download, FileText, Clipboard, CheckCircle, AlertCircle, X, Users } from "lucide-react";
 import * as XLSX from 'xlsx';
 import type { ContinuationWritingBatchTask, Student } from "../types";
 
@@ -33,6 +33,7 @@ const StudentNameInput: React.FC<StudentNameInputProps> = ({
   const [showPasteInput, setShowPasteInput] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [isExtractingNames, setIsExtractingNames] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const students = task?.students || [];
@@ -178,6 +179,98 @@ const StudentNameInput: React.FC<StudentNameInputProps> = ({
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "学生名单");
     XLSX.writeFile(wb, "学生名单模板.xlsx");
+  };
+
+  // 一键提取学生姓名
+  const extractStudentNames = async () => {
+    if (!task || !task.assignments || task.assignments.length === 0) return;
+
+    setIsExtractingNames(true);
+
+    try {
+      const newStudents: Student[] = [];
+      const existingNames = new Set(students.map(s => s.name));
+
+      // 从每个OCR结果中提取学生姓名
+      for (const assignment of task.assignments) {
+        const ocrText = assignment.ocrResult.editedText || assignment.ocrResult.content;
+        const extractedName = extractNameFromOCR(ocrText);
+
+        if (extractedName && !existingNames.has(extractedName)) {
+          newStudents.push({
+            id: `student_${Date.now()}_${Math.random()}`,
+            name: extractedName,
+            createdAt: new Date()
+          });
+          existingNames.add(extractedName);
+        }
+      }
+
+      // 更新任务中的学生列表
+      if (newStudents.length > 0) {
+        setTask({
+          ...task,
+          students: [...students, ...newStudents]
+        });
+        alert(`成功提取 ${newStudents.length} 个学生姓名`);
+      } else {
+        alert('未能识别出有效的学生姓名，请检查OCR结果或手动添加');
+      }
+
+      console.log(`成功提取 ${newStudents.length} 个学生姓名`);
+
+    } catch (error) {
+      console.error('提取学生姓名失败:', error);
+      alert('提取学生姓名失败，请稍后重试');
+    } finally {
+      setIsExtractingNames(false);
+    }
+  };
+
+  // 从OCR文本中提取姓名的逻辑
+  const extractNameFromOCR = (text: string): string | null => {
+    if (!text || text.trim().length === 0) return null;
+
+    // 常见的姓名标记模式
+    const namePatterns = [
+      /姓名[:：]\s*([^\n\r]{2,10}?)(?:[\s\n\r]|$)/,
+      /学生姓名[:：]\s*([^\n\r]{2,10}?)(?:[\s\n\r]|$)/,
+      /([^0-9\s]{2,10})\s*(?:高二|高三|高一|班级|:：)/,
+      /姓名[：:]?\s*([^\n\r]{2,10}?)(?:[\s\n\r]|$)/,
+      /^([^\n\r]*?姓名[:：]\s*([^\n\r]{2,10}?))/,
+      /(\d+[:：]\s*([^\n\r]{2,10}?))/,
+    ];
+
+    // 尝试匹配各种模式
+    for (const pattern of namePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const name = match[2] || match[1]; // 有些模式第二个捕获组是姓名
+        if (name && name.length >= 2 && name.length <= 10) {
+          // 清理姓名，移除数字和特殊字符
+          const cleanName = name.replace(/\d+/g, '').replace(/[^\u4e00-\u9fa5a-zA-Z]/g, '').trim();
+          if (cleanName.length >= 2) {
+            return cleanName;
+          }
+        }
+      }
+    }
+
+    // 如果没找到明确标记，尝试在文本开头找可能的姓名
+    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    for (const line of lines.slice(0, 3)) { // 只检查前3行
+      const cleanedLine = line.replace(/\d+/g, '').replace(/[^\u4e00-\u9fa5a-zA-Z\s]/g, '').trim();
+      if (cleanedLine.length >= 2 && cleanedLine.length <= 10 &&
+          (cleanedLine.length <= 4 || /[\u4e00-\u9fa5]/.test(cleanedLine))) {
+        // 排除明显不是姓名的内容
+        if (!cleanedLine.includes('高考') && !cleanedLine.includes('答题') &&
+            !cleanedLine.includes('学校') && !cleanedLine.includes('班级')) {
+          return cleanedLine;
+        }
+      }
+    }
+
+    return null;
   };
 
   return (
@@ -415,13 +508,25 @@ const StudentNameInput: React.FC<StudentNameInputProps> = ({
         >
           跳过此步骤
         </Button>
-        <Button
-          onClick={onNext}
-          disabled={students.length === 0}
-          className="px-8"
-        >
-          下一步：输入读后续写题目
-        </Button>
+        <div className="flex gap-2">
+          {/* 一键提取学生姓名按钮 */}
+          <Button
+            variant="default"
+            onClick={extractStudentNames}
+            disabled={isExtractingNames || !task?.assignments || task.assignments.length === 0}
+            className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <Users className="w-4 h-4" />
+            {isExtractingNames ? '提取中...' : `一键提取学生姓名(${task?.assignments?.length || 0}个作业)`}
+          </Button>
+          <Button
+            onClick={onNext}
+            disabled={students.length === 0}
+            className="px-8"
+          >
+            下一步：输入读后续写题目
+          </Button>
+        </div>
       </div>
     </div>
   );

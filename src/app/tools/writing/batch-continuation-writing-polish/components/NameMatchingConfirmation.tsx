@@ -88,6 +88,7 @@ const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> = ({
     }));
   };
 
+  
   // 确认匹配并更新任务
   const confirmMatches = () => {
     const updatedAssignments = assignments.map(assignment => {
@@ -113,6 +114,14 @@ const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> = ({
     matched: assignments.filter(a => getMatchStatus(a.id).student).length,
     unmatched: assignments.filter(a => !getMatchStatus(a.id).student).length
   };
+
+  // 调试信息
+  console.log('🔧 调试信息 - 姓名匹配页面:', {
+    assignmentsCount: assignments.length,
+    hasAssignments: assignments.length > 0,
+    studentsCount: students.length,
+    canShowExtractButton: assignments.length > 0
+  });
 
   return (
     <div className="space-y-6">

@@ -22,6 +22,8 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
   isGradingCompleted
 }) => {
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [commonAnalysis, setCommonAnalysis] = useState<string>('');
 
   if (!task) return null;
 
@@ -232,6 +234,75 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
     }
   };
 
+  // 全班共性分析
+  const analyzeCommonIssues = async () => {
+    if (completedAssignments.length === 0) {
+      alert('没有已完成批改的学生，无法进行共性分析');
+      return;
+    }
+
+    setIsAnalyzing(true);
+
+    try {
+      // 构建请求数据
+      const studentEssays = completedAssignments.map(assignment => ({
+        studentName: assignment.student.name,
+        content: assignment.ocrResult.editedText || assignment.ocrResult.content,
+        score: assignment.gradingResult?.score || 0,
+        feedback: assignment.gradingResult?.feedback,
+        detailedFeedback: assignment.gradingResult?.detailedFeedback,
+        languageErrors: assignment.gradingResult?.gradingDetails?.languageErrors,
+        contentIssues: assignment.gradingResult?.gradingDetails?.contentIssues
+      }));
+
+      const requestBody = {
+        topic: task.topic || '',
+        p1Content: task.p1Content || '',
+        p2Content: task.p2Content || '',
+        plotAnalysis: task.plotAnalysis || '',
+        studentEssays
+      };
+
+      console.log('🚀 开始发送共性分析请求:', {
+        studentsCount: studentEssays.length,
+        topicLength: requestBody.topic.length
+      });
+
+      const response = await fetch('/api/ai/continuation-writing-common-issues', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('📡 共性分析API响应状态:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ 共性分析成功，结果长度:', data.analysis?.length || 0);
+          setCommonAnalysis(data.analysis || '');
+
+          if (data.pointsDeducted) {
+            console.log('💰 已消耗3积分进行共性分析');
+          }
+        } else {
+          alert(data.error || '共性分析失败');
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('❌ API响应错误:', errorData);
+        alert(errorData.error || '共性分析请求失败');
+      }
+    } catch (error) {
+      console.error('💥 共性分析失败:', error);
+      alert(`共性分析失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const selectedAssignment = completedAssignments.find(a => a.id === selectedStudent);
 
   return (
@@ -307,8 +378,9 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
       </Card>
 
       <Tabs defaultValue="results" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="results">批改结果</TabsTrigger>
+          <TabsTrigger value="analysis">全班共性分析</TabsTrigger>
           <TabsTrigger value="export">导出功能</TabsTrigger>
         </TabsList>
 
@@ -488,6 +560,55 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="analysis" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span>全班共性分析</span>
+                <Button
+                  onClick={analyzeCommonIssues}
+                  disabled={isAnalyzing || completedAssignments.length === 0}
+                  className="flex items-center gap-2"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      分析中...
+                    </>
+                  ) : (
+                    <>
+                      <BarChart3 className="w-4 h-4" />
+                      开始智能分析
+                    </>
+                  )}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {commonAnalysis ? (
+                <div className="prose prose-sm max-w-none">
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed bg-gray-50 rounded-lg p-6">
+                    {commonAnalysis}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg font-medium mb-2">开始AI智能分析</p>
+                  <p className="text-sm">
+                    点击上方按钮，使用Gemini 2.5 Pro模型分析全班学生读后续写的共性问题
+                  </p>
+                  <div className="mt-4 text-xs text-gray-400">
+                    <p>• 消耗3积分</p>
+                    <p>• 分析时间约30-60秒</p>
+                    <p>• 生成个性化教学建议</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="export" className="space-y-4">

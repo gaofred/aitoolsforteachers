@@ -1,0 +1,321 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log('🎯 开始读后续写全班共性分析API处理');
+
+    const body = await request.json();
+    const { topic, p1Content, p2Content, studentEssays, plotAnalysis } = body;
+
+    console.log('📋 接收到的请求参数:', {
+      hasTopic: !!topic,
+      topicLength: topic?.length || 0,
+      p1ContentLength: p1Content?.length || 0,
+      p2ContentLength: p2Content?.length || 0,
+      hasPlotAnalysis: !!plotAnalysis,
+      studentEssaysCount: studentEssays?.length || 0,
+      isFirstEssay: studentEssays?.[0]?.studentName
+    });
+
+    // 积分相关变量
+    let userId = null;
+    let pointsDeducted = false;
+
+    if (!topic || !studentEssays || !Array.isArray(studentEssays) || studentEssays.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: '缺少必要参数：读后续写题目和学生作文内容'
+      }, { status: 400 });
+    }
+
+    console.log('✅ 基本参数验证通过');
+
+    // 使用Supabase进行用户认证和点数管理
+    const { createServerSupabaseClient } = await import('@/lib/supabase-server');
+    const supabase = createServerSupabaseClient();
+
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (!user || error) {
+      console.log('全班共性分析API - 用户认证失败', { error: error?.message });
+      return NextResponse.json({
+        success: false,
+        error: '用户认证失败，请重新登录'
+      }, { status: 401 });
+    }
+
+    console.log('全班共性分析API - 用户验证成功', { userId: user.id, email: user.email });
+    userId = user.id;
+
+    // 点数管理 - 每次分析消耗3点数
+    const pointsCost = 3;
+    const { SupabasePointsService } = await import('@/lib/supabase-points-service');
+
+    try {
+      const pointsDeducted = await SupabasePointsService.deductPoints(userId, pointsCost, 'continuation_writing_common_analysis');
+
+      if (!pointsDeducted) {
+        console.log('全班共性分析API - 点数不足，拒绝请求', { userId });
+        return NextResponse.json({
+          success: false,
+          error: `积分不足，需要${pointsCost}点数才能进行全班共性分析`
+        }, { status: 402 });
+      }
+
+      console.log('全班共性分析API - 点数扣除成功', { userId, pointsCost });
+    } catch (pointsError) {
+      console.error('全班共性分析API - 点数扣除失败:', pointsError);
+      return NextResponse.json({
+        success: false,
+        error: '点数验证失败，请稍后重试'
+      }, { status: 500 });
+    }
+
+    console.log('📝 分析参数:', {
+      topicLength: topic.length,
+      essaysCount: studentEssays.length,
+      hasP1P2: !!(p1Content && p2Content),
+      hasPlotAnalysis: !!plotAnalysis,
+      topic: topic.substring(0, 100) + '...'
+    });
+
+    // 构建作文内容文本，包含批改结果
+    const essaysContent = studentEssays.map((essay, index) => {
+      let essayText = `## 学生：${essay.studentName}\n`;
+      essayText += `### 得分：${essay.score}/25分\n`;
+      essayText += `### 作文内容：\n${essay.content}\n`;
+
+      if (essay.feedback) {
+        essayText += `### AI批改反馈：\n${essay.feedback}\n`;
+      }
+
+      if (essay.detailedFeedback) {
+        essayText += `### 详细批改：\n${essay.detailedFeedback}\n`;
+      }
+
+      if (essay.languageErrors) {
+        essayText += `### 语言错误：\n${essay.languageErrors}\n`;
+      }
+
+      if (essay.contentIssues) {
+        essayText += `### 内容问题：\n${essay.contentIssues}\n`;
+      }
+
+      essayText += '\n---\n';
+      return essayText;
+    }).join('\n');
+
+    // 检查数据大小，避免数据过大导致超时
+    const totalDataSize = JSON.stringify({
+      topic: topic,
+      essaysContent: essaysContent,
+      studentCount: studentEssays.length
+    }).length;
+
+    console.log('📊 数据大小检查:', {
+      topicLength: topic.length,
+      essaysContentLength: essaysContent.length,
+      totalDataSize: totalDataSize,
+      studentCount: studentEssays.length,
+      dataSizeKB: Math.round(totalDataSize / 1024)
+    });
+
+    // 如果数据太大，限制内容长度
+    if (totalDataSize > 500000) { // 500KB限制
+      console.log('⚠️ 数据过大，限制内容长度');
+      const limitedEssaysContent = studentEssays.slice(0, 20).map((essay, index) => {
+        let essayText = `## 学生：${essay.studentName}\n`;
+        essayText += `### 得分：${essay.score}/25分\n`;
+        essayText += `### 作文内容：\n${essay.content.substring(0, 2000)}...\n`;
+
+        if (essay.feedback) {
+          essayText += `### AI批改反馈：\n${essay.feedback.substring(0, 1000)}...\n`;
+        }
+
+        essayText += '\n---\n';
+        return essayText;
+      }).join('\n');
+
+    }
+
+    // 构建给Gemini的提示词
+    let fullPrompt = `请你作为一名专业的高中英语教师，分析以下学生在读后续写中的共性问题。
+
+## 续写题目
+${topic}
+
+${p1Content ? `## 第一段首句要求
+${p1Content}` : ''}
+
+${p2Content ? `## 第二段首句要求
+${p2Content}` : ''}
+
+${plotAnalysis ? `## 正确情节走向分析
+${plotAnalysis}` : ''}
+
+## 学生作文与批改数据
+${essaysContent}
+
+**重要提示：**
+1. 在分析中请直接使用学生的真实姓名进行举例和说明，不要使用"学生1"、"学生2"等编号
+2. 结合AI批改反馈和得分情况进行综合分析
+3. 重点关注读后续写的特殊要求：情节连贯性、语言风格一致性、段落衔接等
+
+请按照以下结构进行分析：
+
+### 1. 整体表现分析
+- **分数分布**: 分析学生得分的分布情况和平均水平
+- **完成度**: 评估学生对续写要求的完成情况
+- **P1/P2首句使用**: 分析学生对规定首句的遵循情况
+
+### 2. 共性问题分析
+请从以下几个方面详细分析学生的共性问题：
+- **情节发展问题**: 偏离原文逻辑、情节跳跃、缺乏合理性等
+- **语言风格不一致**: 与原文语言风格脱节、词汇选择不当等
+- **段落衔接问题**: 第一段到第二段过渡不自然、缺乏连贯性等
+- **语法表达错误**: 时态混乱、句式单调、搭配不当等
+- **词汇运用问题**: 词汇重复、用词不准确、缺乏变化等
+
+### 3. 写作亮点与优秀表达
+- **高分学生特点**: 分析表现优秀学生的写作特点
+- **精彩表达**: 提取学生作文中的优秀词汇和句式
+- **创新思路**: 肯定学生在情节发展中的创意亮点
+
+### 4. 读后续写提升策略（针对B1-B2层次）
+提供具体可行的提升建议：
+- **情节构建技巧**: 如何保持与原文的连贯性和创新性
+- **语言风格保持**: 如何模仿和延续原文的语言特色
+- **段落衔接方法**: 第一段到第二段的自然过渡技巧
+- **句式多样性**: 避免句式单调的具体方法
+- **词汇拓展策略**: 在读后续写中丰富词汇表达的技巧
+
+### 5. 个性化教学建议
+针对不同水平学生给出具体建议：
+- **基础薄弱学生**: 重点改进方向和练习方法
+- **中等水平学生**: 提升到良好水平的具体路径
+- **优秀学生**: 向更高水平突破的突破点
+
+请用中文回复，内容要详细、实用，适合教师在课堂上指导学生使用。要结合具体的学生例子，让分析更具针对性和实用性。`;
+
+try {
+      // 调用极客智坊Gemini 2.5 Pro API
+      console.log('🔑 API密钥检查:', {
+        hasApiKey: !!process.env.GEEKAI_API_KEY,
+        apiKeyLength: process.env.GEEKAI_API_KEY?.length || 0
+      });
+
+      // 创建一个超时控制器
+      const controller = new AbortController();
+      const timeout = setTimeout(() => {
+        controller.abort();
+        console.log('⏰ API请求超时，终止连接');
+      }, 60000); // 60秒超时
+
+      const response = await fetch('https://geekai.co/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.GEEKAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gemini-2.5-pro',
+          messages: [
+            {
+              role: 'user',
+              content: fullPrompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 15000,
+          stream: false
+        }),
+        signal: controller.signal
+      });
+
+      // 清除超时计时器
+      clearTimeout(timeout);
+
+      console.log('🔍 极客智坊 Gemini API响应状态:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ 极客智坊 Gemini API调用失败:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText
+        });
+
+        if (response.status === 401) {
+          return NextResponse.json({
+            success: false,
+            error: '极客智坊 API密钥无效，请联系管理员'
+          }, { status: 500 });
+        }
+
+        throw new Error(`极客智坊 Gemini API调用失败: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ 极客智坊 Gemini API调用成功:', {
+        hasChoices: !!data.choices,
+        choicesLength: data.choices?.length || 0,
+        hasContent: !!data.choices?.[0]?.message?.content
+      });
+
+      const analysisResult = data.choices?.[0]?.message?.content;
+
+      if (!analysisResult) {
+        throw new Error('API返回了空结果');
+      }
+
+      // 积分已在前面成功扣除
+      pointsDeducted = true;
+
+      console.log('🎉 读后续写全班共性分析完成:', {
+        resultLength: analysisResult.length,
+        userId: userId,
+        pointsDeducted: pointsDeducted
+      });
+
+      return NextResponse.json({
+        success: true,
+        analysis: analysisResult,
+        pointsDeducted: pointsDeducted,
+        pointsCost: 3,
+        essaysAnalyzed: studentEssays.length
+      });
+
+    } catch (apiError) {
+      console.error('💥 极客智坊 Gemini API调用异常:', apiError);
+
+      // 如果已经扣除了积分，需要退还
+      if (pointsDeducted && userId) {
+        try {
+          const { SupabasePointsService } = await import('@/lib/supabase-points-service');
+          const refundSuccess = await SupabasePointsService.addPoints(userId, 3, '读后续写全班共性分析失败退款');
+
+          if (refundSuccess) {
+            console.log('💰 已退还3积分');
+          } else {
+            console.error('❌ 积分退还失败');
+          }
+        } catch (refundError) {
+          console.error('❌ 积分退还错误:', refundError);
+        }
+      }
+
+      return NextResponse.json({
+        success: false,
+        error: apiError instanceof Error ? apiError.message : '分析服务暂时不可用，请稍后重试'
+      }, { status: 500 });
+    }
+
+  } catch (error) {
+    console.error('💥 共性分析API处理失败:', error);
+
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : '分析服务暂时不可用，请稍后重试'
+    }, { status: 500 });
+  }
+}

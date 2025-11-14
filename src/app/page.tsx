@@ -114,7 +114,7 @@ const navigationData = [
     items: [
       { id: "batch-assignment-polish", title: "批量润色学生句子", active: true, cost: 10, route: "/tools/writing/batch-assignment-polish" },
       { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 10, route: "/tools/writing/batch-applicationwriting-polish" },
-      { id: "batch-continuation-writing-polish", title: "批量修改学生读后续写", active: false, cost: 10, route: "/tools/writing/batch-continuation-writing-polish", disabled: true, note: "加紧开发中" },
+      { id: "batch-continuation-writing-polish", title: "批量修改学生读后续写", active: true, cost: 10, route: "/tools/writing/batch-continuation-writing-polish" },
       { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
       { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
       { id: "continuation-writing", title: "读后续写范文", cost: 6, route: "/tools/writing/continuation_writing_model_essay" },
@@ -316,8 +316,8 @@ const toolConfig = {
     placeholder: "请粘贴完整的阅读理解文章和题目（包含文章内容、题目和选项）...",
     buttonText: "开始解析题目!",
     analysisText: "AI正在解析中..."
-  }
-};
+  },
+  };
 
 export default function Home() {
   const router = useRouter();
@@ -1866,33 +1866,6 @@ The future of AI depends on our ability to balance innovation with responsibilit
                         </div>
                       </div>
 
-                      {/* OCR功能 */}
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => imageInputRef.current?.click()}
-                          className="flex items-center gap-2"
-                        >
-                          📁 上传图片
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsCameraOpen(true)}
-                          className="flex items-center gap-2"
-                        >
-                          📷 拍照识别
-                        </Button>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          ref={imageInputRef}
-                          onChange={handleImageUpload}
-                          className="hidden"
-                        />
-                      </div>
                     </div>
 
                     {/* 结果展示区域 */}

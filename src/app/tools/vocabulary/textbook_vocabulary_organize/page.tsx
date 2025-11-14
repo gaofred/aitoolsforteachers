@@ -48,6 +48,15 @@ export default function TextbookVocabularyOrganisePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 备用OCR states
+  const [isBackupCameraOpen, setIsBackupCameraOpen] = useState(false);
+  const [backupPhoto, setBackupPhoto] = useState<string | null>(null);
+  const [backupUploadedImages, setBackupUploadedImages] = useState<string[]>([]);
+  const [isBackupRecognizing, setIsBackupRecognizing] = useState(false);
+  const backupVideoRef = useRef<HTMLVideoElement>(null);
+  const backupCanvasRef = useRef<HTMLCanvasElement>(null);
+  const backupFileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -614,6 +623,66 @@ export default function TextbookVocabularyOrganisePage() {
     stopCamera()
   }
 
+  // 阿里云OCR备用识别功能
+  const recognizeTextBackup = async (images: string[]) => {
+    if (images.length === 0) return
+    setIsRecognizing(true)
+    alert('正在进行阿里云OCR备用识别，请稍等...')
+    try {
+      // 转换图片格式为base64数组（移除data:image前缀）
+      const processedImages = images.map(img => {
+        const base64Data = img.split(',')[1] || img;
+        return {
+          data: base64Data,
+          mimeType: img.startsWith('data:') ? img.split(':')[1].split(';')[0] : 'image/jpeg'
+        };
+      });
+
+      const response = await fetch('/api/ai/ocr-aliyun', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('sb-access-token') || '' : ''}`
+        },
+        body: JSON.stringify({
+          images: processedImages,
+          prompt: '识别图中文字，依次原文输出，不要增加其他多余的解释和说明'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.result) {
+        // 直接输出OCR识别的原文内容
+        const recognizedText = data.result;
+
+        // 更新词汇列表为OCR识别的原文
+        setVocabularyList(prev => {
+          if (prev.trim()) {
+            // 如果已有内容，则在后面追加
+            return prev + '\n\n' + recognizedText
+          } else {
+            // 如果为空，则直接使用识别的文本
+            return recognizedText
+          }
+        })
+
+        alert(`阿里云OCR识别成功！已将识别内容添加到文本框`)
+        await refreshUser(); // 更新用户点数
+      } else {
+        alert(`阿里云OCR识别失败：${data.error || '未知错误'}`)
+      }
+    } catch (e) {
+      console.error('阿里云OCR识别错误:', e)
+      alert('阿里云OCR识别错误，请重试')
+    }
+    setIsRecognizing(false)
+    setIsCameraOpen(false)
+    setPhoto(null)
+    setUploadedImages([])
+    stopCamera()
+  }
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
@@ -632,6 +701,60 @@ export default function TextbookVocabularyOrganisePage() {
     })
   }
 
+  // 备用OCR功能
+  const startBackupCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      if (backupVideoRef.current) {
+        backupVideoRef.current.srcObject = mediaStream
+      }
+    } catch (e) {
+      console.error('摄像头访问失败:', e)
+      alert('无法访问摄像头，请检查权限设置')
+    }
+  }
+
+  const stopBackupCamera = () => {
+    if (backupVideoRef.current && backupVideoRef.current.srcObject) {
+      const stream = backupVideoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach(track => track.stop())
+      backupVideoRef.current.srcObject = null
+    }
+  }
+
+  const takeBackupPhoto = () => {
+    if (backupVideoRef.current && backupCanvasRef.current) {
+      const video = backupVideoRef.current
+      const canvas = backupCanvasRef.current
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const photoData = canvas.toDataURL('image/jpeg', 0.8)
+      setBackupPhoto(photoData)
+      stopBackupCamera()
+    }
+  }
+
+  const handleBackupImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    const arr: string[] = []
+    Array.from(files).forEach(f => {
+      const reader = new FileReader()
+      reader.onload = o => {
+        if (typeof o.target?.result === 'string') {
+          arr.push(o.target.result as string)
+          if (arr.length === files.length) {
+            recognizeTextBackup(arr)
+          }
+        }
+      }
+      reader.readAsDataURL(f)
+    })
+  }
+
   // Auto start camera when overlay opens
   useEffect(() => {
     if (isCameraOpen && !photo) {
@@ -643,6 +766,18 @@ export default function TextbookVocabularyOrganisePage() {
       }
     }
   }, [isCameraOpen])
+
+  // Auto start backup camera when overlay opens
+  useEffect(() => {
+    if (isBackupCameraOpen && !backupPhoto) {
+      startBackupCamera()
+    }
+    return () => {
+      if (!isBackupCameraOpen) {
+        stopBackupCamera()
+      }
+    }
+  }, [isBackupCameraOpen])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.ctrlKey && e.key === 'Enter') {
@@ -708,23 +843,43 @@ export default function TextbookVocabularyOrganisePage() {
                   </div>
 
                   {/* OCR功能按钮 */}
-                  <div className="mb-3 flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-2 text-sm border-blue-200 hover:bg-blue-50"
-                    >
-                      📁 上传图片识别
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsCameraOpen(true)}
-                      className="flex items-center gap-2 text-sm border-blue-200 hover:bg-blue-50"
-                    >
-                      📷 拍照识别文本
-                    </Button>
+                  <div className="mb-3 space-y-2">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-2 text-sm border-blue-200 hover:bg-blue-50"
+                      >
+                        📁 上传图片识别
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsCameraOpen(true)}
+                        className="flex items-center gap-2 text-sm border-blue-200 hover:bg-blue-50"
+                      >
+                        📷 拍照识别文本
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => backupFileInputRef.current?.click()}
+                        className="flex items-center gap-2 text-sm border-orange-200 hover:bg-orange-50"
+                      >
+                        📁 备用图片识别
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsBackupCameraOpen(true)}
+                        className="flex items-center gap-2 text-sm border-orange-200 hover:bg-orange-50"
+                      >
+                        📷 备用拍照识别
+                      </Button>
+                    </div>
                   </div>
 
                   <Textarea
@@ -741,6 +896,14 @@ export default function TextbookVocabularyOrganisePage() {
                     multiple
                     ref={fileInputRef}
                     onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    ref={backupFileInputRef}
+                    onChange={handleBackupImageUpload}
                     className="hidden"
                   />
                 </div>
@@ -1269,6 +1432,61 @@ export default function TextbookVocabularyOrganisePage() {
             </div>
             <p className="text-sm text-gray-700 font-medium">正在进行OCR识别...</p>
             <p className="text-xs text-gray-500">请稍等，正在从图片中提取词汇</p>
+          </div>
+        </div>
+      )}
+
+      {/* 备用OCR Camera Overlay */}
+      {isBackupCameraOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-4 space-y-4">
+            <h3 className="text-lg font-semibold text-center">阿里云OCR备用识别</h3>
+            {backupPhoto ? (
+              <img src={backupPhoto} alt="拍摄的照片" className="w-full rounded-lg" />
+            ) : (
+              <video ref={backupVideoRef} autoPlay playsInline className="w-full h-64 object-cover rounded-lg bg-black" />
+            )}
+            <canvas ref={backupCanvasRef} className="hidden" />
+            <div className="flex justify-between gap-3">
+              {!backupPhoto && (
+                <Button onClick={takeBackupPhoto} className="flex-1">
+                  📷 拍照
+                </Button>
+              )}
+              {backupPhoto && (
+                <Button
+                  onClick={() => recognizeTextBackup([backupPhoto])}
+                  className="flex-1"
+                  disabled={isBackupRecognizing}
+                >
+                  {isBackupRecognizing ? '🔍 阿里云识别中...' : '🔍 阿里云OCR识别'}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsBackupCameraOpen(false);
+                  stopBackupCamera();
+                  setBackupPhoto(null);
+                }}
+                className="flex-1"
+              >
+                ❌ 关闭
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 备用OCR Recognizing Overlay */}
+      {isBackupRecognizing && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[65]">
+          <div className="bg-white px-8 py-6 rounded-lg shadow-lg text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+            </div>
+            <p className="text-sm text-gray-700 font-medium">正在进行阿里云OCR识别...</p>
+            <p className="text-xs text-gray-500">请稍等，正在使用阿里云通义千问VL模型识别图片</p>
           </div>
         </div>
       )}

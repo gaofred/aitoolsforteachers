@@ -14,6 +14,7 @@ import {
   BatchImageUploader,
   ContinuationWritingContentConfirmation,
   NameMatchingConfirmation,
+  PlotAnalysisInput,
   ContinuationWritingGrader,
   ContinuationWritingResultTable
 } from "./components";
@@ -56,30 +57,33 @@ const BatchContinuationWritingPolish = () => {
   const [editingAssignments, setEditingAssignments] = useState<{[key: string]: boolean}>({});
   const [editedTexts, setEditedTexts] = useState<{[key: string]: string}>({});
 
-  // 步骤配置 - 7步流程（第一步可选）
+  // 步骤配置 - 8步流程（第一步可选）
   const steps = [
     { id: 1, title: "导入学生姓名 (可选)", description: "添加或导入学生名单，可跳过" },
     { id: 2, title: "输入读后续写题目", description: "设置读后续写题目（最多2张图片识别）" },
     { id: 3, title: "批量OCR识别", description: "专注图像文字识别（无限制）" },
     { id: 4, title: "学生作文内容确认", description: "核对识别的作文内容" },
     { id: 5, title: "姓名匹配确认 (可选)", description: "匹配学生与作文，可跳过" },
-    { id: 6, title: "AI批改", description: "智能批改和打分" },
-    { id: 7, title: "查看结果导出", description: "导出批改结果" }
+    { id: 6, title: "情节走向分析", description: "输入情节走向分析（可选）" },
+    { id: 7, title: "AI批改", description: "智能批改和打分" },
+    { id: 8, title: "查看结果导出", description: "导出批改结果" }
   ];
 
-  // 初始化任务
+  // 初始化任务（仅在还没有任务时初始化）
   const initializeTask = () => {
-    const newTask: ContinuationWritingBatchTask = {
-      id: `continuation_task_${Date.now()}`,
-      title: `批量读后续写批改_${new Date().toLocaleDateString()}`,
-      students: [],
-      topic: "",
-      assignments: [],
-      status: 'setup',
-      createdAt: new Date(),
-      pointsCost: 0
-    };
-    setTask(newTask);
+    if (!task) {
+      const newTask: ContinuationWritingBatchTask = {
+        id: `continuation_task_${Date.now()}`,
+        title: `批量读后续写批改_${new Date().toLocaleDateString()}`,
+        students: [],
+        topic: "",
+        assignments: [],
+        status: 'setup',
+        createdAt: new Date(),
+        pointsCost: 0
+      };
+      setTask(newTask);
+    }
   };
 
   useEffect(() => {
@@ -347,6 +351,15 @@ const BatchContinuationWritingPolish = () => {
             )}
 
             {currentStep === 6 && (
+              <PlotAnalysisInput
+                task={task}
+                setTask={setTask}
+                onNext={handleNextStep}
+                onPrev={handlePrevStep}
+              />
+            )}
+
+            {currentStep === 7 && (
               <ContinuationWritingGrader
                 task={task}
                 setTask={setTask}
@@ -361,7 +374,7 @@ const BatchContinuationWritingPolish = () => {
               />
             )}
 
-            {currentStep === 7 && (
+            {currentStep === 8 && (
               <ContinuationWritingResultTable
                 task={task}
                 setTask={setTask}

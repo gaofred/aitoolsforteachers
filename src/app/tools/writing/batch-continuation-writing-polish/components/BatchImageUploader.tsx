@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Image, X, Eye, Trash2, Camera, Loader2 } from "lucide-react";
+import { Upload, Image, X, Eye, Trash2, Camera, Loader2, RefreshCw, CheckCircle, AlertCircle, FileText } from "lucide-react";
 import type { ContinuationWritingBatchTask, ContinuationWritingAssignment, OCRResult, ProcessingStats } from "../types";
 import { compressImageForOCR, adaptiveCompressImage } from "@/lib/image-compressor";
+import { updateOCRResultWordCount } from "../utils/wordCount";
 
 interface BatchImageUploaderProps {
   task: ContinuationWritingBatchTask | null;
@@ -45,6 +46,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [ocrProgressMessage, setOcrProgressMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const wordInputRef = useRef<HTMLInputElement>(null);
 
   // 计算状态
   const hasProcessedImages = uploadedImages.some(img => img.status === 'completed');
@@ -55,32 +57,94 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   // 数据持久化key
   const STORAGE_KEY = `batch_ocr_continuation_${task?.id || 'default'}`;
 
-  // 从localStorage恢复数据
+  // 从任务数据和localStorage恢复数据
   useEffect(() => {
-    try {
-      const savedData = localStorage.getItem(STORAGE_KEY);
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
+    const restoreData = () => {
+      let hasRestoredData = false;
 
-        // 检查数据是否匹配当前任务
-        if (parsed.taskId === task?.id && parsed.uploadedImages) {
-          console.log('🔄 从localStorage恢复读后续写OCR数据:', {
-            taskId: parsed.taskId,
-            imageCount: parsed.uploadedImages.length,
-            timestamp: parsed.timestamp
-          });
+      // 优先从任务数据中恢复
+      if (task?.assignments && task.assignments.length > 0) {
+        console.log('🔄 从任务数据恢复读后续写OCR数据:', {
+          taskId: task.id,
+          assignmentCount: task.assignments.length
+        });
 
-          setUploadedImages(parsed.uploadedImages);
-          setOcrProgressMessage(parsed.ocrProgressMessage || '');
-          setIsProcessing(parsed.isProcessing || false);
-        }
+        const restoredImages: UploadedImage[] = task.assignments.map((assignment, index) => {
+          // 创建一个虚拟的预览图（如果原图数据不存在）
+          let preview = assignment.ocrResult.imageData || '';
+          if (!preview && assignment.ocrResult.content) {
+            // 如果没有图片数据，创建一个文本预览的占位符
+            preview = `data:image/svg+xml,${encodeURIComponent(`
+              <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#f3f4f6"/>
+                <text x="50%" y="50%" font-family="Arial" font-size="14" text-anchor="middle" fill="#6b7280">
+                  ${assignment.student.name}
+                </text>
+                <text x="50%" y="70%" font-family="Arial" font-size="12" text-anchor="middle" fill="#9ca3af">
+                  已识别 (${assignment.ocrResult.content.length}字符)
+                </text>
+              </svg>
+            `)}`;
+          }
+
+          return {
+            id: assignment.id,
+            file: new File([], assignment.student.name + '.jpg'), // 创建虚拟文件对象
+            originalFile: new File([], assignment.student.name + '.jpg'),
+            preview,
+            status: 'completed' as const,
+            ocrResult: assignment.ocrResult,
+            compressionInfo: {
+              originalSize: 0,
+              compressedSize: 0,
+              compressionRatio: 1
+            }
+          };
+        });
+
+        setUploadedImages(restoredImages);
+        setOcrProgressMessage(`已恢复 ${task.assignments.length} 个识别结果`);
+        setIsProcessing(false);
+        hasRestoredData = true;
+        return;
       }
-    } catch (error) {
-      console.warn('恢复读后续写OCR数据失败:', error);
-      // 清理损坏的数据
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, [task?.id, STORAGE_KEY]);
+
+      // 如果任务数据中没有，尝试从localStorage恢复
+      try {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+          const parsed = JSON.parse(savedData);
+
+          // 检查数据是否匹配当前任务
+          if (parsed.taskId === task?.id && parsed.uploadedImages) {
+            console.log('🔄 从localStorage恢复读后续写OCR数据:', {
+              taskId: parsed.taskId,
+              imageCount: parsed.uploadedImages.length,
+              timestamp: parsed.timestamp
+            });
+
+            setUploadedImages(parsed.uploadedImages);
+            setOcrProgressMessage(parsed.ocrProgressMessage || '');
+            setIsProcessing(parsed.isProcessing || false);
+            hasRestoredData = true;
+          }
+        }
+      } catch (error) {
+        console.warn('从localStorage恢复读后续写OCR数据失败:', error);
+        // 清理损坏的数据
+        localStorage.removeItem(STORAGE_KEY);
+      }
+
+      if (!hasRestoredData) {
+        // 没有恢复到数据，初始化为空
+        setUploadedImages([]);
+        setOcrProgressMessage('');
+        setIsProcessing(false);
+      }
+    };
+
+    restoreData();
+  }, [task?.id, task?.assignments, STORAGE_KEY]);
 
   // 保存数据到localStorage
   useEffect(() => {
@@ -136,6 +200,119 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     // 异步压缩新上传的图片
     console.log(`🔧 开始压缩 ${newImages.length} 张新上传的读后续写图片...`);
     compressNewImages(newImages);
+  };
+
+  // 处理Word文档上传
+  const handleWordUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    console.log(`📝 开始处理 ${files.length} 个Word文档...`);
+
+    for (const file of Array.from(files)) {
+      try {
+        // 验证文件类型
+        if (!file.name.toLowerCase().endsWith('.docx') && !file.name.toLowerCase().endsWith('.doc')) {
+          alert(`文件 "${file.name}" 不是Word文档格式，请选择.docx或.doc文件`);
+          continue;
+        }
+
+        // 创建一个新的图片项来表示Word文档
+        const wordImage: UploadedImage = {
+          id: `word_${Date.now()}_${Math.random()}`,
+          originalFile: file,
+          file,
+          preview: '', // Word文档不需要预览
+          status: 'processing'
+        };
+
+        // 添加到已上传图片列表
+        setUploadedImages(prev => [...prev, wordImage]);
+
+        // 读取Word文档内容
+        const content = await readWordDocument(file);
+
+        // 创建OCR结果
+        const ocrResult: OCRResult = {
+          content: content,
+          originalContent: content,
+          wordCount: content.length,
+          studentName: extractStudentName(content),
+          originalText: content
+        };
+
+        // 更新wordCount
+        updateOCRResultWordCount(ocrResult);
+
+        // 更新状态为完成
+        setUploadedImages(prev =>
+          prev.map(img =>
+            img.id === wordImage.id
+              ? { ...img, status: 'completed', ocrResult }
+              : img
+          )
+        );
+
+        console.log(`✅ Word文档 "${file.name}" 处理完成，提取文本长度: ${content.length}`);
+
+      } catch (error) {
+        console.error(`❌ Word文档 "${file.name}" 处理失败:`, error);
+
+        // 更新状态为失败
+        setUploadedImages(prev =>
+          prev.map(img =>
+            img.id === `word_${Date.now()}_${Math.random()}`
+              ? { ...img, status: 'failed', error: error instanceof Error ? error.message : 'Word文档处理失败' }
+              : img
+          )
+        );
+      }
+    }
+
+    // 重置文件输入
+    if (wordInputRef.current) {
+      wordInputRef.current.value = '';
+    }
+  };
+
+  // 读取Word文档内容
+  const readWordDocument = async (file: File): Promise<string> => {
+    // 这里需要使用Word文档解析库
+    // 暂时使用简单的文本提取方法
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          // 由于浏览器安全限制，这里暂时返回文件名作为占位符
+          // 实际项目中需要使用mammoth.js等库来解析Word文档
+          const placeholderContent = `Word文档内容：${file.name}\n\n请手动复制Word文档内容到此处。`;
+          resolve(placeholderContent);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = () => reject(new Error('文件读取失败'));
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  // 从文本中提取学生姓名
+  const extractStudentName = (content: string): string => {
+    // 匹配常见的学生姓名格式
+    const patterns = [
+      /姓名[：:]\s*([^\n\r]+)/,
+      /([^\n\r]+?)(?:同学|学生)/,
+      /^([^\n\r]{2,4})\s*[:：]?/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+
+    return '未识别姓名';
   };
 
   // 压缩新上传的图片
@@ -301,7 +478,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       优化: "跳过姓名提取，专注文字识别"
     });
 
-    return {
+    const ocrResult = {
       imageId,
       studentName: "待确认", // 标记为待确认，在下一步骤中提取
       originalText,
@@ -311,6 +488,12 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       processedAt: new Date(),
       imageData: imageData // 保存图片数据
     };
+
+    // 立即计算字数统计
+    const ocrResultWithWordCount = updateOCRResultWordCount(ocrResult);
+    console.log(`📊 字数统计完成 (${imageId}): ${ocrResultWithWordCount.wordCount}词`);
+
+    return ocrResultWithWordCount;
   };
 
   // 批量处理所有图片（并行处理）- 读后续写专用版
@@ -665,6 +848,15 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   // 删除图片
   const removeImage = (imageId: string) => {
     setUploadedImages(prev => prev.filter(img => img.id !== imageId));
+
+    // 同时从任务数据中删除对应的作业
+    if (task && task.assignments.some(assignment => assignment.id === imageId)) {
+      const updatedAssignments = task.assignments.filter(assignment => assignment.id !== imageId);
+      setTask({
+        ...task,
+        assignments: updatedAssignments
+      });
+    }
   };
 
   // 清空所有图片
@@ -680,6 +872,129 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     if (failedImages.length > 0) {
       console.log(`🔄 重试 ${failedImages.length} 张失败的读后续写图片...`);
       processOCR(failedImages.map(img => img.id));
+    }
+  };
+
+  // 单个图片重试功能
+  const retrySingleImage = (imageId: string) => {
+    const image = uploadedImages.find(img => img.id === imageId);
+    if (image) {
+      console.log(`🔄 重试单个图片: ${image.originalFile.name}`);
+      // 重置状态为处理中
+      setUploadedImages(prev =>
+        prev.map(img =>
+          img.id === imageId
+            ? { ...img, status: 'processing', error: undefined }
+            : img
+        )
+      );
+
+      // 调用单张图片OCR处理
+      processSingleImage(imageId);
+    }
+  };
+
+  // 处理单个图片的OCR
+  const processSingleImage = async (imageId: string) => {
+    const image = uploadedImages.find(img => img.id === imageId);
+    if (!image) return;
+
+    try {
+      console.log(`📝 开始处理单个图片: ${image.originalFile.name}`);
+
+      // 将文件转换为base64
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(image.file);
+      });
+
+      // 使用专门的作文OCR API
+      const response = await fetch('/api/ai/essay-ocr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: base64,
+          fileName: image.originalFile.name,
+          type: 'continuation-writing' // 指定为读后续写类型
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OCR请求失败: ${response.status}`);
+      }
+
+      const ocrData = await response.json();
+
+      if (ocrData.error) {
+        throw new Error(ocrData.error);
+      }
+
+      console.log(`✅ 单个图片OCR识别成功: ${image.originalFile.name}`, {
+        学生姓名: ocrData.studentName || '未识别',
+        识别文本长度: ocrData.content?.length || 0,
+        置信度: ocrData.confidence || 0
+      });
+
+      // 创建OCR结果
+      const ocrResult: OCRResult = {
+        imageId,
+        studentName: ocrData.studentName || '',
+        originalText: ocrData.originalText || '',
+        chineseContent: ocrData.chineseContent || '',
+        content: ocrData.content || '',
+        confidence: ocrData.confidence || 0,
+        processedAt: new Date(),
+        imageData: base64,
+        wordCount: ocrData.wordCount || 0
+      };
+
+      // 更新图片状态为完成
+      setUploadedImages(prev =>
+        prev.map(img =>
+          img.id === imageId
+            ? { ...img, status: 'completed', ocrResult, error: undefined }
+            : img
+        )
+      );
+
+      // 更新任务中的作业
+      if (task) {
+        const newAssignment: ContinuationWritingAssignment = {
+          id: `assign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          student: {
+            id: `temp_${ocrData.studentName}_${imageId}`,
+            name: ocrData.studentName || '未知学生',
+            createdAt: new Date()
+          },
+          ocrResult,
+          status: 'pending',
+          createdAt: new Date()
+        };
+
+        setTask(prevTask => ({
+          ...prevTask!,
+          assignments: [...(prevTask?.assignments || []), newAssignment]
+        }));
+      }
+
+    } catch (error) {
+      console.error(`❌ 单个图片OCR处理失败:`, error);
+
+      // 更新图片状态为失败
+      setUploadedImages(prev =>
+        prev.map(img =>
+          img.id === imageId
+            ? {
+                ...img,
+                status: 'failed',
+                error: error instanceof Error ? error.message : '处理失败'
+              }
+            : img
+        )
+      );
     }
   };
 
@@ -753,29 +1068,6 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
             {uploadedImages.length > 0 && (
               <>
                 <Button
-                  onClick={processAllImages}
-                  disabled={isProcessing || hasProcessedImages || !canStartOCR || hasCompressingImages}
-                  className="flex items-center gap-2"
-                >
-                  {isProcessing ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      处理中...
-                    </>
-                  ) : hasCompressingImages ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      压缩中...
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="w-4 h-4" />
-                      开始OCR识别
-                    </>
-                  )}
-                </Button>
-
-                <Button
                   variant="outline"
                   onClick={clearAllImages}
                   className="flex items-center gap-2 text-red-600 hover:text-red-700"
@@ -811,13 +1103,21 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
               <span>已上传读后续写图片 ({uploadedImages.length})</span>
               <div className="flex gap-2">
                 {completedImages.length > 0 && (
-                  <Badge variant="default" className="bg-green-100 text-green-800">
+                  <Badge variant="default" className="bg-green-100 text-green-800 border-green-200 font-medium px-2 py-1">
+                    <CheckCircle className="w-3 h-3 mr-1" />
                     成功 {completedImages.length}
                   </Badge>
                 )}
                 {failedImages.length > 0 && (
-                  <Badge variant="destructive">
+                  <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200 font-medium px-2 py-1">
+                    <X className="w-3 h-3 mr-1" />
                     失败 {failedImages.length}
+                  </Badge>
+                )}
+                {(completedImages.length + failedImages.length) === 0 && uploadedImages.length > 0 && (
+                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200 font-medium px-2 py-1">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    待处理 {uploadedImages.length}
                   </Badge>
                 )}
               </div>
@@ -842,11 +1142,23 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                       >
                         <Eye className="w-3 h-3" />
                       </Button>
+                      {image.status === 'failed' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => retrySingleImage(image.id)}
+                          disabled={isProcessing}
+                          className="p-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200"
+                          title="重试OCR"
+                        >
+                          <Camera className="w-3 h-3" />
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="destructive"
                         onClick={() => removeImage(image.id)}
-                        disabled={isProcessing}
+                        disabled={isProcessing || image.status === 'processing' || image.status === 'compressing'}
                         className="p-1"
                       >
                         <X className="w-3 h-3" />
@@ -854,15 +1166,49 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                     </div>
                     <div className="absolute bottom-2 left-2">
                       <Badge
-                        variant={image.status === 'completed' ? 'default' :
-                                image.status === 'failed' ? 'destructive' : 'secondary'}
-                        className="text-xs"
+                        variant={
+                          image.status === 'completed' ? 'default' :
+                          image.status === 'failed' ? 'destructive' :
+                          image.status === 'processing' ? 'secondary' :
+                          'outline'
+                        }
+                        className={`text-xs font-medium ${
+                          image.status === 'completed' ? 'bg-green-100 text-green-800 border-green-200' :
+                          image.status === 'failed' ? 'bg-red-100 text-red-800 border-red-200' :
+                          image.status === 'processing' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                          'bg-gray-100 text-gray-800 border-gray-200'
+                        }`}
                       >
-                        {image.status === 'pending' && '等待中'}
-                        {image.status === 'compressing' && '压缩中'}
-                        {image.status === 'processing' && '识别中'}
-                        {image.status === 'completed' && '已完成'}
-                        {image.status === 'failed' && '失败'}
+                        {image.status === 'pending' && (
+                          <>
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            等待中
+                          </>
+                        )}
+                        {image.status === 'compressing' && (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            压缩中
+                          </>
+                        )}
+                        {image.status === 'processing' && (
+                          <>
+                            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                            识别中
+                          </>
+                        )}
+                        {image.status === 'completed' && (
+                          <>
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            已完成
+                          </>
+                        )}
+                        {image.status === 'failed' && (
+                          <>
+                            <X className="w-3 h-3 mr-1" />
+                            失败
+                          </>
+                        )}
                       </Badge>
                     </div>
                   </div>
@@ -878,12 +1224,35 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
                       )}
                     </p>
                     {image.error && (
-                      <p className="text-xs text-red-600 mt-1">{image.error}</p>
+                      <div className="mt-1 p-1 bg-red-50 rounded text-xs">
+                        <p className="text-red-600 font-medium">识别失败</p>
+                        <p className="text-red-500">{image.error}</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => retrySingleImage(image.id)}
+                          disabled={isProcessing}
+                          className="mt-1 h-6 text-xs bg-red-100 hover:bg-red-200 text-red-700 border-red-300 w-full"
+                        >
+                          <Camera className="w-3 h-3 mr-1" />
+                          重试
+                        </Button>
+                      </div>
                     )}
                     {image.ocrResult && (
-                      <p className="text-xs text-green-600 mt-1">
-                        识别到: {image.ocrResult.studentName || '未知学生'}
-                      </p>
+                      <div className="mt-1 p-1 bg-green-50 rounded text-xs">
+                        <p className="text-green-600 font-medium flex items-center">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          识别成功
+                        </p>
+                        <p className="text-green-700">学生: {image.ocrResult.studentName || '未知学生'}</p>
+                        <p className="text-green-600">
+                          字数: {image.ocrResult.content?.length || 0} 字符
+                        </p>
+                        <p className="text-green-600">
+                          置信度: {Math.round((image.ocrResult.confidence || 0) * 100)}%
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -934,18 +1303,92 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         </div>
       )}
 
+      {/* 状态提示信息 */}
+      {uploadedImages.length > 0 && !isProcessing && (
+        <Card>
+          <CardContent className="pt-6">
+            {/* 部分成功时的提示信息 */}
+            {completedImages.length > 0 && failedImages.length > 0 && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm text-amber-800 font-medium">
+                    部分图片识别失败，但您可以继续下一步处理已成功识别的 {completedImages.length} 篇作文
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* 全部失败时的提示信息 */}
+            {completedImages.length === 0 && failedImages.length > 0 && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <X className="w-4 h-4 text-red-600" />
+                  <span className="text-sm text-red-800 font-medium">
+                    所有图片识别失败，请检查图片质量后重试，或重新上传清晰的图片
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* 全部成功的提示信息 */}
+            {completedImages.length > 0 && failedImages.length === 0 && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-green-800 font-medium">
+                    所有图片识别成功！您可以继续下一步处理 {completedImages.length} 篇作文
+                  </span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* 操作按钮 */}
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={onPrev}>
-          上一步
-        </Button>
-        <Button
-          onClick={onNext}
-          disabled={completedImages.length === 0}
-          className="px-8"
-        >
-          下一步：确认读后续写内容 ({completedImages.length}篇)
-        </Button>
+      <div className="flex flex-wrap gap-2 justify-between">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onPrev}>
+            上一步
+          </Button>
+        </div>
+
+        <div className="flex gap-2">
+          {/* 开始OCR识别按钮 - 仅在有图片且未处理时显示 */}
+          {uploadedImages.length > 0 && !hasProcessedImages && (
+            <Button
+              onClick={processAllImages}
+              disabled={isProcessing || hasProcessedImages || !canStartOCR || hasCompressingImages}
+              className="flex items-center gap-2"
+            >
+              {isProcessing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  处理中...
+                </>
+              ) : hasCompressingImages ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  压缩中...
+                </>
+              ) : (
+                <>
+                  <Camera className="w-4 h-4" />
+                  开始OCR识别
+                </>
+              )}
+            </Button>
+          )}
+
+          <Button
+            onClick={onNext}
+            disabled={completedImages.length === 0}
+            className="px-8"
+          >
+            下一步：确认读后续写内容 ({completedImages.length}篇成功{failedImages.length > 0 ? `，${failedImages.length}篇失败` : ''})
+          </Button>
+        </div>
       </div>
     </div>
   );

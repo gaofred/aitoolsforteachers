@@ -13,6 +13,7 @@ export interface OCRResult {
   chineseContent: string; // 提取的中文内容（包含姓名、班级、学号等）
   editedText?: string; // 用户编辑后的文本
   content: string; // 读后续写内容
+  wordCount: number; // 作文词数（代码精确统计）
   confidence: number;
   processedAt: Date;
   imageData?: string; // 图片Base64数据
@@ -21,8 +22,9 @@ export interface OCRResult {
 // 读后续写批改结果
 export interface ContinuationWritingGradingResult {
   score: number; // 分数
-  feedback: string; // 详细批改意见
+  feedback: string; // 详细批改意见（前端显示的部分）
   improvedVersion: string; // 高分范文
+  detailedFeedback?: string; // 完整的细致批改内容（内部使用）
   gradingDetails: {
     contentPoints: string; // 内容要点分析
     languageErrors: string; // 语言错误分析
@@ -49,6 +51,9 @@ export interface ContinuationWritingBatchTask {
   title: string;
   students: Student[];
   topic: string; // 读后续写题目
+  plotAnalysis?: string; // 情节走向分析
+  p1Content?: string; // 第一段首句
+  p2Content?: string; // 第二段首句
   assignments: ContinuationWritingAssignment[];
   status: 'setup' | 'processing' | 'completed' | 'failed';
   createdAt: Date;
