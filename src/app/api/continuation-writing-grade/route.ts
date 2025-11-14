@@ -47,7 +47,7 @@ const callAliYunAI = async (prompt: string, useMediumStandard: boolean = false):
       'Authorization': `Bearer ${ALIYUN_API_KEY}`
     },
     body: JSON.stringify({
-      model: "qwen-plus-latest",
+      model: "qwen3-max",
       messages: [
         {
           role: 'system',
