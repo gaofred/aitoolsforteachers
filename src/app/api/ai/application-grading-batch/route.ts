@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabasePointsService } from '@/lib/supabase-points-service';
 
-// 极客智坊API配置
-const GEEKAI_API_URL = 'https://geekai.co/api/v1/chat/completions';
-const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
+// 阿里云新加坡节点API配置
+const ALIYUN_API_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+const ALIYUN_API_KEY = process.env.AliYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
 
 // 批量批改请求类型
 interface BatchGradingRequest {
@@ -134,11 +134,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 检查极客智坊API Key配置
-    if (!GEEKAI_API_KEY) {
+    // 检查阿里云API Key配置
+    if (!ALIYUN_API_KEY) {
       return NextResponse.json({
         success: false,
-        error: '极客智坊API Key未配置，请检查环境变量 GEEKAI_API_KEY'
+        error: '阿里云API Key未配置，请检查环境变量 AliYunSingapore_APIKEY'
       }, { status: 500 });
     }
 
@@ -366,14 +366,27 @@ ${useMediumStandard ? `
           }
         }
 
-        // 2. 查找通用分数模式 "XX分"
-        const generalPattern = /(^|\D)(\d{1,2})分(?!\d)/g;
-        const generalMatches = [...text.matchAll(generalPattern)];
+        // 4. 查找通用分数模式 "XX分" - 优先匹配两位数分数
+        const twoDigitPattern = /(^|\D)([1-9]\d)分(?!\d)/g; // 匹配10-99分，但我们要10-15分
+        const twoDigitMatches = [...text.matchAll(twoDigitPattern)];
 
-        for (const match of generalMatches) {
+        // 先查找两位数分数（10-15分）
+        for (const match of twoDigitMatches) {
           const score = parseInt(match[2]);
-          if (score >= 1 && score <= 15) {
-            console.log('通过通用模式提取分数:', score);
+          if (score >= 10 && score <= 15) {
+            console.log('通过两位数模式提取分数:', score, '格式:', match[0]);
+            return score;
+          }
+        }
+
+        // 再查找一位数分数（1-9分）
+        const oneDigitPattern = /(^|\D)([1-9])分(?!\d)/g;
+        const oneDigitMatches = [...text.matchAll(oneDigitPattern)];
+
+        for (const match of oneDigitMatches) {
+          const score = parseInt(match[2]);
+          if (score >= 1 && score <= 9) {
+            console.log('通过一位数模式提取分数:', score, '格式:', match[0]);
             return score;
           }
         }
@@ -509,15 +522,15 @@ ${useMediumStandard ? `
             useMediumStandard
           );
 
-          // 调用极客智坊AI API
-          const response = await fetch(GEEKAI_API_URL, {
+          // 调用阿里云新加坡节点AI API
+          const response = await fetch(ALIYUN_API_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${GEEKAI_API_KEY}`
+              'Authorization': `Bearer ${ALIYUN_API_KEY}`
             },
             body: JSON.stringify({
-              model: "qwen-plus",
+              model: "qwen-plus-latest",
               messages: [
                 {
                   role: 'system',

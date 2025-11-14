@@ -396,14 +396,27 @@ ${useMediumStandard ? `
           }
         }
 
-        // 2. 查找通用分数模式 "XX分"
-        const generalPattern = /(^|\D)(\d{1,2})分(?!\d)/g;
-        const generalMatches = [...text.matchAll(generalPattern)];
+        // 2. 查找通用分数模式 "XX分" - 优先匹配两位数分数
+        const twoDigitPattern = /(^|\D)([1-9]\d)分(?!\d)/g; // 匹配10-99分，但我们要10-15分
+        const twoDigitMatches = [...text.matchAll(twoDigitPattern)];
 
-        for (const match of generalMatches) {
+        // 先查找两位数分数（10-15分）
+        for (const match of twoDigitMatches) {
           const score = parseInt(match[2]);
-          if (score >= 1 && score <= 15) {
-            console.log('通过通用模式提取分数:', score);
+          if (score >= 10 && score <= 15) {
+            console.log('通过两位数模式提取分数:', score, '格式:', match[0]);
+            return score;
+          }
+        }
+
+        // 再查找一位数分数（1-9分）
+        const oneDigitPattern = /(^|\D)([1-9])分(?!\d)/g;
+        const oneDigitMatches = [...text.matchAll(oneDigitPattern)];
+
+        for (const match of oneDigitMatches) {
+          const score = parseInt(match[2]);
+          if (score >= 1 && score <= 9) {
+            console.log('通过一位数模式提取分数:', score, '格式:', match[0]);
             return score;
           }
         }

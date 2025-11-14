@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabasePointsService } from '@/lib/supabase-points-service';
 
-// 极客智坊API配置
-const GEEKAI_API_URL = 'https://geekai.co/api/v1/chat/completions';
-const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
+// 阿里云新加坡节点API配置
+const ALIYUN_API_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+const ALIYUN_API_KEY = process.env.AliYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
 
 interface GradingRequest {
   studentName: string;
@@ -36,18 +36,18 @@ interface GradingResponse {
   remainingPoints?: number;
 }
 
-// 调用极客智坊API的函数
-const callGeekAI = async (prompt: string, useMediumStandard: boolean = false): Promise<string> => {
-  console.log('🤖 开始调用极客智坊AI API...');
+// 调用阿里云新加坡节点API的函数
+const callAliYunAI = async (prompt: string, useMediumStandard: boolean = false): Promise<string> => {
+  console.log('🤖 开始调用阿里云新加坡节点AI API...');
 
-  const response = await fetch(GEEKAI_API_URL, {
+  const response = await fetch(ALIYUN_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GEEKAI_API_KEY}`
+      'Authorization': `Bearer ${ALIYUN_API_KEY}`
     },
     body: JSON.stringify({
-      model: "qwen-plus",
+      model: "qwen-plus-latest",
       messages: [
         {
           role: 'system',
@@ -364,8 +364,8 @@ ${content}`;
 
       // 并行调用AI进行打分和细致批改
       const [scoringResult, detailedResult] = await Promise.all([
-        callGeekAI(scoringPrompt, useMediumStandard),
-        includeDetailedFeedback ? callGeekAI(detailedGradingPrompt, useMediumStandard) : Promise.resolve('')
+        callAliYunAI(scoringPrompt, useMediumStandard),
+        includeDetailedFeedback ? callAliYunAI(detailedGradingPrompt, useMediumStandard) : Promise.resolve('')
       ]);
 
       // 解析分数
