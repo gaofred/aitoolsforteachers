@@ -17,10 +17,29 @@ export const createServerSupabaseClient = () => {
         try {
           const cookieStore = await cookies()
           const allCookies = cookieStore.getAll()
-          console.log('🍪 成功获取cookies:', allCookies.length, '个')
+
+          // 详细的Cookie调试信息
+          const authCookies = allCookies.filter(cookie =>
+            cookie.name.includes('supabase') ||
+            cookie.name.includes('access_token') ||
+            cookie.name.includes('refresh_token')
+          );
+
+          console.log('🍪 Cookie调试信息:', {
+            总数: allCookies.length,
+            认证相关: authCookies.length,
+            认证Cookie列表: authCookies.map(c => ({ name: c.name, 有值: !!c.value })),
+            环境: process.env.NODE_ENV,
+            当前时间: new Date().toISOString()
+          });
+
           return allCookies
         } catch (error) {
-          console.error('❌ Cookie获取错误:', error)
+          console.error('❌ Cookie获取错误:', {
+            错误: error?.message,
+            环境: process.env.NODE_ENV,
+            SupabaseURL: supabaseUrl ? '已设置' : '未设置'
+          });
           // 不直接返回空数组，而是尝试从其他来源获取session
           console.log('🔄 尝试备用认证方式...')
           return []
