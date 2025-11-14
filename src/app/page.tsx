@@ -1672,8 +1672,13 @@ The future of AI depends on our ability to balance innovation with responsibilit
                     <div className="w-1 h-1 bg-white rounded-full animate-pulse delay-150"></div>
                   </div>
                 </div>
-                <p className="text-sm text-blue-100 leading-relaxed mb-4">
+                <p className="text-base text-white leading-relaxed mb-4 font-medium">
                   🚀 欢迎使用AI英语教学助手！我新增了多项智能教学工具，包括阅读理解解析、语法填空分析等功能，助力您的英语教学更加高效。
+                </p>
+                <p className="text-base text-green-200 leading-relaxed mb-4 font-semibold">
+                  🌐 网站访问地址：<br/>
+                  • <a href="https://aitoolsforteachers.net" target="_blank" rel="noopener noreferrer" className="text-green-100 hover:text-white underline transition-colors duration-200">aitoolsforteachers.net</a> (国际站）<br/>
+                  • <a href="https://fredgao.cn" target="_blank" rel="noopener noreferrer" className="text-green-100 hover:text-white underline transition-colors duration-200">fredgao.cn</a> （国内站，国内访问更快）
                 </p>
 
                 {/* 会员通道按钮 */}

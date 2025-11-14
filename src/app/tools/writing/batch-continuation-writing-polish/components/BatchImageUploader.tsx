@@ -384,6 +384,70 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     }
   };
 
+  // 单独重试某张图片的OCR
+  const retrySingleImage = async (imageId: string) => {
+    const image = uploadedImages.find(img => img.id === imageId);
+    if (!image) return;
+
+    console.log(`🔄 开始重试图片OCR: ${image.id.substring(0, 8)}...`);
+
+    // 更新状态为处理中
+    setUploadedImages(prev =>
+      prev.map(img =>
+        img.id === imageId
+          ? { ...img, status: 'processing', error: undefined }
+          : img
+      )
+    );
+
+    try {
+      const ocrResult = await processImage(image);
+
+      if (ocrResult && task) {
+        // 创建作业记录
+        const assignment: ContinuationWritingAssignment = {
+          id: `assignment_${Date.now()}_${Math.random()}_retry`,
+          student: {
+            id: `temp_${ocrResult.studentName}_retry`,
+            name: ocrResult.studentName,
+            createdAt: new Date()
+          },
+          ocrResult,
+          status: 'pending',
+          createdAt: new Date()
+        };
+
+        // 更新任务中的作业列表
+        const existingAssignments = task.assignments || [];
+        const updatedAssignments = existingAssignments.filter(ass => !ass.ocrResult.imageId.includes(imageId));
+        const newAssignments = [...updatedAssignments, assignment];
+
+        setTask({
+          ...task,
+          assignments: newAssignments
+        });
+
+        // 更新图片状态为完成
+        setUploadedImages(prev => prev.map(img =>
+          img.id === imageId ? { ...img, status: 'completed', ocrResult } : img
+        ));
+
+        console.log(`✅ 重试成功: ${ocrResult.studentName}`);
+      }
+    } catch (error) {
+      console.error(`❌ 重试失败:`, error);
+
+      // 更新状态为失败
+      setUploadedImages(prev => prev.map(img =>
+        img.id === imageId ? {
+          ...img,
+          status: 'failed',
+          error: error instanceof Error ? error.message : '重试失败'
+        } : img
+      ));
+    }
+  };
+
   // 处理单个图片OCR
   const processImage = async (image: UploadedImage): Promise<OCRResult | null> => {
     try {
@@ -875,129 +939,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     }
   };
 
-  // 单个图片重试功能
-  const retrySingleImage = (imageId: string) => {
-    const image = uploadedImages.find(img => img.id === imageId);
-    if (image) {
-      console.log(`🔄 重试单个图片: ${image.originalFile.name}`);
-      // 重置状态为处理中
-      setUploadedImages(prev =>
-        prev.map(img =>
-          img.id === imageId
-            ? { ...img, status: 'processing', error: undefined }
-            : img
-        )
-      );
-
-      // 调用单张图片OCR处理
-      processSingleImage(imageId);
-    }
-  };
-
-  // 处理单个图片的OCR
-  const processSingleImage = async (imageId: string) => {
-    const image = uploadedImages.find(img => img.id === imageId);
-    if (!image) return;
-
-    try {
-      console.log(`📝 开始处理单个图片: ${image.originalFile.name}`);
-
-      // 将文件转换为base64
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(image.file);
-      });
-
-      // 使用专门的作文OCR API
-      const response = await fetch('/api/ai/essay-ocr', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: base64,
-          fileName: image.originalFile.name,
-          type: 'continuation-writing' // 指定为读后续写类型
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`OCR请求失败: ${response.status}`);
-      }
-
-      const ocrData = await response.json();
-
-      if (ocrData.error) {
-        throw new Error(ocrData.error);
-      }
-
-      console.log(`✅ 单个图片OCR识别成功: ${image.originalFile.name}`, {
-        学生姓名: ocrData.studentName || '未识别',
-        识别文本长度: ocrData.content?.length || 0,
-        置信度: ocrData.confidence || 0
-      });
-
-      // 创建OCR结果
-      const ocrResult: OCRResult = {
-        imageId,
-        studentName: ocrData.studentName || '',
-        originalText: ocrData.originalText || '',
-        chineseContent: ocrData.chineseContent || '',
-        content: ocrData.content || '',
-        confidence: ocrData.confidence || 0,
-        processedAt: new Date(),
-        imageData: base64,
-        wordCount: ocrData.wordCount || 0
-      };
-
-      // 更新图片状态为完成
-      setUploadedImages(prev =>
-        prev.map(img =>
-          img.id === imageId
-            ? { ...img, status: 'completed', ocrResult, error: undefined }
-            : img
-        )
-      );
-
-      // 更新任务中的作业
-      if (task) {
-        const newAssignment: ContinuationWritingAssignment = {
-          id: `assign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          student: {
-            id: `temp_${ocrData.studentName}_${imageId}`,
-            name: ocrData.studentName || '未知学生',
-            createdAt: new Date()
-          },
-          ocrResult,
-          status: 'pending',
-          createdAt: new Date()
-        };
-
-        setTask(prevTask => ({
-          ...prevTask!,
-          assignments: [...(prevTask?.assignments || []), newAssignment]
-        }));
-      }
-
-    } catch (error) {
-      console.error(`❌ 单个图片OCR处理失败:`, error);
-
-      // 更新图片状态为失败
-      setUploadedImages(prev =>
-        prev.map(img =>
-          img.id === imageId
-            ? {
-                ...img,
-                status: 'failed',
-                error: error instanceof Error ? error.message : '处理失败'
-              }
-            : img
-        )
-      );
-    }
-  };
-
+  
   // 查看图片
   const viewImage = (imageData: string) => {
     setPreviewImage(imageData);
@@ -1388,6 +1330,21 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           >
             下一步：确认读后续写内容 ({completedImages.length}篇成功{failedImages.length > 0 ? `，${failedImages.length}篇失败` : ''})
           </Button>
+
+          {failedImages.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                // 跳过失败的图片，直接进入下一步
+                if (completedImages.length > 0) {
+                  onNext();
+                }
+              }}
+              className="px-6"
+            >
+              跳过失败图片进入下一步
+            </Button>
+          )}
         </div>
       </div>
     </div>

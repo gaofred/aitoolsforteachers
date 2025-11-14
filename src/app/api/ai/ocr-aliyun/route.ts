@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// 阿里云DashScope API配置
-const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
-const DASHSCOPE_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+// 阿里云DashScope API配置 - 新加坡节点
+const DASHSCOPE_API_KEY = process.env.AliYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
+const DASHSCOPE_BASE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'qwen-vl-plus',
+        model: 'qwen3-vl-flash',
         messages: messages,
         max_tokens: 4000,
         temperature: 0.1,

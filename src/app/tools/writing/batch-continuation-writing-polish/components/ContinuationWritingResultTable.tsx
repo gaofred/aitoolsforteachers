@@ -198,6 +198,44 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
     }
   };
 
+  // 导出共性分析结果
+  const exportCommonAnalysis = async () => {
+    if (!commonAnalysis) {
+      alert('请先生成共性分析结果');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/export/word', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: '读后续写全班共性问题分析报告',
+          content: commonAnalysis
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `读后续写全班共性问题分析_${new Date().toLocaleDateString()}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('共性分析导出失败');
+      }
+    } catch (error) {
+      console.error('共性分析导出失败:', error);
+      alert('共性分析导出失败');
+    }
+  };
+
   // 生成班级分析报告
   const generateClassAnalysis = async () => {
     try {
@@ -567,28 +605,57 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
             <CardHeader>
               <CardTitle className="text-lg flex items-center justify-between">
                 <span>全班共性分析</span>
-                <Button
-                  onClick={analyzeCommonIssues}
-                  disabled={isAnalyzing || completedAssignments.length === 0}
-                  className="flex items-center gap-2"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      分析中...
-                    </>
-                  ) : (
-                    <>
-                      <BarChart3 className="w-4 h-4" />
-                      开始智能分析
-                    </>
+                <div className="flex gap-2">
+                  {commonAnalysis && (
+                    <Button
+                      onClick={exportCommonAnalysis}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      导出Word
+                    </Button>
                   )}
-                </Button>
+                  <Button
+                    onClick={analyzeCommonIssues}
+                    disabled={isAnalyzing || completedAssignments.length === 0}
+                    className="flex items-center gap-2"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        分析中...
+                      </>
+                    ) : (
+                      <>
+                        <BarChart3 className="w-4 h-4" />
+                        开始智能分析
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
               {commonAnalysis ? (
                 <div className="prose prose-sm max-w-none">
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-blue-800">
+                        <FileText className="w-4 h-4" />
+                        <span className="text-sm font-medium">分析已完成</span>
+                      </div>
+                      <Button
+                        onClick={exportCommonAnalysis}
+                        size="sm"
+                        variant="outline"
+                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                      >
+                        <Download className="w-3 h-3 mr-1" />
+                        下载Word文档
+                      </Button>
+                    </div>
+                  </div>
                   <div className="whitespace-pre-wrap text-sm leading-relaxed bg-gray-50 rounded-lg p-6">
                     {commonAnalysis}
                   </div>
@@ -604,6 +671,7 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
                     <p>• 消耗3积分</p>
                     <p>• 分析时间约30-60秒</p>
                     <p>• 生成个性化教学建议</p>
+                    <p>• 支持导出Word文档</p>
                   </div>
                 </div>
               )}

@@ -4,6 +4,7 @@ import "./globals.css";
 import ClientBody from "./ClientBody";
 import Script from "next/script";
 import { Providers } from "@/components/providers/SessionProvider";
+import { Analytics } from "@vercel/analytics/react";
 
 // 主要字体 - Inter (现代、简洁)
 const inter = Inter({
@@ -167,6 +168,7 @@ export default function RootLayout({
         <Providers>
           <ClientBody>{children}</ClientBody>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
