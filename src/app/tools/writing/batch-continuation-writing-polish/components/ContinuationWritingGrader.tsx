@@ -296,8 +296,8 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
 
       setGradingMessage(`⚡ AI批改系统全速运转中，正在智能分析 ${pendingAssignments.length} 份作文...`);
 
-      // 创建并行批改任务数组，每批20个作业
-      const BATCH_SIZE = 20; // 每批处理20个，大幅提升并行度
+      // 创建并行批改任务数组，每批26个作业
+      const BATCH_SIZE = 26; // 每批处理26个，与OCR保持一致的超级并行度
       const batches: ContinuationWritingAssignment[][] = [];
 
       for (let i = 0; i < pendingAssignments.length; i += BATCH_SIZE) {

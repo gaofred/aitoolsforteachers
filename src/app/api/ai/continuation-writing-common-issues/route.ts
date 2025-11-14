@@ -122,9 +122,9 @@ export async function POST(request: NextRequest) {
 
     // 如果数据太大，限制内容长度
     let finalEssaysContent = essaysContent;
-    if (totalDataSize > 500000) { // 500KB限制
+    if (totalDataSize > 1500000) { // 增加到1.5MB限制，支持80个人的作文数据
       console.log('⚠️ 数据过大，限制内容长度');
-      finalEssaysContent = studentEssays.slice(0, 20).map((essay, index) => {
+      finalEssaysContent = studentEssays.slice(0, 50).map((essay, index) => { // 增加到50篇，即使数据过大也能分析更多内容
         let essayText = `## 学生：${essay.studentName}\n`;
         essayText += `### 得分：${essay.score}/25分\n`;
         essayText += `### 作文内容：\n${essay.content.substring(0, 2000)}...\n`;
@@ -210,7 +210,7 @@ try {
       const timeout = setTimeout(() => {
         controller.abort();
         console.log('⏰ API请求超时，终止连接');
-      }, 120000); // 增加到120秒超时，适合大量数据分析
+      }, 180000); // 增加到180秒超时，适合80个人作文的大量数据分析
 
       // 检查prompt长度，如果太长则截断
       let promptToUse = fullPrompt;
@@ -234,7 +234,7 @@ try {
             }
           ],
           temperature: 0.3,
-          max_tokens: 12000, // 减少到12000 tokens以避免超时
+          max_tokens: 25000, // 增加到25000 tokens以支持80个人的作文分析
           stream: false
         }),
         signal: controller.signal
@@ -278,7 +278,7 @@ try {
                 }
               ],
               temperature: 0.3,
-              max_tokens: 12000,
+              max_tokens: 25000,
               stream: false
             })
           });

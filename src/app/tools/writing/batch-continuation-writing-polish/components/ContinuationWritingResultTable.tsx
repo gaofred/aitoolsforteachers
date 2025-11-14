@@ -30,6 +30,20 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
   const assignments = task.assignments || [];
   const completedAssignments = assignments.filter(a => a.status === 'completed' && a.gradingResult);
 
+  // 调试信息
+  console.log('🔍 导出调试信息:', {
+    totalAssignments: assignments.length,
+    completedCount: completedAssignments.length,
+    taskTitle: task.title,
+    hasGradingResults: completedAssignments.every(a => a.gradingResult),
+    samples: completedAssignments.slice(0, 3).map(a => ({
+      name: a.student.name,
+      status: a.status,
+      hasGradingResult: !!a.gradingResult,
+      score: a.gradingResult?.score
+    }))
+  });
+
   // 计算统计数据
   const calculateStats = () => {
     if (completedAssignments.length === 0) {
@@ -42,7 +56,7 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
         goodCount: 0,
         passCount: 0,
         failCount: 0,
-        scoreDistribution: [0, 0, 0, 0, 0] // 0-3, 4-6, 7-9, 10-12, 13-15
+        scoreDistribution: [0, 0, 0, 0, 0] // 0-5, 6-10, 11-15, 16-20, 21-25
       };
     }
 
@@ -52,17 +66,17 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
     const maxScore = Math.max(...scores);
     const minScore = Math.min(...scores);
 
-    const excellentCount = scores.filter(s => s >= 13).length; // 优秀
-    const goodCount = scores.filter(s => s >= 10 && s < 13).length; // 良好
-    const passCount = scores.filter(s => s >= 7 && s < 10).length; // 及格
-    const failCount = scores.filter(s => s < 7).length; // 不及格
+    const excellentCount = scores.filter(s => s >= 20).length; // 优秀 (20-25分)
+    const goodCount = scores.filter(s => s >= 15 && s < 20).length; // 良好 (15-19分)
+    const passCount = scores.filter(s => s >= 10 && s < 15).length; // 及格 (10-14分)
+    const failCount = scores.filter(s => s < 10).length; // 不及格 (0-9分)
 
     const scoreDistribution = [
-      scores.filter(s => s <= 3).length,
-      scores.filter(s => s > 3 && s <= 6).length,
-      scores.filter(s => s > 6 && s <= 9).length,
-      scores.filter(s => s > 9 && s <= 12).length,
-      scores.filter(s => s > 12).length
+      scores.filter(s => s <= 5).length,    // 不及格 (0-5分)
+      scores.filter(s => s > 5 && s <= 10).length,   // 及格 (6-10分)
+      scores.filter(s => s > 10 && s <= 15).length,  // 良好 (11-15分)
+      scores.filter(s => s > 15 && s <= 20).length,  // 优秀 (16-20分)
+      scores.filter(s => s > 20).length           // 卓越 (21-25分)
     ];
 
     return {
@@ -82,9 +96,9 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
 
   // 获取分数等级
   const getScoreLevel = (score: number) => {
-    if (score >= 13) return { text: '优秀', color: 'bg-green-100 text-green-800' };
-    if (score >= 10) return { text: '良好', color: 'bg-blue-100 text-blue-800' };
-    if (score >= 7) return { text: '及格', color: 'bg-yellow-100 text-yellow-800' };
+    if (score >= 20) return { text: '卓越', color: 'bg-green-100 text-green-800' };
+    if (score >= 15) return { text: '优秀', color: 'bg-blue-100 text-blue-800' };
+    if (score >= 10) return { text: '及格', color: 'bg-yellow-100 text-yellow-800' };
     return { text: '不及格', color: 'bg-red-100 text-red-800' };
   };
 
@@ -391,34 +405,33 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
                 <span className="text-2xl font-bold text-green-600">{stats.excellentCount}</span>
               </div>
-              <div className="text-sm font-medium text-green-800">优秀 (13-15分)</div>
+              <div className="text-sm font-medium text-green-800">卓越 (21-25分)</div>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
                 <span className="text-2xl font-bold text-blue-600">{stats.goodCount}</span>
               </div>
-              <div className="text-sm font-medium text-blue-800">良好 (10-12分)</div>
+              <div className="text-sm font-medium text-blue-800">优秀 (16-20分)</div>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
                 <span className="text-2xl font-bold text-yellow-600">{stats.passCount}</span>
               </div>
-              <div className="text-sm font-medium text-yellow-800">及格 (7-9分)</div>
+              <div className="text-sm font-medium text-yellow-800">及格 (11-15分)</div>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
                 <span className="text-2xl font-bold text-red-600">{stats.failCount}</span>
               </div>
-              <div className="text-sm font-medium text-red-800">不及格 (0-6分)</div>
+              <div className="text-sm font-medium text-red-800">不及格 (0-10分)</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Tabs defaultValue="results" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="results">批改结果</TabsTrigger>
-          <TabsTrigger value="analysis">全班共性分析</TabsTrigger>
           <TabsTrigger value="export">导出功能</TabsTrigger>
         </TabsList>
 
@@ -455,12 +468,12 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
                             <td className="py-3 px-4 font-medium">{assignment.student.name}</td>
                             <td className="py-3 px-4">
                               <span className={`font-bold text-lg ${
-                                score >= 13 ? 'text-green-600' :
-                                score >= 10 ? 'text-blue-600' :
-                                score >= 7 ? 'text-yellow-600' :
+                                score >= 20 ? 'text-green-600' :
+                                score >= 15 ? 'text-blue-600' :
+                                score >= 10 ? 'text-yellow-600' :
                                 'text-red-600'
                               }`}>
-                                {score}/15
+                                {score}/25
                               </span>
                             </td>
                             <td className="py-3 px-4">
@@ -600,85 +613,7 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
           )}
         </TabsContent>
 
-        <TabsContent value="analysis" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center justify-between">
-                <span>全班共性分析</span>
-                <div className="flex gap-2">
-                  {commonAnalysis && (
-                    <Button
-                      onClick={exportCommonAnalysis}
-                      variant="outline"
-                      className="flex items-center gap-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      导出Word
-                    </Button>
-                  )}
-                  <Button
-                    onClick={analyzeCommonIssues}
-                    disabled={isAnalyzing || completedAssignments.length === 0}
-                    className="flex items-center gap-2"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                        分析中...
-                      </>
-                    ) : (
-                      <>
-                        <BarChart3 className="w-4 h-4" />
-                        开始智能分析
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {commonAnalysis ? (
-                <div className="prose prose-sm max-w-none">
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-blue-800">
-                        <FileText className="w-4 h-4" />
-                        <span className="text-sm font-medium">分析已完成</span>
-                      </div>
-                      <Button
-                        onClick={exportCommonAnalysis}
-                        size="sm"
-                        variant="outline"
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                      >
-                        <Download className="w-3 h-3 mr-1" />
-                        下载Word文档
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed bg-gray-50 rounded-lg p-6">
-                    {commonAnalysis}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg font-medium mb-2">开始AI智能分析</p>
-                  <p className="text-sm">
-                    点击上方按钮，使用Gemini 2.5 Pro模型分析全班学生读后续写的共性问题
-                  </p>
-                  <div className="mt-4 text-xs text-gray-400">
-                    <p>• 消耗3积分</p>
-                    <p>• 分析时间约30-60秒</p>
-                    <p>• 生成个性化教学建议</p>
-                    <p>• 支持导出Word文档</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
+  
         <TabsContent value="export" className="space-y-4">
           <Card>
             <CardHeader>
@@ -695,11 +630,14 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
                     为每个学生生成单独的Word文档，包含作文内容、批改意见和高分范文
                   </p>
                   <Button
-                    onClick={exportAllResults}
+                    onClick={() => {
+                      console.log('🔥 导出所有个人结果按钮被点击', completedAssignments.length);
+                      exportAllResults();
+                    }}
                     disabled={completedAssignments.length === 0}
                     className="w-full"
                   >
-                    导出所有个人结果
+                    导出所有个人结果 ({completedAssignments.length})
                   </Button>
                 </div>
 
@@ -712,12 +650,15 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
                     导出Excel格式的成绩统计表，包含所有学生的分数和等级分布
                   </p>
                   <Button
-                    onClick={exportExcel}
+                    onClick={() => {
+                      console.log('🔥 导出Excel成绩表按钮被点击', completedAssignments.length);
+                      exportExcel();
+                    }}
                     disabled={completedAssignments.length === 0}
                     className="w-full"
                     variant="outline"
                   >
-                    导出Excel成绩表
+                    导出Excel成绩表 ({completedAssignments.length})
                   </Button>
                 </div>
 
@@ -730,12 +671,15 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
                     生成详细的班级分析报告，包含成绩统计、共性问题分析和教学建议
                   </p>
                   <Button
-                    onClick={generateClassAnalysis}
+                    onClick={() => {
+                      console.log('🔥 生成分析报告按钮被点击', completedAssignments.length);
+                      generateClassAnalysis();
+                    }}
                     disabled={completedAssignments.length === 0}
                     className="w-full"
                     variant="outline"
                   >
-                    生成分析报告
+                    生成分析报告 ({completedAssignments.length})
                   </Button>
                 </div>
 
@@ -749,6 +693,7 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
                   </p>
                   <Button
                     onClick={() => {
+                      console.log('🔥 下载完整包按钮被点击', completedAssignments.length);
                       exportAllResults();
                       setTimeout(() => exportExcel(), 1000);
                       setTimeout(() => generateClassAnalysis(), 2000);
@@ -757,10 +702,93 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
                     className="w-full"
                     variant="outline"
                   >
-                    下载完整包
+                    下载完整包 ({completedAssignments.length})
                   </Button>
                 </div>
               </div>
+
+              {/* 全班共性分析 */}
+              <Card className="border-2 border-blue-100 bg-blue-50/30">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-blue-600" />
+                      <span>全班共性分析</span>
+                    </div>
+                    <div className="flex gap-2">
+                      {commonAnalysis && (
+                        <Button
+                          onClick={exportCommonAnalysis}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          导出Word
+                        </Button>
+                      )}
+                      <Button
+                        onClick={analyzeCommonIssues}
+                        disabled={isAnalyzing || completedAssignments.length === 0}
+                        className="flex items-center gap-2"
+                        size="sm"
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            分析中...
+                          </>
+                        ) : (
+                          <>
+                            <BarChart3 className="w-4 h-4" />
+                            开始智能分析
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {commonAnalysis ? (
+                    <div className="prose prose-sm max-w-none">
+                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-blue-800">
+                            <FileText className="w-4 h-4" />
+                            <span className="text-sm font-medium">分析已完成</span>
+                          </div>
+                          <Button
+                            onClick={exportCommonAnalysis}
+                            size="sm"
+                            variant="outline"
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                          >
+                            <Download className="w-3 h-3 mr-1" />
+                            下载Word文档
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed bg-gray-50 rounded-lg p-6">
+                        {commonAnalysis}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg font-medium mb-2">开始AI智能分析</p>
+                      <p className="text-sm">
+                        点击上方按钮，使用AI模型分析全班学生读后续写的共性问题
+                      </p>
+                      <div className="mt-4 text-xs text-gray-400">
+                        <p>• 消耗3积分</p>
+                        <p>• 分析时间约30-60秒</p>
+                        <p>• 生成个性化教学建议</p>
+                        <p>• 支持导出Word文档</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
         </TabsContent>
