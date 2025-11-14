@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // 阿里云DashScope API配置 - 新加坡节点
-const DASHSCOPE_API_KEY = process.env.AliYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
+const DASHSCOPE_API_KEY = process.env.ALiYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
 const DASHSCOPE_BASE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
 
 export async function POST(request: NextRequest) {

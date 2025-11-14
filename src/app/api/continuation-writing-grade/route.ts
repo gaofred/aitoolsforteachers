@@ -3,7 +3,7 @@ import { SupabasePointsService } from '@/lib/supabase-points-service';
 
 // 阿里云新加坡节点API配置
 const ALIYUN_API_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
-const ALIYUN_API_KEY = process.env.AliYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
+const ALIYUN_API_KEY = process.env.ALiYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
 
 interface GradingRequest {
   studentName: string;

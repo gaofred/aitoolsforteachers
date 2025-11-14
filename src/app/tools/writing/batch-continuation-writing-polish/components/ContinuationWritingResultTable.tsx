@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, FileText, TrendingUp, TrendingDown, BarChart3, Eye, Edit } from "lucide-react";
+import { Download, FileText, TrendingUp, TrendingDown, BarChart3, Eye, Edit, Package } from "lucide-react";
+import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
 import type { ContinuationWritingBatchTask, ContinuationWritingAssignment } from "../types";
 
 interface ContinuationWritingResultTableProps {
@@ -72,11 +74,10 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
     const failCount = scores.filter(s => s < 10).length; // 不及格 (0-9分)
 
     const scoreDistribution = [
-      scores.filter(s => s <= 5).length,    // 不及格 (0-5分)
-      scores.filter(s => s > 5 && s <= 10).length,   // 及格 (6-10分)
-      scores.filter(s => s > 10 && s <= 15).length,  // 良好 (11-15分)
-      scores.filter(s => s > 15 && s <= 20).length,  // 优秀 (16-20分)
-      scores.filter(s => s > 20).length           // 卓越 (21-25分)
+      scores.filter(s => s < 10).length,    // 不及格 (0-9分)
+      scores.filter(s => s >= 10 && s < 15).length,   // 及格 (10-14分)
+      scores.filter(s => s >= 15 && s < 20).length,  // 优秀 (15-19分)
+      scores.filter(s => s >= 20).length           // 卓越 (20-25分)
     ];
 
     return {
@@ -107,7 +108,7 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
     if (!assignment.gradingResult) return;
 
     try {
-      const response = await fetch('/api/export/individual-result', {
+      const response = await fetch('/api/export/individual-result-fixed', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -126,7 +127,7 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${assignment.student.name}_读后续写批改结果.docx`;
+        a.download = `${assignment.student.name}_读后续写批改结果.txt`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -137,6 +138,75 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
     } catch (error) {
       console.error('导出失败:', error);
       alert('导出失败');
+    }
+  };
+
+  // 导出批改结果为ZIP包（每个学生一个TXT文件）
+  const exportBatchResultsToZip = async () => {
+    if (completedAssignments.length === 0) {
+      alert('没有可导出的批改结果');
+      return;
+    }
+
+    try {
+      console.log('📦 开始生成学生文档ZIP包...');
+      const zip = new JSZip();
+
+      const promises = completedAssignments.map(async (assignment) => {
+        if (!assignment.gradingResult) return null;
+
+        try {
+          const response = await fetch('/api/export/individual-result-fixed', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              studentName: assignment.student.name,
+              content: assignment.ocrResult.editedText || assignment.ocrResult.content,
+              gradingResult: assignment.gradingResult,
+              topic: task?.topic || '',
+              type: 'continuation-writing'
+            }),
+          });
+
+          if (response.ok) {
+            const buffer = await response.arrayBuffer();
+            // 使用英文文件名避免中文编码问题
+            const fileName = `${assignment.student.name}_读后续写批改结果_${Date.now()}.txt`;
+            zip.file(fileName, buffer);
+            console.log(`✅ 已添加到ZIP: ${fileName}`);
+            return fileName;
+          } else {
+            console.error(`❌ 学生 ${assignment.student.name} 导出失败`);
+            return null;
+          }
+        } catch (error) {
+          console.error(`❌ 学生 ${assignment.student.name} 处理失败:`, error);
+          return null;
+        }
+      });
+
+      const fileNames = await Promise.all(promises);
+      const successfulFiles = fileNames.filter(name => name !== null);
+
+      if (successfulFiles.length > 0) {
+        // 生成ZIP文件
+        console.log('📦 正在生成ZIP包...');
+        const zipBuffer = await zip.generateAsync({ type: 'blob' });
+
+        // 下载ZIP文件
+        const zipFileName = `读后续写批改结果_${completedAssignments.length}人_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.zip`;
+        saveAs(zipBuffer, zipFileName);
+
+        console.log(`✅ ZIP包下载完成: ${zipFileName}`);
+        alert(`已成功导出${successfulFiles.length}个学生的批改结果ZIP包`);
+      } else {
+        alert('没有找到可导出的批改数据');
+      }
+    } catch (error) {
+      console.error('❌ 生成ZIP包失败:', error);
+      alert('生成ZIP包失败，请稍后重试');
     }
   };
 
@@ -162,7 +232,7 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `全班读后续写批改结果_${new Date().toLocaleDateString()}.docx`;
+        a.download = `全班读后续写批改结果_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.docx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -220,30 +290,35 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
     }
 
     try {
-      const response = await fetch('/api/export/word', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: '读后续写全班共性问题分析报告',
-          content: commonAnalysis
-        }),
+      // 生成TXT格式的共性问题分析
+      const textContent = `${'='.repeat(80)}
+读后续写全班共性问题分析报告
+${'='.repeat(80)}
+
+生成时间：${new Date().toLocaleString()}
+
+【全班共性问题分析】
+${commonAnalysis}
+
+${'='.repeat(80)}
+分析完成
+${'='.repeat(80)}`;
+
+      // 创建Blob对象
+      const blob = new Blob([textContent], {
+        type: 'text/plain;charset=utf-8'
       });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `读后续写全班共性问题分析_${new Date().toLocaleDateString()}.docx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert('共性分析导出失败');
-      }
+      // 创建下载链接
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `读后续写全班共性问题分析_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
     } catch (error) {
       console.error('共性分析导出失败:', error);
       alert('共性分析导出失败');
@@ -691,19 +766,31 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
                   <p className="text-sm text-gray-600 mb-3">
                     打包下载所有结果文件，包含个人结果、成绩表和分析报告
                   </p>
-                  <Button
-                    onClick={() => {
-                      console.log('🔥 下载完整包按钮被点击', completedAssignments.length);
-                      exportAllResults();
-                      setTimeout(() => exportExcel(), 1000);
-                      setTimeout(() => generateClassAnalysis(), 2000);
-                    }}
-                    disabled={completedAssignments.length === 0}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    下载完整包 ({completedAssignments.length})
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      onClick={exportBatchResultsToZip}
+                      disabled={completedAssignments.length === 0}
+                      className="w-full flex items-center gap-2"
+                      variant="default"
+                    >
+                      <Package className="w-4 h-4" />
+                      下载文档包 ({completedAssignments.length})
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        console.log('🔥 下载完整包按钮被点击', completedAssignments.length);
+                        exportAllResults();
+                        setTimeout(() => exportExcel(), 1000);
+                        setTimeout(() => generateClassAnalysis(), 2000);
+                      }}
+                      disabled={completedAssignments.length === 0}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      下载完整包 ({completedAssignments.length})
+                    </Button>
+                  </div>
                 </div>
               </div>
 

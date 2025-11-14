@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// 阿里云新加坡节点API配置
+const ALIYUN_API_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+const ALIYUN_API_KEY = process.env.ALiYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
+
 export async function POST(request: NextRequest) {
   try {
     console.log('🎯 开始读后续写全班共性分析API处理');
@@ -199,10 +203,11 @@ ${finalEssaysContent}
 请用中文回复，内容要详细、实用，适合教师在课堂上指导学生使用。要结合具体的学生例子，让分析更具针对性和实用性。`;
 
 try {
-      // 调用极客智坊Gemini 2.5 Pro API
+      // 调用阿里云新加坡qwen3-max API
       console.log('🔑 API密钥检查:', {
-        hasApiKey: !!process.env.GEEKAI_API_KEY,
-        apiKeyLength: process.env.GEEKAI_API_KEY?.length || 0
+        hasApiKey: !!ALIYUN_API_KEY,
+        apiKeyLength: ALIYUN_API_KEY?.length || 0,
+        provider: '阿里云新加坡'
       });
 
       // 创建一个超时控制器
@@ -219,14 +224,14 @@ try {
         promptToUse = fullPrompt.substring(0, 48000) + '\n\n...[由于内容过长，已截断，基于已有数据进行分析]';
       }
 
-      const response = await fetch('https://geekai.co/api/v1/chat/completions', {
+      const response = await fetch(ALIYUN_API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.GEEKAI_API_KEY}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${ALIYUN_API_KEY}`
         },
         body: JSON.stringify({
-          model: 'gemini-2.5-pro',
+          model: "qwen3-max",
           messages: [
             {
               role: 'user',
@@ -243,11 +248,11 @@ try {
       // 清除超时计时器
       clearTimeout(timeout);
 
-      console.log('🔍 极客智坊 Gemini API响应状态:', response.status);
+      console.log('🔍 阿里云新加坡 qwen3-max API响应状态:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ 极客智坊 Gemini API调用失败:', {
+        console.error('❌ 阿里云新加坡 qwen3-max API调用失败:', {
           status: response.status,
           statusText: response.statusText,
           errorText: errorText
@@ -256,60 +261,15 @@ try {
         if (response.status === 401) {
           return NextResponse.json({
             success: false,
-            error: '极客智坊 API密钥无效，请联系管理员'
+            error: '阿里云新加坡 API密钥无效，请联系管理员'
           }, { status: 500 });
         }
 
-        // 尝试火山引擎备用方案
-        console.log('🔄 极客智坊失败，尝试火山引擎备用方案...');
-        try {
-          const fallbackResponse = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${process.env.VOLCENGINE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'doubao-seed-1-6-flash-250828',
-              messages: [
-                {
-                  role: 'user',
-                  content: promptToUse
-                }
-              ],
-              temperature: 0.3,
-              max_tokens: 25000,
-              stream: false
-            })
-          });
-
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            const fallbackResult = fallbackData.choices?.[0]?.message?.content;
-
-            if (fallbackResult) {
-              console.log('✅ 火山引擎备用方案成功');
-              pointsDeducted = true;
-
-              return NextResponse.json({
-                success: true,
-                analysis: fallbackResult,
-                pointsDeducted: pointsDeducted,
-                pointsCost: 3,
-                essaysAnalyzed: studentEssays.length,
-                provider: '火山引擎（备用）'
-              });
-            }
-          }
-        } catch (fallbackError) {
-          console.error('❌ 火山引擎备用方案也失败:', fallbackError);
-        }
-
-        throw new Error(`极客智坊 Gemini API调用失败: ${response.status}`);
+        throw new Error(`阿里云新加坡 qwen3-max API调用失败: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ 极客智坊 Gemini API调用成功:', {
+      console.log('✅ 阿里云新加坡 qwen3-max API调用成功:', {
         hasChoices: !!data.choices,
         choicesLength: data.choices?.length || 0,
         hasContent: !!data.choices?.[0]?.message?.content
@@ -318,7 +278,7 @@ try {
       const analysisResult = data.choices?.[0]?.message?.content;
 
       if (!analysisResult) {
-        throw new Error('极客智坊 API返回了空结果');
+        throw new Error('阿里云新加坡 API返回了空结果');
       }
 
       // 积分已在前面成功扣除
