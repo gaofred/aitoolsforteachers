@@ -57,9 +57,27 @@ export function UserMenu() {
 
   const handleSignOut = async () => {
     try {
-      await fetch('/api/auth/signout', { method: 'POST' })
-      setUser(null)
-      router.push('/')
+      console.log('🚪 用户菜单开始登出')
+      const response = await fetch('/api/auth/signout', { method: 'POST' })
+
+      if (response.ok) {
+        console.log('✅ 登出API调用成功')
+        // 清理本地存储
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('english_teaching_user')
+          localStorage.removeItem('english_teaching_user_points')
+          localStorage.removeItem('sb-access-token')
+          localStorage.removeItem('sb-refresh-token')
+          console.log('🧹 已清理本地存储')
+        }
+
+        setUser(null)
+        // 刷新页面以确保状态更新
+        router.push('/')
+        router.refresh()
+      } else {
+        console.error('❌ 登出API调用失败')
+      }
     } catch (error) {
       console.error('登出失败:', error)
     }

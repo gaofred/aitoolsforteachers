@@ -30,6 +30,7 @@ setInterval(() => {
 export async function POST(request: Request) {
   try {
     console.log('🚀 异步OCR API - 开始处理请求');
+    console.log('📝 提醒：如果看到 mcs.zijieapi.com 错误，请检查浏览器广告拦截器');
 
     // 获取请求数据
     const { imageBase64, images, async = false } = await request.json();

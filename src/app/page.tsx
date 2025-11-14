@@ -1448,15 +1448,15 @@ The future of AI depends on our ability to balance innovation with responsibilit
               <UserMenu />
          ) : (
            <div className="flex items-center gap-1 sm:gap-2">
-             <span className="hidden sm:inline text-xs text-muted-foreground">
-               请先登录使用AI功能
-             </span>
+             <span className="hidden sm:inline text-sm font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-lg border border-orange-200">
+              请先登录使用AI功能
+            </span>
              <Button
                size="sm"
                onClick={() => router.push('/auth/signin')}
-               className="evolink-button"
+               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 border-0"
              >
-               <span className="hidden sm:inline">登录</span>
+               <span className="hidden sm:inline">立即登录</span>
                <svg className="w-4 h-4 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                </svg>

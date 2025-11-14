@@ -107,6 +107,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
       } else {
         console.log('❌ 用户上下文认证失败，状态码:', response.status);
 
+        // 401 = 未认证，立即清理本地存储和状态
+        if (response.status === 401) {
+          console.log('🧹 清理本地存储和用户状态 (401认证失败)');
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(USER_STORAGE_KEY);
+            localStorage.removeItem(USER_POINTS_KEY);
+          }
+          setCurrentUser(null);
+          setUserPoints(25); // 重置为默认值
+          setIsLoadingUser(false);
+          setRetryCount(0);
+          return;
+        }
+
         // 如果是网络相关错误（5xx），尝试使用本地存储
         if (response.status >= 500 && retryCount < 2) {
           console.log(`🔄 网络错误，准备重试... (${retryCount + 1}/2)`);
@@ -115,7 +129,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 如果有本地存储数据，使用它而不是清空
+        // 如果有本地存储数据，使用它而不是清空（仅限网络错误）
         if (retryCount === 0 && typeof window !== 'undefined') {
           const storedUser = localStorage.getItem(USER_STORAGE_KEY);
           const storedPoints = localStorage.getItem(USER_POINTS_KEY);
@@ -130,6 +144,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
 
         setCurrentUser(null);
+        setUserPoints(25); // 重置为默认值
       }
     } catch (error) {
       console.error('❌ 检查用户状态失败:', error);

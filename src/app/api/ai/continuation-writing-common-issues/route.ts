@@ -121,9 +121,10 @@ export async function POST(request: NextRequest) {
     });
 
     // 如果数据太大，限制内容长度
+    let finalEssaysContent = essaysContent;
     if (totalDataSize > 500000) { // 500KB限制
       console.log('⚠️ 数据过大，限制内容长度');
-      const limitedEssaysContent = studentEssays.slice(0, 20).map((essay, index) => {
+      finalEssaysContent = studentEssays.slice(0, 20).map((essay, index) => {
         let essayText = `## 学生：${essay.studentName}\n`;
         essayText += `### 得分：${essay.score}/25分\n`;
         essayText += `### 作文内容：\n${essay.content.substring(0, 2000)}...\n`;
@@ -154,7 +155,7 @@ ${plotAnalysis ? `## 正确情节走向分析
 ${plotAnalysis}` : ''}
 
 ## 学生作文与批改数据
-${essaysContent}
+${finalEssaysContent}
 
 **重要提示：**
 1. 在分析中请直接使用学生的真实姓名进行举例和说明，不要使用"学生1"、"学生2"等编号
@@ -209,7 +210,14 @@ try {
       const timeout = setTimeout(() => {
         controller.abort();
         console.log('⏰ API请求超时，终止连接');
-      }, 60000); // 60秒超时
+      }, 120000); // 增加到120秒超时，适合大量数据分析
+
+      // 检查prompt长度，如果太长则截断
+      let promptToUse = fullPrompt;
+      if (fullPrompt.length > 50000) { // 50KB limit
+        console.log('⚠️ 提示词过长，进行截断');
+        promptToUse = fullPrompt.substring(0, 48000) + '\n\n...[由于内容过长，已截断，基于已有数据进行分析]';
+      }
 
       const response = await fetch('https://geekai.co/api/v1/chat/completions', {
         method: 'POST',
@@ -222,11 +230,11 @@ try {
           messages: [
             {
               role: 'user',
-              content: fullPrompt
+              content: promptToUse
             }
           ],
           temperature: 0.3,
-          max_tokens: 15000,
+          max_tokens: 12000, // 减少到12000 tokens以避免超时
           stream: false
         }),
         signal: controller.signal
@@ -252,6 +260,51 @@ try {
           }, { status: 500 });
         }
 
+        // 尝试火山引擎备用方案
+        console.log('🔄 极客智坊失败，尝试火山引擎备用方案...');
+        try {
+          const fallbackResponse = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.VOLCENGINE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'doubao-seed-1-6-flash-250828',
+              messages: [
+                {
+                  role: 'user',
+                  content: promptToUse
+                }
+              ],
+              temperature: 0.3,
+              max_tokens: 12000,
+              stream: false
+            })
+          });
+
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            const fallbackResult = fallbackData.choices?.[0]?.message?.content;
+
+            if (fallbackResult) {
+              console.log('✅ 火山引擎备用方案成功');
+              pointsDeducted = true;
+
+              return NextResponse.json({
+                success: true,
+                analysis: fallbackResult,
+                pointsDeducted: pointsDeducted,
+                pointsCost: 3,
+                essaysAnalyzed: studentEssays.length,
+                provider: '火山引擎（备用）'
+              });
+            }
+          }
+        } catch (fallbackError) {
+          console.error('❌ 火山引擎备用方案也失败:', fallbackError);
+        }
+
         throw new Error(`极客智坊 Gemini API调用失败: ${response.status}`);
       }
 
@@ -265,7 +318,7 @@ try {
       const analysisResult = data.choices?.[0]?.message?.content;
 
       if (!analysisResult) {
-        throw new Error('API返回了空结果');
+        throw new Error('极客智坊 API返回了空结果');
       }
 
       // 积分已在前面成功扣除
@@ -287,6 +340,32 @@ try {
 
     } catch (apiError) {
       console.error('💥 极客智坊 Gemini API调用异常:', apiError);
+
+      // 检查是否是AbortError（超时）
+      if (apiError instanceof Error && apiError.name === 'AbortError') {
+        console.log('⏰ API请求超时中止');
+
+        // 如果已经扣除了积分，需要退还
+        if (pointsDeducted && userId) {
+          try {
+            const { SupabasePointsService } = await import('@/lib/supabase-points-service');
+            const refundSuccess = await SupabasePointsService.addPoints(userId, 3, '读后续写全班共性分析超时退款');
+
+            if (refundSuccess) {
+              console.log('💰 已退还3积分（超时退款）');
+            } else {
+              console.error('❌ 积分退还失败');
+            }
+          } catch (refundError) {
+            console.error('❌ 积分退还错误:', refundError);
+          }
+        }
+
+        return NextResponse.json({
+          success: false,
+          error: '分析请求超时，请减少作文数量或稍后重试'
+        }, { status: 408 }); // 408 Request Timeout
+      }
 
       // 如果已经扣除了积分，需要退还
       if (pointsDeducted && userId) {
