@@ -751,8 +751,10 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     }
   };
 
-  // 处理单个图片OCR
-  const processImage = async (image: UploadedImage): Promise<OCRResult | null> => {
+  // 处理单个图片OCR（带重试机制）
+  const processImage = async (image: UploadedImage, retryCount: number = 0): Promise<OCRResult | null> => {
+    const maxRetries = 2; // 最多重试2次
+
     try {
       // 将文件转换为base64
       const base64 = await new Promise<string>((resolve) => {
@@ -760,6 +762,15 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         reader.onload = (e) => resolve(e.target?.result as string);
         reader.readAsDataURL(image.file);
       });
+
+      // 为重试添加延迟，避免立即重试
+      if (retryCount > 0) {
+        const delay = Math.pow(2, retryCount) * 1000; // 指数退避：2s, 4s
+        console.log(`⏳ 图片 ${image.id.substring(0, 8)}... 第${retryCount}次重试，等待${delay/1000}秒...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+
+      console.log(`🔄 开始处理图片 ${image.id.substring(0, 8)}... (尝试${retryCount + 1}/${maxRetries + 1})`);
 
       // 使用专门的作文OCR API，提供更好的读后续写识别效果
       const response = await fetch('/api/ai/essay-ocr', {
@@ -818,8 +829,16 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error(`❌ OCR处理失败:`, error);
-      // 直接抛出错误，不再重试
+      console.error(`❌ OCR处理失败 (尝试${retryCount + 1}/${maxRetries + 1}):`, error);
+
+      // 如果还有重试次数，则重试
+      if (retryCount < maxRetries) {
+        console.log(`🔄 准备重试图片 ${image.id.substring(0, 8)}... (剩余重试次数: ${maxRetries - retryCount})`);
+        return processImage(image, retryCount + 1);
+      }
+
+      // 重试次数用完，抛出最终错误
+      console.error(`❌ 图片 ${image.id.substring(0, 8)}... 重试次数已用完，最终失败`);
       throw error;
     }
   };
@@ -878,10 +897,10 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     // 将所有图片状态设置为处理中
     setUploadedImages(prev => prev.map(img => ({ ...img, status: 'processing' })));
 
-    // 显示进度提醒 - 26张超级并行处理的极速性能
-    // 优化估计：26张并发，平均每张8秒（因为并发更高，整体效率提升），批次间延迟减少
-    const estimatedMinutes = Math.max(1, Math.ceil((uploadedImages.length * 8) / 60) + Math.ceil(uploadedImages.length / 26) * 0.5);
-    const message = `AI超级并行处理中... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（${Math.min(26, uploadedImages.length)}张同时处理，极速性能模式）。`;
+    // 显示进度提醒 - 6张优化并行处理的稳定性能
+    // 优化估计：6张并发，平均每张6秒（稳定并发，避免API过载），批次间延迟减少
+    const estimatedMinutes = Math.max(1, Math.ceil((uploadedImages.length * 6) / 60) + Math.ceil(uploadedImages.length / 6) * 0.3);
+    const message = `AI优化并行处理中... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（${Math.min(6, uploadedImages.length)}张同时处理，稳定性能模式）。`;
     console.log(`🎯 ${message}`);
 
     // 设置进度消息
@@ -891,15 +910,15 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     const errors: string[] = [];
     let completedCount = 0;
 
-    // 超级并行处理，最大化OCR识别效率
-    const batchSize = 26; // 超级并发：26张图片同时处理，最大化处理性能
+    // 优化的并行处理，避免API过载
+    const batchSize = 6; // 优化并发：6张图片同时处理，平衡性能和稳定性
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {
       batches.push(uploadedImages.slice(i, i + batchSize));
     }
 
-    console.log(`📝 开始读后续写批量处理 ${uploadedImages.length} 张图片，超级并发数: ${batchSize} 张/批次（极速OCR版）`);
+    console.log(`📝 开始读后续写批量处理 ${uploadedImages.length} 张图片，优化并发数: ${batchSize} 张/批次（稳定OCR版）`);
 
     // 性能监控
     const startTime = Date.now();
@@ -966,6 +985,13 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         }
       });
 
+      // 批次间添加短暂延迟，避免API过载
+      if (batchIndex > 0) {
+        const batchDelay = 2000; // 2秒批次间延迟
+        console.log(`⏳ 批次间延迟${batchDelay/1000}秒，避免API过载...`);
+        await new Promise(resolve => setTimeout(resolve, batchDelay));
+      }
+
       // 等待当前批次完成
       console.log(`⏳ 等待批次 ${batchIndex + 1} 完成...`);
       const batchResults = await Promise.allSettled(batchPromises);
@@ -1017,13 +1043,13 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     const avgTimePerImage = totalTime / uploadedImages.length;
     const concurrencyRatio = Math.min(batchSize, uploadedImages.length);
 
-    console.log(`🎉 读后续写处理完成！超级性能统计：
+    console.log(`🎉 读后续写处理完成！优化性能统计：
     📊 总图片数: ${uploadedImages.length} 张
-    ⚡ 超级并发数: ${concurrencyRatio} 张/批次
+    ⚡ 优化并发数: ${concurrencyRatio} 张/批次
     ⏱️ 总耗时: ${totalTime.toFixed(2)} 秒
     📈 平均每张: ${avgTimePerImage.toFixed(2)} 秒
-    🚀 性能提升: ${(concurrencyRatio * 100).toFixed(0)}% 相比串行处理
-    🔥 极速模式: 26张并行处理，效率最大化！`);
+    🚀 稳定性优先: 6张并行处理，避免API过载
+    ✅ 重试机制: 失败图片自动重试，提高成功率`);
 
     setIsProcessing(false);
     setOcrProgressMessage(`✅ OCR识别完成！成功处理 ${allAssignments.length}/${uploadedImages.length} 张图片`);
