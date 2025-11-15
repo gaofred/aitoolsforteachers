@@ -492,7 +492,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     let completedCount = 0;
 
     // 超级并行处理，最大化OCR识别效率
-    const batchSize = 6; // 优化并发：6张图片同时处理，平衡性能和稳定性
+    const batchSize = 10; // 优化并发：10张图片同时处理，平衡性能和稳定性
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {

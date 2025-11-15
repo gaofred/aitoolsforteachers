@@ -897,10 +897,10 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     // 将所有图片状态设置为处理中
     setUploadedImages(prev => prev.map(img => ({ ...img, status: 'processing' })));
 
-    // 显示进度提醒 - 6张优化并行处理的稳定性能
-    // 优化估计：6张并发，平均每张6秒（稳定并发，避免API过载），批次间延迟减少
-    const estimatedMinutes = Math.max(1, Math.ceil((uploadedImages.length * 6) / 60) + Math.ceil(uploadedImages.length / 6) * 0.3);
-    const message = `AI优化并行处理中... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（${Math.min(6, uploadedImages.length)}张同时处理，稳定性能模式）。`;
+    // 显示进度提醒 - 10张优化并行处理的平衡性能
+    // 优化估计：10张并发，平均每张5秒（平衡并发，效率与稳定兼顾），批次间延迟减少
+    const estimatedMinutes = Math.max(1, Math.ceil((uploadedImages.length * 5) / 60) + Math.ceil(uploadedImages.length / 10) * 0.2);
+    const message = `AI优化并行处理中... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（${Math.min(10, uploadedImages.length)}张同时处理，平衡性能模式）。`;
     console.log(`🎯 ${message}`);
 
     // 设置进度消息
@@ -911,7 +911,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     let completedCount = 0;
 
     // 优化的并行处理，避免API过载
-    const batchSize = 6; // 优化并发：6张图片同时处理，平衡性能和稳定性
+    const batchSize = 10; // 优化并发：10张图片同时处理，平衡性能和稳定性
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {
@@ -1048,7 +1048,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     ⚡ 优化并发数: ${concurrencyRatio} 张/批次
     ⏱️ 总耗时: ${totalTime.toFixed(2)} 秒
     📈 平均每张: ${avgTimePerImage.toFixed(2)} 秒
-    🚀 稳定性优先: 6张并行处理，避免API过载
+    🚀 平衡性能: 10张并行处理，效率与稳定兼顾
     ✅ 重试机制: 失败图片自动重试，提高成功率`);
 
     setIsProcessing(false);
