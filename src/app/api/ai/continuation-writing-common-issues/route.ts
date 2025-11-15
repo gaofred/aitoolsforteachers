@@ -220,12 +220,12 @@ try {
 
       console.log('✅ 极客智坊API密钥验证通过，密钥长度:', GEEKAI_API_KEY.length);
 
-      // 创建一个超时控制器
+      // 创建一个超时控制器 - 设置比Vercel更短的超时时间
       const controller = new AbortController();
       const timeout = setTimeout(() => {
         controller.abort();
         console.log('⏰ API请求超时，终止连接');
-      }, 180000); // 增加到180秒超时，适合80个人作文的大量数据分析
+      }, 150000); // 150秒超时，给Vercel留出处理时间
 
       // 检查prompt长度，如果太长则截断
       let promptToUse = fullPrompt;
@@ -338,6 +338,32 @@ try {
         return NextResponse.json({
           success: false,
           error: '分析请求超时，请减少作文数量或稍后重试'
+        }, { status: 408 }); // 408 Request Timeout
+      }
+
+      // 检查是否是"terminated"错误（Vercel或其他服务终止）
+      if (apiError instanceof Error && apiError.message.includes('terminated')) {
+        console.log('🚫 API请求被服务终止:', apiError);
+
+        // 如果已经扣除了积分，需要退还
+        if (pointsDeducted && userId) {
+          try {
+            const { SupabasePointsService } = await import('@/lib/supabase-points-service');
+            const refundSuccess = await SupabasePointsService.addPoints(userId, 3, '读后续写全班共性分析服务终止退款');
+
+            if (refundSuccess) {
+              console.log('💰 已退还3积分（服务终止退款）');
+            } else {
+              console.error('❌ 积分退还失败');
+            }
+          } catch (refundError) {
+            console.error('❌ 积分退还错误:', refundError);
+          }
+        }
+
+        return NextResponse.json({
+          success: false,
+          error: '请求处理时间过长，请减少学生数量或稍后重试'
         }, { status: 408 }); // 408 Request Timeout
       }
 
