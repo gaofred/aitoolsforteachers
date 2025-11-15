@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Upload, Plus, Download, FileText, Clipboard, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Trash2, Upload, Plus, Download, FileText, Clipboard, CheckCircle, AlertCircle, X, Users, Calculator, Coins } from "lucide-react";
 import * as XLSX from 'xlsx';
 import type { ApplicationBatchTask, Student } from "../types";
 
@@ -37,7 +37,13 @@ const StudentNameInput: React.FC<StudentNameInputProps> = ({
 
   const students = task?.students || [];
 
-  // 添加单个学生
+  // 计算点数消耗：每个学生1点数
+  const calculatePoints = (studentCount: number) => {
+    return studentCount * 1;
+  };
+
+  // 当前点数消耗
+  const currentPointsCost = calculatePoints(students.length);
   const addStudent = () => {
     if (!newStudentName.trim() || !task) return;
 
@@ -199,6 +205,51 @@ const StudentNameInput: React.FC<StudentNameInputProps> = ({
               <li>支持批改结果一键导出（学生姓名及具体得分、每个学生单独的批改结果的word文件和全班批改结果的word文件）</li>
               <li>支持全班共性问题分析【语法错误、词汇运用问题、内容与逻辑及问题、高分词汇与句式结构、词汇拓展等】</li>
             </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* 点数消耗提示 */}
+      <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-xl p-5 shadow-lg">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+            <Coins className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-purple-800 mb-3 flex items-center gap-2">
+              <Calculator className="w-5 h-5" />
+              点数消耗说明
+            </h3>
+
+            <div className="bg-white rounded-lg p-4 border border-purple-200">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-gray-700">当前学生人数：</span>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-600" />
+                  <span className="text-2xl font-bold text-blue-600">{students.length}</span>
+                  <span className="text-sm text-gray-600">人</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-gray-700">点数消耗：</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-3xl font-bold text-purple-600">{currentPointsCost}</span>
+                  <span className="text-sm text-gray-600">点数</span>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                  <span className="text-sm font-medium text-purple-800">计费规则</span>
+                </div>
+                <p className="text-xs text-purple-700 leading-relaxed">
+                  <strong>1个点数 = 1个学生</strong>，系统会在完成批改后根据实际处理的学生数量扣除点数。
+                  请确保您的账户中有足够的点数余额。
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

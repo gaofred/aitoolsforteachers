@@ -113,8 +113,8 @@ const navigationData = [
     ),
     items: [
       { id: "batch-assignment-polish", title: "批量润色学生句子", active: true, cost: 10, route: "/tools/writing/batch-assignment-polish" },
-      { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 50, route: "/tools/writing/batch-applicationwriting-polish" },
-      { id: "batch-continuation-writing-polish", title: "批量修改学生读后续写", active: true, cost: 50, route: "/tools/writing/batch-continuation-writing-polish" },
+      { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 1, route: "/tools/writing/batch-applicationwriting-polish", note: "1点/学生" },
+      { id: "batch-continuation-writing-polish", title: "批量修改学生读后续写", active: true, cost: 1, route: "/tools/writing/batch-continuation-writing-polish", note: "1点/学生" },
       { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
       { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
       { id: "continuation-writing", title: "读后续写范文", cost: 6, route: "/tools/writing/continuation_writing_model_essay" },
@@ -1258,7 +1258,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
 
     // 批量修改工具点数检测
     if ((itemId === 'batch-applicationwriting-polish' || itemId === 'batch-continuation-writing-polish') && item) {
-      const requiredPoints = 50;
+      const minRequiredPoints = 5; // 最低需要5点数（至少能处理5个学生）
 
       // 检查用户登录状态
       if (!currentUser) {
@@ -1268,9 +1268,9 @@ The future of AI depends on our ability to balance innovation with responsibilit
       }
 
       // 检查用户点数
-      if (!currentUser.user_points || currentUser.user_points.points < requiredPoints) {
+      if (!currentUser.user_points || currentUser.user_points.points < minRequiredPoints) {
         const currentPoints = currentUser.user_points?.points || 0;
-        alert(`批量修改功能需要${requiredPoints}点数，您当前只有${currentPoints}点数。\n\n点数不足，无法使用此功能。请通过以下方式获取更多点数：\n• 邀请好友奖励\n• 每日登录奖励\n• 兑换卡充值`);
+        alert(`批量修改读后续写采用按学生数量计费：1个点数 = 1个学生。\n\n您当前只有${currentPoints}点数，至少需要${minRequiredPoints}点数才能使用此功能。\n\n点数不足，无法使用此功能。请通过以下方式获取更多点数：\n• 邀请好友奖励\n• 每日登录奖励\n• 兑换卡充值`);
         return;
       }
     }

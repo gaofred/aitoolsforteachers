@@ -21,9 +21,6 @@ const LogoWithText = dynamic(() => import("@/components/Logo").then(mod => ({ de
   ssr: false
 });
 
-const EnglishMaxim = dynamic(() => import("@/components/EnglishMaxim").then(mod => ({ default: mod.EnglishMaxim })), {
-  ssr: false
-});
 
 // lucide-react 图标也需要动态导入
 const BookOpen = dynamic(() => import("lucide-react").then(mod => ({ default: mod.BookOpen })), {
@@ -576,11 +573,7 @@ Two months passed. My wife suggested I get in touch with my brother, but I resis
               <span className="text-white font-bold text-sm">AI</span>
             </div>
 
-            {/* 英语格言组件 */}
-            <div className="ml-2 lg:max-w-2xl flex-1">
-              <EnglishMaxim />
             </div>
-          </div>
 
           {/* 右侧：用户信息 */}
           <div className="flex items-center gap-1 md:gap-3">

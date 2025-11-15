@@ -108,7 +108,7 @@ const BatchApplicationWritingPolish = () => {
 
   // 计算点数消耗（按学生数计算）
   const calculatePoints = (studentCount: number) => {
-    return studentCount * 2; // 每个学生2点数（修正为整数）
+    return studentCount * 1; // 每个学生1点数
   };
 
   // 处理步骤切换

@@ -76,12 +76,12 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
 
   // 计算点数消耗
   const calculatePointsCost = () => {
-    return pendingAssignments.length * 2; // 每个学生2点数
+    return pendingAssignments.length * 1; // 每个学生1点数
   };
 
   // 单独批改某个学生的作文
   const gradeSingleAssignment = async (assignment: ContinuationWritingAssignment) => {
-    if (!confirm(`确定要单独批改「${assignment.student.name}」的作文吗？将消耗2点数。`)) {
+    if (!confirm(`确定要单独批改「${assignment.student.name}」的作文吗？将消耗1点数。`)) {
       return;
     }
 
