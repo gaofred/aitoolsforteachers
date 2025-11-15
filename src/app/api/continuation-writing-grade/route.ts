@@ -421,7 +421,13 @@ ${content}`;
       console.log('✅ AI批改完成，得分:', gradingResult.score);
 
     } catch (error) {
-      console.error('AI批改调用失败:', error);
+      console.error('❌ AI批改调用失败:', error);
+      console.error('❌ 错误详情:', {
+        errorMessage: error instanceof Error ? error.message : '未知错误',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        studentName,
+        contentLength: content.length
+      });
 
       // API失败时退还点数
       try {
@@ -432,14 +438,17 @@ ${content}`;
         console.error('退费失败:', refundError);
       }
 
-      // 降级到基础模拟数据
-      const fallbackScore = Math.round((15 + Math.random() * 10) * 10) / 10;
-      gradingResult = {
-        score: fallbackScore,
-        feedback: `##${studentName}+ 学生分数 ${fallbackScore}`,
-        detailedFeedback: includeDetailedFeedback ? "AI批改服务暂时不可用，详细批改内容将在服务恢复后提供。" : undefined,
-        improvedVersion: generateImprovedVersion(content, topic)
-      };
+      // 明确返回错误信息，而不是使用模拟数据
+      return NextResponse.json({
+        success: false,
+        error: `AI批改服务调用失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        details: {
+          studentName,
+          errorType: 'api_call_failed',
+          pointsRefunded: true,
+          refundAmount: pointsCost
+        }
+      }, { status: 500 });
     }
 
     const response: GradingResponse = {
