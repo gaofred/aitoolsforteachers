@@ -220,8 +220,8 @@ export async function POST(request: NextRequest) {
       currentTime: new Date().toISOString()
     });
 
-    // 点数管理 - 每次批改消耗2点数
-    const pointsCost = 2;
+    // 点数管理 - 每次批改消耗1点数（按学生计费）
+    const pointsCost = 1;
     const currentUserId = user.id; // 保存用户ID供后续使用
     console.log('续写批改API - 开始点数检查', { userId: currentUserId, pointsCost });
 
@@ -474,7 +474,7 @@ ${content}`;
         sentenceAnalysis: '已进行逐句分析',
         overallEvaluation: '已进行整体评价'
       },
-      pointsCost: 2,
+      pointsCost: 1,
       remainingPoints: 798 // 模拟，实际应该从数据库查询
     };
 
