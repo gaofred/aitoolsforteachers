@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabasePointsService } from '@/lib/supabase-points-service';
 
-// 阿里云新加坡节点API配置
-const ALIYUN_API_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
-const ALIYUN_API_KEY = process.env.ALiYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
+// 极客智坊API配置 - 和应用文批改保持一致
+const GEEKAI_API_URL = 'https://geekai.co/api/v1/chat/completions';
+const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
 
 interface GradingRequest {
   studentName: string;
@@ -36,32 +36,29 @@ interface GradingResponse {
   remainingPoints?: number;
 }
 
-// 调用阿里云新加坡节点API的函数
-const callAliYunAI = async (prompt: string, useMediumStandard: boolean = false): Promise<string> => {
-  console.log('🤖 开始调用阿里云新加坡节点AI API...');
+// 调用极客智坊API的函数 - 和应用文批改保持一致
+const callGeekaiAI = async (prompt: string, useMediumStandard: boolean = false): Promise<string> => {
+  console.log('🤖 开始调用极客智坊AI API...');
 
-  // 检查API密钥是否配置
-  if (!ALIYUN_API_KEY) {
-    console.error('❌ 阿里云新加坡节点API密钥未配置，请检查以下环境变量:');
-    console.error('- ALiYunSingapore_APIKEY');
-    console.error('- DASHSCOPE_API_KEY');
-    console.error('- AliYun_APIKEY');
-    throw new Error('阿里云新加坡节点API密钥未配置，请联系管理员配置环境变量');
+  // 检查极客智坊API密钥是否配置
+  if (!GEEKAI_API_KEY) {
+    console.error('❌ 极客智坊API密钥未配置，请检查环境变量: GEEKAI_API_KEY');
+    throw new Error('极客智坊API密钥未配置，请联系管理员配置环境变量');
   }
 
-  console.log('✅ API密钥验证通过，密钥长度:', ALIYUN_API_KEY.length);
-  console.log('🌐 发起API请求到:', ALIYUN_API_URL);
-  console.log('📝 请求模型: qwen3-max');
+  console.log('✅ 极客智坊API密钥验证通过，密钥长度:', GEEKAI_API_KEY.length);
+  console.log('🌐 发起API请求到:', GEEKAI_API_URL);
+  console.log('📝 请求模型: qwen-plus');
   console.log('📝 prompt长度:', prompt.length, '字符');
 
-  const response = await fetch(ALIYUN_API_URL, {
+  const response = await fetch(GEEKAI_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${ALIYUN_API_KEY}`
+      'Authorization': `Bearer ${GEEKAI_API_KEY}`
     },
     body: JSON.stringify({
-      model: "qwen3-vl-flash",
+      model: "qwen-plus",
       messages: [
         {
           role: 'system',
@@ -79,10 +76,10 @@ const callAliYunAI = async (prompt: string, useMediumStandard: boolean = false):
   });
 
   if (!response.ok) {
-    console.error('❌ 阿里云API HTTP错误:', {
+    console.error('❌ 极客智坊API HTTP错误:', {
       status: response.status,
       statusText: response.statusText,
-      url: ALIYUN_API_URL
+      url: GEEKAI_API_URL
     });
 
     // 尝试读取错误响应
@@ -95,7 +92,7 @@ const callAliYunAI = async (prompt: string, useMediumStandard: boolean = false):
       console.error('❌ 无法读取错误响应:', textError);
     }
 
-    throw new Error(`阿里云API请求失败 (${response.status}): ${response.statusText} ${errorDetails ? `- ${errorDetails.substring(0, 200)}` : ''}`);
+    throw new Error(`极客智坊API请求失败 (${response.status}): ${response.statusText} ${errorDetails ? `- ${errorDetails.substring(0, 200)}` : ''}`);
   }
 
   const data = await response.json();
@@ -150,24 +147,19 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🚀 读后续写批改API被调用！');
 
-    // 在API入口处就检查环境变量配置
-    console.log('🔍 检查阿里云API环境变量配置:');
-    console.log('- ALiYunSingapore_APIKEY:', process.env.ALiYunSingapore_APIKEY ? '已设置' : '未设置');
-    console.log('- DASHSCOPE_API_KEY:', process.env.DASHSCOPE_API_KEY ? '已设置' : '未设置');
-    console.log('- AliYun_APIKEY:', process.env.AliYun_APIKEY ? '已设置' : '未设置');
-    console.log('- 最终使用的API密钥长度:', ALIYUN_API_KEY ? ALIYUN_API_KEY.length : 0);
+    // 在API入口处就检查极客智坊环境变量配置
+    console.log('🔍 检查极客智坊API环境变量配置:');
+    console.log('- GEEKAI_API_KEY:', process.env.GEEKAI_API_KEY ? '已设置' : '未设置');
 
     // 立即检查API密钥是否配置，避免后续处理浪费资源
-    if (!ALIYUN_API_KEY) {
-      console.error('❌ 批改API早期检查失败：阿里云API密钥未配置');
+    if (!GEEKAI_API_KEY) {
+      console.error('❌ 批改API早期检查失败：极客智坊API密钥未配置');
       return NextResponse.json({
         success: false,
-        error: '阿里云新加坡节点API密钥未配置，请联系管理员配置环境变量',
+        error: '极客智坊API密钥未配置，请联系管理员配置环境变量',
         details: {
           missingEnvVars: [
-            'ALiYunSingapore_APIKEY (首选)',
-            'DASHSCOPE_API_KEY (备选)',
-            'AliYun_APIKEY (备选)'
+            'GEEKAI_API_KEY (极客智坊API密钥)'
           ],
           environment: process.env.NODE_ENV,
           isVercel: !!process.env.VERCEL
@@ -417,10 +409,10 @@ ${content}`;
       console.log('📋 打分提示词长度:', scoringPrompt.length);
       console.log('📋 细致批改提示词长度:', detailedGradingPrompt.length);
 
-      // 并行调用AI进行打分和细致批改
+      // 并行调用极客智坊AI进行打分和细致批改
       const [scoringResult, detailedResult] = await Promise.all([
-        callAliYunAI(scoringPrompt, useMediumStandard),
-        includeDetailedFeedback ? callAliYunAI(detailedGradingPrompt, useMediumStandard) : Promise.resolve('')
+        callGeekaiAI(scoringPrompt, useMediumStandard),
+        includeDetailedFeedback ? callGeekaiAI(detailedGradingPrompt, useMediumStandard) : Promise.resolve('')
       ]);
 
       // 解析分数
