@@ -157,6 +157,24 @@ export async function POST(request: NextRequest) {
     console.log('- AliYun_APIKEY:', process.env.AliYun_APIKEY ? '已设置' : '未设置');
     console.log('- 最终使用的API密钥长度:', ALIYUN_API_KEY ? ALIYUN_API_KEY.length : 0);
 
+    // 立即检查API密钥是否配置，避免后续处理浪费资源
+    if (!ALIYUN_API_KEY) {
+      console.error('❌ 批改API早期检查失败：阿里云API密钥未配置');
+      return NextResponse.json({
+        success: false,
+        error: '阿里云新加坡节点API密钥未配置，请联系管理员配置环境变量',
+        details: {
+          missingEnvVars: [
+            'ALiYunSingapore_APIKEY (首选)',
+            'DASHSCOPE_API_KEY (备选)',
+            'AliYun_APIKEY (备选)'
+          ],
+          environment: process.env.NODE_ENV,
+          isVercel: !!process.env.VERCEL
+        }
+      }, { status: 500 });
+    }
+
     // 获取请求数据
     const requestData: GradingRequest = await request.json();
     const { studentName, content, topic, plotAnalysis, useMediumStandard, userId, includeDetailedFeedback, wordCount, p1Content, p2Content } = requestData;
