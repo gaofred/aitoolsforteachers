@@ -261,18 +261,29 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
       setExporting(prev => ({ ...prev, batch: true }));
       console.log('📄 开始导出全班结果...');
 
+      // 添加详细的调试信息
+      const exportData = {
+        taskTitle: task.title,
+        topic: task.topic,
+        assignments: completedAssignments,
+        stats: stats,
+        type: 'continuation-writing'
+      };
+
+      console.log('📋 批量结果导出数据调试信息:', {
+        taskTitle: exportData.taskTitle,
+        topic: exportData.topic,
+        assignmentsCount: exportData.assignments.length,
+        hasStats: !!exportData.stats,
+        type: exportData.type
+      });
+
       const response = await fetch('/api/export/batch-results', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          taskTitle: task.title,
-          topic: task.topic,
-          assignments: completedAssignments,
-          stats: stats,
-          type: 'continuation-writing'
-        }),
+        body: JSON.stringify(exportData),
       });
 
       if (response.ok) {
@@ -333,18 +344,35 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
       setExporting(prev => ({ ...prev, excel: true }));
       console.log('📊 开始导出Excel成绩表...');
 
+      // 添加详细的调试信息
+      const exportData = {
+        taskTitle: task.title,
+        topic: task.topic,
+        assignments: completedAssignments,
+        stats: stats,
+        type: 'continuation-writing'
+      };
+
+      console.log('📋 Excel导出数据调试信息:', {
+        taskTitle: exportData.taskTitle,
+        topic: exportData.topic,
+        assignmentsCount: exportData.assignments.length,
+        hasStats: !!exportData.stats,
+        statsKeys: exportData.stats ? Object.keys(exportData.stats) : [],
+        type: exportData.type,
+        sampleAssignment: exportData.assignments[0] ? {
+          name: exportData.assignments[0].student?.name,
+          hasGradingResult: !!exportData.assignments[0].gradingResult,
+          score: exportData.assignments[0].gradingResult?.score
+        } : null
+      });
+
       const response = await fetch('/api/export/excel', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          taskTitle: task.title,
-          topic: task.topic,
-          assignments: completedAssignments,
-          stats: stats,
-          type: 'continuation-writing'
-        }),
+        body: JSON.stringify(exportData),
       });
 
       if (response.ok) {
@@ -448,18 +476,29 @@ ${'='.repeat(80)}`;
       setExporting(prev => ({ ...prev, analysis: true }));
       console.log('📊 开始生成班级分析报告...');
 
+      // 添加详细的调试信息
+      const exportData = {
+        taskTitle: task.title,
+        topic: task.topic,
+        assignments: completedAssignments,
+        stats: stats,
+        type: 'continuation-writing'
+      };
+
+      console.log('📋 班级分析报告导出数据调试信息:', {
+        taskTitle: exportData.taskTitle,
+        topic: exportData.topic,
+        assignmentsCount: exportData.assignments.length,
+        hasStats: !!exportData.stats,
+        type: exportData.type
+      });
+
       const response = await fetch('/api/export/class-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          taskTitle: task.title,
-          topic: task.topic,
-          assignments: completedAssignments,
-          stats: stats,
-          type: 'continuation-writing'
-        }),
+        body: JSON.stringify(exportData),
       });
 
       if (response.ok) {
