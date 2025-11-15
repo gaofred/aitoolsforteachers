@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// 阿里云新加坡节点API配置
-const ALIYUN_API_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
-const ALIYUN_API_KEY = process.env.ALiYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
+// 极客智坊API配置 - 与批量应用文和读后续写批改保持一致
+const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
+const GEEKAI_API_URL = 'https://geekai.co/v1/chat/completions';
 
 export async function POST(request: NextRequest) {
   try {
@@ -203,12 +203,22 @@ ${finalEssaysContent}
 请用中文回复，内容要详细、实用，适合教师在课堂上指导学生使用。要结合具体的学生例子，让分析更具针对性和实用性。`;
 
 try {
-      // 调用阿里云新加坡qwen3-max API
+      // 调用极客智坊API
       console.log('🔑 API密钥检查:', {
-        hasApiKey: !!ALIYUN_API_KEY,
-        apiKeyLength: ALIYUN_API_KEY?.length || 0,
-        provider: '阿里云新加坡'
+        hasApiKey: !!GEEKAI_API_KEY,
+        apiKeyLength: GEEKAI_API_KEY?.length || 0,
+        provider: '极客智坊'
       });
+
+      if (!GEEKAI_API_KEY) {
+        console.error('❌ 极客智坊API密钥未配置');
+        return NextResponse.json({
+          success: false,
+          error: '极客智坊API密钥未配置，请联系管理员配置环境变量'
+        }, { status: 500 });
+      }
+
+      console.log('✅ 极客智坊API密钥验证通过，密钥长度:', GEEKAI_API_KEY.length);
 
       // 创建一个超时控制器
       const controller = new AbortController();
@@ -224,15 +234,19 @@ try {
         promptToUse = fullPrompt.substring(0, 48000) + '\n\n...[由于内容过长，已截断，基于已有数据进行分析]';
       }
 
-      const response = await fetch(ALIYUN_API_URL, {
+      const response = await fetch(GEEKAI_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${ALIYUN_API_KEY}`
+          'Authorization': `Bearer ${GEEKAI_API_KEY}`
         },
         body: JSON.stringify({
-          model: "qwen3-max",
+          model: "qwen-plus",
           messages: [
+            {
+              role: 'system',
+              content: '你是一位专业的高中英语教师，擅长分析学生的读后续写作文，能够准确识别共性问题并提供实用的教学建议。'
+            },
             {
               role: 'user',
               content: promptToUse
@@ -248,11 +262,11 @@ try {
       // 清除超时计时器
       clearTimeout(timeout);
 
-      console.log('🔍 阿里云新加坡 qwen3-max API响应状态:', response.status);
+      console.log('🔍 极客智坊 qwen-plus API响应状态:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ 阿里云新加坡 qwen3-max API调用失败:', {
+        console.error('❌ 极客智坊 qwen-plus API调用失败:', {
           status: response.status,
           statusText: response.statusText,
           errorText: errorText
@@ -261,15 +275,15 @@ try {
         if (response.status === 401) {
           return NextResponse.json({
             success: false,
-            error: '阿里云新加坡 API密钥无效，请联系管理员'
+            error: '极客智坊 API密钥无效，请联系管理员'
           }, { status: 500 });
         }
 
-        throw new Error(`阿里云新加坡 qwen3-max API调用失败: ${response.status}`);
+        throw new Error(`极客智坊 qwen-plus API调用失败: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ 阿里云新加坡 qwen3-max API调用成功:', {
+      console.log('✅ 极客智坊 qwen-plus API调用成功:', {
         hasChoices: !!data.choices,
         choicesLength: data.choices?.length || 0,
         hasContent: !!data.choices?.[0]?.message?.content
@@ -278,7 +292,7 @@ try {
       const analysisResult = data.choices?.[0]?.message?.content;
 
       if (!analysisResult) {
-        throw new Error('阿里云新加坡 API返回了空结果');
+        throw new Error('极客智坊 API返回了空结果');
       }
 
       // 积分已在前面成功扣除
@@ -299,7 +313,7 @@ try {
       });
 
     } catch (apiError) {
-      console.error('💥 极客智坊 Gemini API调用异常:', apiError);
+      console.error('💥 极客智坊 API调用异常:', apiError);
 
       // 检查是否是AbortError（超时）
       if (apiError instanceof Error && apiError.name === 'AbortError') {

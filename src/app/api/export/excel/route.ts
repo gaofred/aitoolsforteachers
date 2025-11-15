@@ -85,7 +85,9 @@ export async function POST(request: NextRequest) {
     // 设置响应头
     const headers = new Headers();
     headers.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    headers.set('Content-Disposition', `attachment; filename="grade_statistics_${Date.now()}.xlsx"`);
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+  const filename = `continuation_writing_grades_${timestamp}.xlsx`;
+  headers.set('Content-Disposition', `attachment; filename="${filename}"`);
 
     return new NextResponse(excelBuffer, {
       status: 200,

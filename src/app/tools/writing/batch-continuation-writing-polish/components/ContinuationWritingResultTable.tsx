@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, FileText, TrendingUp, TrendingDown, BarChart3, Eye, Edit, Package } from "lucide-react";
+import { Download, FileText, TrendingUp, TrendingDown, BarChart3, Eye, Edit, Package, Loader2 } from "lucide-react";
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import type { ContinuationWritingBatchTask, ContinuationWritingAssignment } from "../types";
@@ -26,6 +26,13 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [commonAnalysis, setCommonAnalysis] = useState<string>('');
+  const [exporting, setExporting] = useState({
+    excel: false,
+    batch: false,
+    zip: false,
+    analysis: false,
+    all: false
+  });
 
   if (!task) return null;
 
@@ -143,12 +150,17 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
 
   // 导出批改结果为ZIP包（每个学生一个TXT文件）
   const exportBatchResultsToZip = async () => {
-    if (completedAssignments.length === 0) {
-      alert('没有可导出的批改结果');
+    if (completedAssignments.length === 0 || exporting.zip) {
+      if (exporting.zip) {
+        console.log('ZIP导出正在进行中，忽略重复点击');
+      } else {
+        alert('没有可导出的批改结果');
+      }
       return;
     }
 
     try {
+      setExporting(prev => ({ ...prev, zip: true }));
       console.log('📦 开始生成学生文档ZIP包...');
       const zip = new JSZip();
 
@@ -196,23 +208,59 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
         const zipBuffer = await zip.generateAsync({ type: 'blob' });
 
         // 下载ZIP文件
-        const zipFileName = `读后续写批改结果_${completedAssignments.length}人_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.zip`;
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+        const zipFileName = `continuation_writing_results_${completedAssignments.length}students_${timestamp}.zip`;
         saveAs(zipBuffer, zipFileName);
 
         console.log(`✅ ZIP包下载完成: ${zipFileName}`);
-        alert(`已成功导出${successfulFiles.length}个学生的批改结果ZIP包`);
+        alert(`✅ 文档包导出成功！\n共包含 ${successfulFiles.length} 个学生的批改结果\n文件名: ${zipFileName}`);
       } else {
-        alert('没有找到可导出的批改数据');
+        alert('⚠️ 没有找到可导出的批改数据，请先完成批改');
       }
     } catch (error) {
       console.error('❌ 生成ZIP包失败:', error);
-      alert('生成ZIP包失败，请稍后重试');
+      alert(`❌ 文档包生成失败: ${error instanceof Error ? error.message : '未知错误'}\n请减少学生数量或稍后重试`);
+    } finally {
+      setExporting(prev => ({ ...prev, zip: false }));
+    }
+  };
+
+  // 导出完整包（包含所有结果）
+  const exportCompletePackage = async () => {
+    if (exporting.all) return; // 防止重复点击
+
+    try {
+      setExporting(prev => ({ ...prev, all: true }));
+      console.log('📦 开始导出完整包...');
+
+      // 依次导出所有内容
+      await exportAllResults();
+      await new Promise(resolve => setTimeout(resolve, 500)); // 短暂延迟
+
+      await exportExcel();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      await generateClassAnalysis();
+
+      console.log('✅ 完整包导出完成');
+      alert(`🎉 完整包导出完成！\n已依次下载：\n✅ 个人结果文档 (${completedAssignments.length}名学生)\n✅ Excel成绩统计表\n✅ 班级分析报告\n\n总计3个文件，请查看下载文件夹`);
+
+    } catch (error) {
+      console.error('❌ 完整包导出失败:', error);
+      alert(`❌ 完整包导出失败: ${error instanceof Error ? error.message : '未知错误'}\n请稍后重试，或尝试单独导出各个文件`);
+    } finally {
+      setExporting(prev => ({ ...prev, all: false }));
     }
   };
 
   // 导出全班结果
   const exportAllResults = async () => {
+    if (exporting.batch) return; // 防止重复点击
+
     try {
+      setExporting(prev => ({ ...prev, batch: true }));
+      console.log('📄 开始导出全班结果...');
+
       const response = await fetch('/api/export/batch-results', {
         method: 'POST',
         headers: {
@@ -228,27 +276,63 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
       });
 
       if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `全班读后续写批改结果_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.docx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        try {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+
+          // 使用英文文件名避免编码问题
+          const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+          a.download = `continuation_writing_batch_results_${timestamp}.docx`;
+
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          console.log('✅ 全班结果导出成功');
+
+          // 成功提示
+          alert(`个人结果导出成功！共包含 ${completedAssignments.length} 名学生`);
+
+        } catch (downloadError) {
+          console.error('文件下载失败:', downloadError);
+          alert('文件下载失败，请检查浏览器设置');
+        }
       } else {
-        alert('导出失败');
+        // 详细错误处理
+        const errorText = await response.text();
+        console.error('批量结果导出API错误:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText
+        });
+
+        let errorMessage = '批量结果导出失败';
+        if (response.status === 400) {
+          errorMessage = '没有可导出的批改结果';
+        } else if (response.status === 500) {
+          errorMessage = '服务器内部错误，请稍后重试';
+        }
+
+        alert(`${errorMessage} (${response.status})`);
       }
     } catch (error) {
-      console.error('导出失败:', error);
-      alert('导出失败');
+      console.error('批量结果导出异常:', error);
+      alert(`导出异常: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setExporting(prev => ({ ...prev, batch: false }));
     }
   };
 
   // 导出Excel表格
   const exportExcel = async () => {
+    if (exporting.excel) return; // 防止重复点击
+
     try {
+      setExporting(prev => ({ ...prev, excel: true }));
+      console.log('📊 开始导出Excel成绩表...');
+
       const response = await fetch('/api/export/excel', {
         method: 'POST',
         headers: {
@@ -264,21 +348,52 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
       });
 
       if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `读后续写批改成绩表_${new Date().toLocaleDateString()}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        try {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+
+          // 使用英文文件名避免编码问题，添加时间戳
+          const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+          a.download = `continuation_writing_grades_${timestamp}.xlsx`;
+
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          console.log('✅ Excel导出成功');
+
+          // 成功提示
+          alert(`Excel成绩表导出成功！共包含 ${completedAssignments.length} 名学生`);
+
+        } catch (downloadError) {
+          console.error('文件下载失败:', downloadError);
+          alert('文件下载失败，请检查浏览器设置');
+        }
       } else {
-        alert('Excel导出失败');
+        // 详细错误处理
+        const errorText = await response.text();
+        console.error('Excel导出API错误:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText
+        });
+
+        let errorMessage = 'Excel导出失败';
+        if (response.status === 400) {
+          errorMessage = '请求数据错误，请检查是否有学生数据';
+        } else if (response.status === 500) {
+          errorMessage = '服务器内部错误，请稍后重试';
+        }
+
+        alert(`${errorMessage} (${response.status})`);
       }
     } catch (error) {
-      console.error('Excel导出失败:', error);
-      alert('Excel导出失败');
+      console.error('Excel导出异常:', error);
+      alert(`Excel导出异常: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setExporting(prev => ({ ...prev, excel: false }));
     }
   };
 
@@ -327,7 +442,12 @@ ${'='.repeat(80)}`;
 
   // 生成班级分析报告
   const generateClassAnalysis = async () => {
+    if (exporting.analysis) return; // 防止重复点击
+
     try {
+      setExporting(prev => ({ ...prev, analysis: true }));
+      console.log('📊 开始生成班级分析报告...');
+
       const response = await fetch('/api/export/class-analysis', {
         method: 'POST',
         headers: {
@@ -343,21 +463,52 @@ ${'='.repeat(80)}`;
       });
 
       if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `读后续写班级分析报告_${new Date().toLocaleDateString()}.docx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        try {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+
+          // 使用英文文件名避免编码问题
+          const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+          a.download = `continuation_writing_class_analysis_${timestamp}.docx`;
+
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          console.log('✅ 班级分析报告生成成功');
+
+          // 成功提示
+          alert(`班级分析报告生成成功！共分析了 ${completedAssignments.length} 名学生`);
+
+        } catch (downloadError) {
+          console.error('文件下载失败:', downloadError);
+          alert('文件下载失败，请检查浏览器设置');
+        }
       } else {
-        alert('分析报告导出失败');
+        // 详细错误处理
+        const errorText = await response.text();
+        console.error('班级分析报告API错误:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText
+        });
+
+        let errorMessage = '班级分析报告导出失败';
+        if (response.status === 400) {
+          errorMessage = '没有可分析的数据';
+        } else if (response.status === 500) {
+          errorMessage = '服务器内部错误，请稍后重试';
+        }
+
+        alert(`${errorMessage} (${response.status})`);
       }
     } catch (error) {
-      console.error('分析报告导出失败:', error);
-      alert('分析报告导出失败');
+      console.error('班级分析报告导出异常:', error);
+      alert(`导出异常: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setExporting(prev => ({ ...prev, analysis: false }));
     }
   };
 
@@ -690,6 +841,28 @@ ${'='.repeat(80)}`;
 
   
         <TabsContent value="export" className="space-y-4">
+          {/* 导出提示信息 */}
+          <Card className="border-blue-200 bg-blue-50/30">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <div className="text-blue-600 mt-0.5">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-blue-800">导出说明</p>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• <strong>Excel成绩表</strong>：瞬间生成，包含分数统计</li>
+                    <li>• <strong>Word文档</strong>：包含详细批改内容，需要 <strong>1-3秒</strong> 生成时间</li>
+                    <li>• <strong>大批量导出</strong>：建议 <strong>10人</strong> 为单位分批导出</li>
+                    <li>• 导出文件将在浏览器底部自动下载</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">导出选项</CardTitle>
@@ -701,18 +874,34 @@ ${'='.repeat(80)}`;
                     <FileText className="w-6 h-6 text-blue-600" />
                     <h3 className="font-medium">个人结果导出</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-sm text-gray-600 mb-2">
                     为每个学生生成单独的Word文档，包含作文内容、批改意见和高分范文
                   </p>
+                  <div className="flex items-center gap-1 text-xs text-orange-600 mb-3">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    预计 {Math.ceil(completedAssignments.length * 0.5)}-{Math.ceil(completedAssignments.length * 1)} 秒
+                  </div>
                   <Button
                     onClick={() => {
                       console.log('🔥 导出所有个人结果按钮被点击', completedAssignments.length);
                       exportAllResults();
                     }}
-                    disabled={completedAssignments.length === 0}
+                    disabled={completedAssignments.length === 0 || exporting.batch}
                     className="w-full"
                   >
-                    导出所有个人结果 ({completedAssignments.length})
+                    {exporting.batch ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        正在生成Word文档... ({completedAssignments.length}名学生)
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-4 h-4 mr-2" />
+                        导出所有个人结果 ({completedAssignments.length})
+                      </>
+                    )}
                   </Button>
                 </div>
 
@@ -721,19 +910,35 @@ ${'='.repeat(80)}`;
                     <BarChart3 className="w-6 h-6 text-green-600" />
                     <h3 className="font-medium">Excel成绩表</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-sm text-gray-600 mb-2">
                     导出Excel格式的成绩统计表，包含所有学生的分数和等级分布
                   </p>
+                  <div className="flex items-center gap-1 text-xs text-green-600 mb-3">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    瞬间生成
+                  </div>
                   <Button
                     onClick={() => {
                       console.log('🔥 导出Excel成绩表按钮被点击', completedAssignments.length);
                       exportExcel();
                     }}
-                    disabled={completedAssignments.length === 0}
+                    disabled={completedAssignments.length === 0 || exporting.excel}
                     className="w-full"
                     variant="outline"
                   >
-                    导出Excel成绩表 ({completedAssignments.length})
+                    {exporting.excel ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        正在生成Excel表... ({completedAssignments.length}名学生)
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        导出Excel成绩表 ({completedAssignments.length})
+                      </>
+                    )}
                   </Button>
                 </div>
 
@@ -742,19 +947,35 @@ ${'='.repeat(80)}`;
                     <TrendingUp className="w-6 h-6 text-purple-600" />
                     <h3 className="font-medium">班级分析报告</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-sm text-gray-600 mb-2">
                     生成详细的班级分析报告，包含成绩统计、共性问题分析和教学建议
                   </p>
+                  <div className="flex items-center gap-1 text-xs text-orange-600 mb-3">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    预计 {Math.ceil(completedAssignments.length * 0.3)}-{Math.ceil(completedAssignments.length * 0.8)} 秒
+                  </div>
                   <Button
                     onClick={() => {
                       console.log('🔥 生成分析报告按钮被点击', completedAssignments.length);
                       generateClassAnalysis();
                     }}
-                    disabled={completedAssignments.length === 0}
+                    disabled={completedAssignments.length === 0 || exporting.analysis}
                     className="w-full"
                     variant="outline"
                   >
-                    生成分析报告 ({completedAssignments.length})
+                    {exporting.analysis ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        正在分析数据... ({completedAssignments.length}名学生)
+                      </>
+                    ) : (
+                      <>
+                        <TrendingUp className="w-4 h-4 mr-2" />
+                        生成分析报告 ({completedAssignments.length})
+                      </>
+                    )}
                   </Button>
                 </div>
 
@@ -763,32 +984,51 @@ ${'='.repeat(80)}`;
                     <Download className="w-6 h-6 text-orange-600" />
                     <h3 className="font-medium">完整结果包</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-sm text-gray-600 mb-2">
                     打包下载所有结果文件，包含个人结果、成绩表和分析报告
                   </p>
+                  <div className="flex items-center gap-1 text-xs text-orange-600 mb-3">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    预计 {Math.ceil(completedAssignments.length * 0.8)}-{Math.ceil(completedAssignments.length * 1.5)} 秒
+                  </div>
                   <div className="space-y-2">
                     <Button
                       onClick={exportBatchResultsToZip}
-                      disabled={completedAssignments.length === 0}
+                      disabled={completedAssignments.length === 0 || exporting.zip}
                       className="w-full flex items-center gap-2"
                       variant="default"
                     >
-                      <Package className="w-4 h-4" />
-                      下载文档包 ({completedAssignments.length})
+                      {exporting.zip ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          正在打包文档... ({completedAssignments.length}名学生)
+                        </>
+                      ) : (
+                        <>
+                          <Package className="w-4 h-4 mr-2" />
+                          下载文档包 ({completedAssignments.length})
+                        </>
+                      )}
                     </Button>
                     <Button
-                      onClick={() => {
-                        console.log('🔥 下载完整包按钮被点击', completedAssignments.length);
-                        exportAllResults();
-                        setTimeout(() => exportExcel(), 1000);
-                        setTimeout(() => generateClassAnalysis(), 2000);
-                      }}
-                      disabled={completedAssignments.length === 0}
+                      onClick={exportCompletePackage}
+                      disabled={completedAssignments.length === 0 || exporting.all}
                       className="w-full"
                       variant="outline"
                     >
-                      <Download className="w-4 h-4 mr-1" />
-                      下载完整包 ({completedAssignments.length})
+                      {exporting.all ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          下载完整包中... ({completedAssignments.length})
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4 mr-1" />
+                          下载完整包 ({completedAssignments.length})
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>

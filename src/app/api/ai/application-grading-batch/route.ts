@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabasePointsService } from '@/lib/supabase-points-service';
 
-// 阿里云新加坡节点API配置
-const ALIYUN_API_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
-const ALIYUN_API_KEY = process.env.ALiYunSingapore_APIKEY || process.env.DASHSCOPE_API_KEY || process.env.AliYun_APIKEY;
+// 极客智坊API配置 - 与批量应用文和读后续写批改保持一致
+const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
+const GEEKAI_API_URL = 'https://geekai.co/v1/chat/completions';
 
 // 批量批改请求类型
 interface BatchGradingRequest {
@@ -134,11 +134,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 检查阿里云API Key配置
-    if (!ALIYUN_API_KEY) {
+    // 检查极客智坊API Key配置
+    if (!GEEKAI_API_KEY) {
       return NextResponse.json({
         success: false,
-        error: '阿里云API Key未配置，请检查环境变量 AliYunSingapore_APIKEY'
+        error: '极客智坊API Key未配置，请联系管理员配置环境变量'
       }, { status: 500 });
     }
 
@@ -522,15 +522,15 @@ ${useMediumStandard ? `
             useMediumStandard
           );
 
-          // 调用阿里云新加坡节点AI API
-          const response = await fetch(ALIYUN_API_URL, {
+          // 调用极客智坊API
+          const response = await fetch(GEEKAI_API_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${ALIYUN_API_KEY}`
+              'Authorization': `Bearer ${GEEKAI_API_KEY}`
             },
             body: JSON.stringify({
-              model: "qwen-plus-latest",
+              model: "qwen-plus",
               messages: [
                 {
                   role: 'system',
