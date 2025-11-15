@@ -11,6 +11,15 @@
     },
     "src/app/api/ai/image-recognition/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/ai/essay-ocr/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/ai/image-recognition-async/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/continuation-writing-grade/route.ts": {
+      "maxDuration": 300
     }
   }
 }
