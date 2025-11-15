@@ -40,6 +40,20 @@ interface GradingResponse {
 const callAliYunAI = async (prompt: string, useMediumStandard: boolean = false): Promise<string> => {
   console.log('🤖 开始调用阿里云新加坡节点AI API...');
 
+  // 检查API密钥是否配置
+  if (!ALIYUN_API_KEY) {
+    console.error('❌ 阿里云新加坡节点API密钥未配置，请检查以下环境变量:');
+    console.error('- ALiYunSingapore_APIKEY');
+    console.error('- DASHSCOPE_API_KEY');
+    console.error('- AliYun_APIKEY');
+    throw new Error('阿里云新加坡节点API密钥未配置，请联系管理员配置环境变量');
+  }
+
+  console.log('✅ API密钥验证通过，密钥长度:', ALIYUN_API_KEY.length);
+  console.log('🌐 发起API请求到:', ALIYUN_API_URL);
+  console.log('📝 请求模型: qwen3-max');
+  console.log('📝 prompt长度:', prompt.length, '字符');
+
   const response = await fetch(ALIYUN_API_URL, {
     method: 'POST',
     headers: {
@@ -65,7 +79,23 @@ const callAliYunAI = async (prompt: string, useMediumStandard: boolean = false):
   });
 
   if (!response.ok) {
-    throw new Error(`AI API请求失败: ${response.status} ${response.statusText}`);
+    console.error('❌ 阿里云API HTTP错误:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: ALIYUN_API_URL
+    });
+
+    // 尝试读取错误响应
+    let errorDetails = '';
+    try {
+      const errorText = await response.text();
+      console.error('❌ API错误响应:', errorText);
+      errorDetails = errorText;
+    } catch (textError) {
+      console.error('❌ 无法读取错误响应:', textError);
+    }
+
+    throw new Error(`阿里云API请求失败 (${response.status}): ${response.statusText} ${errorDetails ? `- ${errorDetails.substring(0, 200)}` : ''}`);
   }
 
   const data = await response.json();
@@ -119,6 +149,13 @@ const parseScore = (result: string): number => {
 export async function POST(request: NextRequest) {
   try {
     console.log('🚀 读后续写批改API被调用！');
+
+    // 在API入口处就检查环境变量配置
+    console.log('🔍 检查阿里云API环境变量配置:');
+    console.log('- ALiYunSingapore_APIKEY:', process.env.ALiYunSingapore_APIKEY ? '已设置' : '未设置');
+    console.log('- DASHSCOPE_API_KEY:', process.env.DASHSCOPE_API_KEY ? '已设置' : '未设置');
+    console.log('- AliYun_APIKEY:', process.env.AliYun_APIKEY ? '已设置' : '未设置');
+    console.log('- 最终使用的API密钥长度:', ALIYUN_API_KEY ? ALIYUN_API_KEY.length : 0);
 
     // 获取请求数据
     const requestData: GradingRequest = await request.json();
