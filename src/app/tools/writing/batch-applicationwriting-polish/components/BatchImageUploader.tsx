@@ -4,17 +4,17 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Image, X, Eye, Trash2, Camera, Loader2 } from "lucide-react";
+import { Upload, Image, X, Eye, Trash2, Camera, Loader2, Square, RotateCcw } from "lucide-react";
 import type { ApplicationBatchTask, ApplicationAssignment, OCRResult, ProcessingStats } from "../types";
 import { compressImageForOCR, adaptiveCompressImage } from "@/lib/image-compressor";
 
 interface BatchImageUploaderProps {
   task: ApplicationBatchTask | null;
-  setTask: (task: ApplicationBatchTask | null) => void;
+  setTask: React.Dispatch<React.SetStateAction<ApplicationBatchTask | null>>;
   onNext: () => void;
   onPrev: () => void;
   processingStats: ProcessingStats;
-  setProcessingStats: (stats: ProcessingStats) => void;
+  setProcessingStats: React.Dispatch<React.SetStateAction<ProcessingStats>>;
 }
 
 interface UploadedImage {
@@ -46,6 +46,9 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   const [ocrProgressMessage, setOcrProgressMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // OCR中断控制器
+  const ocrControllerRef = useRef<{ abort: () => void } | null>(null);
+
   // 数据持久化key
   const STORAGE_KEY = `batch_ocr_${task?.id || 'default'}`;
 
@@ -61,10 +64,28 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
           console.log('🔄 从localStorage恢复OCR数据:', {
             taskId: parsed.taskId,
             imageCount: parsed.uploadedImages.length,
-            timestamp: parsed.timestamp
+            timestamp: parsed.timestamp,
+            version: parsed.version || 'legacy'
           });
 
-          setUploadedImages(parsed.uploadedImages);
+          // 处理优化后的数据格式
+          if (parsed.version === 'optimized') {
+            // 对于优化后的数据，需要重建文件对象结构
+            const restoredImages = parsed.uploadedImages.map((img: any) => ({
+              ...img,
+              // 重建空的文件对象（实际文件数据已丢失，但保留状态）
+              file: img.fileSize ? new File([], img.fileName || 'unknown.jpg', { type: 'image/jpeg' }) : undefined,
+              originalFile: img.fileSize ? new File([], img.fileName || 'unknown.jpg', { type: 'image/jpeg' }) : undefined,
+              // 重新生成预览（使用占位符）
+              preview: img.status === 'completed' ? `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAAAAAAD/2wBDACgcHiQGSWUgACEV5i0mMzc7P/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=` : ''
+            }));
+
+            setUploadedImages(restoredImages);
+          } else {
+            // 传统数据格式，直接使用
+            setUploadedImages(parsed.uploadedImages);
+          }
+
           setOcrProgressMessage(parsed.ocrProgressMessage || '');
           setIsProcessing(parsed.isProcessing || false);
         }
@@ -76,27 +97,114 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     }
   }, [task?.id, STORAGE_KEY]);
 
-  // 保存数据到localStorage
+  // 存储空间检测函数
+  const checkStorageQuota = () => {
+    try {
+      const testKey = 'test_storage_quota';
+      const testData = 'x'.repeat(1024); // 1KB测试数据
+
+      // 测试存储空间
+      localStorage.setItem(testKey, testData);
+      localStorage.removeItem(testKey);
+      return true;
+    } catch (error) {
+      console.warn('存储空间不足:', error);
+      return false;
+    }
+  };
+
+  // 清理过期数据函数
+  const cleanupExpiredData = () => {
+    try {
+      const keys = Object.keys(localStorage).filter(key =>
+        key.startsWith('batch_ocr_') && key.includes('task_')
+      );
+
+      // 删除超过2小时的数据
+      const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+
+      keys.forEach(key => {
+        try {
+          const data = JSON.parse(localStorage.getItem(key) || '{}');
+          if (data.timestamp && data.timestamp < twoHoursAgo) {
+            localStorage.removeItem(key);
+            console.log('🗑️ 已清理过期数据:', key);
+          }
+        } catch (error) {
+          // 如果解析失败，直接删除这个key
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.warn('清理过期数据失败:', error);
+    }
+  };
+
+  // 优化的数据保存函数（只保存必要数据，排除大文件）
+  const saveOptimizedData = () => {
+    if (!checkStorageQuota()) {
+      console.warn('存储空间不足，跳过保存');
+      return false;
+    }
+
+    try {
+      // 清理过期数据
+      cleanupExpiredData();
+
+      // 优化图片数据，只保存必要字段
+      const optimizedImages = uploadedImages.map(img => ({
+        id: img.id,
+        status: img.status,
+        error: img.error,
+        ocrResult: img.ocrResult ? {
+          success: img.ocrResult.success,
+          result: img.ocrResult.result,
+          englishOnly: img.ocrResult.englishOnly,
+          imageId: img.ocrResult.imageId,
+          model: img.ocrResult.model
+        } : undefined,
+        // 保存文件大小信息但不保存文件对象
+        fileSize: img.file?.size,
+        fileName: img.file?.name,
+        compressionInfo: img.compressionInfo
+        // 注意：不保存 file, originalFile, preview 这些大的数据
+      }));
+
+      const dataToSave = {
+        taskId: task?.id,
+        uploadedImages: optimizedImages, // 使用优化后的数据
+        isProcessing,
+        ocrProgressMessage,
+        timestamp: Date.now(),
+        version: 'optimized' // 标记这是优化后的数据格式
+      };
+
+      const jsonString = JSON.stringify(dataToSave);
+
+      // 检查数据大小（限制在2MB以内）
+      if (jsonString.length > 2 * 1024 * 1024) {
+        console.warn('数据过大，跳过保存。大小:', Math.round(jsonString.length / 1024), 'KB');
+        return false;
+      }
+
+      localStorage.setItem(STORAGE_KEY, jsonString);
+      console.log('💾 OCR数据已优化保存:', {
+        taskId: task?.id,
+        imageCount: uploadedImages.length,
+        isProcessing,
+        dataSize: Math.round(jsonString.length / 1024) + 'KB'
+      });
+      return true;
+    } catch (error) {
+      console.warn('保存OCR数据失败:', error);
+      return false;
+    }
+  };
+
+  // 保存数据到localStorage（使用优化版本）
   useEffect(() => {
     if (uploadedImages.length > 0 || isProcessing) {
-      try {
-        const dataToSave = {
-          taskId: task?.id,
-          uploadedImages,
-          isProcessing,
-          ocrProgressMessage,
-          timestamp: Date.now()
-        };
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-        console.log('💾 OCR数据已保存到localStorage:', {
-          taskId: task?.id,
-          imageCount: uploadedImages.length,
-          isProcessing
-        });
-      } catch (error) {
-        console.warn('保存OCR数据失败:', error);
-      }
+      saveOptimizedData();
     }
   }, [uploadedImages, isProcessing, ocrProgressMessage, task?.id, STORAGE_KEY]);
 
@@ -229,14 +337,30 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   };
 
   // OCR识别单张图片（移除重试机制，失败直接报错）
-  const processImage = async (image: UploadedImage): Promise<OCRResult | null> => {
+  const processImage = async (image: UploadedImage, abortController?: AbortController): Promise<OCRResult | null> => {
     try {
+      // 检查是否已被中断
+      if (abortController?.signal.aborted) {
+        throw new Error('OCR处理已中断');
+      }
+
       // 将文件转换为base64
-      const base64 = await new Promise<string>((resolve) => {
+      const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
         reader.readAsDataURL(image.file);
+
+        // 添加中断监听
+        abortController?.signal.addEventListener('abort', () => {
+          reject(new Error('OCR处理已中断'));
+        });
       });
+
+      // 检查中断状态
+      if (abortController?.signal.aborted) {
+        throw new Error('OCR处理已中断');
+      }
 
       // 使用专门的作文OCR API，提供更好的作文识别效果
       const response = await fetch('/api/ai/essay-ocr', {
@@ -339,6 +463,10 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
   const processAllImages = async () => {
     if (uploadedImages.length === 0) return;
 
+    // 创建中断控制器
+    const abortController = new AbortController();
+    ocrControllerRef.current = abortController;
+
     setIsProcessing(true);
     setProcessingStats({
       ...processingStats,
@@ -380,6 +508,12 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
     // 分批处理
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      // 检查是否已被中断
+      if (abortController.signal.aborted) {
+        console.log('⚠️ OCR处理已被用户中断');
+        break;
+      }
+
       const batch = batches[batchIndex];
       if (batch.length === uploadedImages.length) {
         console.log(`📦 处理批次 1/1，包含 ${batch.length} 张图片`);
@@ -394,7 +528,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         try {
           console.log(`开始并行处理图片 ${globalIndex + 1}/${uploadedImages.length}`);
 
-          const ocrResult = await processImage(image);
+          const ocrResult = await processImage(image, abortController);
 
           if (ocrResult) {
             // 创建作业记录
@@ -498,9 +632,52 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     🔥 极速模式: 26张并行处理，效率最大化！`);
 
     // 清除进度消息
-    setOcrProgressMessage('');
+    // 检查是否被中断，如果被中断则清理状态
+    if (abortController.signal.aborted) {
+      console.log('⚠️ OCR处理被用户中断');
+      setOcrProgressMessage('OCR处理已中断，您可以重新开始');
+
+      // 将处理中的图片状态重置为待处理
+      setUploadedImages(prev => prev.map(img =>
+        img.status === 'processing' ? { ...img, status: 'pending' } : img
+      ));
+    } else {
+      setOcrProgressMessage('');
+    }
 
     setIsProcessing(false);
+
+    // 清理中断控制器
+    ocrControllerRef.current = null;
+  };
+
+  // 停止OCR处理
+  const stopOCRProcessing = () => {
+    if (ocrControllerRef.current) {
+      console.log('🛑 用户请求停止OCR处理');
+      ocrControllerRef.current.abort();
+      ocrControllerRef.current = null;
+    }
+  };
+
+  // 重新开始OCR处理
+  const restartOCRProcessing = () => {
+    // 将所有失败和处理中的图片重置为待处理
+    setUploadedImages(prev => prev.map(img => {
+      if (img.status === 'failed' || img.status === 'processing') {
+        return { ...img, status: 'pending', error: undefined };
+      }
+      return img;
+    }));
+
+    // 重置统计信息
+    setProcessingStats({
+      ...processingStats,
+      processedImages: 0,
+      errors: []
+    });
+
+    setOcrProgressMessage('');
   };
 
   const canProceed = uploadedImages.length > 0 && uploadedImages.some(img => img.status !== 'pending'); // 只要开始OCR识别了就可以进行下一步（防止卡死）
@@ -636,38 +813,90 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
             {uploadedImages.length > 0 && (
               <>
-                <Button
-                  onClick={processAllImages}
-                  disabled={isProcessing || hasProcessedImages || !canStartOCR || hasCompressingImages}
-                  className="flex items-center gap-2"
-                >
-                  {isProcessing ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      处理中...
-                    </>
-                  ) : hasCompressingImages ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      压缩中...
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="w-4 h-4" />
-                      开始OCR识别
-                    </>
-                  )}
-                </Button>
+                {isProcessing ? (
+                  <>
+                    <Button
+                      onClick={stopOCRProcessing}
+                      className="flex items-center gap-2 bg-red-600 text-white hover:bg-red-700"
+                      title="停止OCR处理"
+                    >
+                      <Square className="w-4 h-4" />
+                      停止处理
+                    </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={clearAllImages}
-                  className="flex items-center gap-2 text-red-600 hover:text-red-700"
-                  title={hasProcessingImages ? "警告：有图片正在处理中，清空可能会中断OCR识别" : "清空全部图片"}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  清空全部
-                </Button>
+                    <Button
+                      variant="outline"
+                      onClick={clearAllImages}
+                      className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                      title="清空全部图片（处理中清空可能会中断OCR识别）"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      清空全部
+                    </Button>
+                  </>
+                ) : hasFailedImages ? (
+                  <>
+                    <Button
+                      onClick={processAllImages}
+                      disabled={hasCompressingImages}
+                      className="flex items-center gap-2 bg-amber-600 text-white hover:bg-amber-700"
+                      title="重新开始OCR识别"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      重新开始OCR
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={restartOCRProcessing}
+                      className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
+                      title="重置失败的图片并重新开始"
+                    >
+                      <Camera className="w-4 h-4" />
+                      重置并开始OCR
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={clearAllImages}
+                      className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                      title="清空全部图片"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      清空全部
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      onClick={processAllImages}
+                      disabled={!canStartOCR || hasCompressingImages}
+                      className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      {hasCompressingImages ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          压缩中...
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-4 h-4" />
+                          开始OCR识别
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={clearAllImages}
+                      className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                      title="清空全部图片"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      清空全部
+                    </Button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -833,25 +1062,47 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         </Button>
 
         <div className="flex gap-3">
-          {/* OCR识别按钮 */}
-          <Button
-            onClick={processAllImages}
-            disabled={uploadedImages.length === 0 || isProcessing || processingStats.total > 0}
-            variant="secondary"
-            className="bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-700 border-blue-200 font-medium px-6"
-          >
-            {isProcessing ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                OCR识别中...
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4" />
-                {processingStats.total > 0 ? `继续OCR (${processingStats.completed}/${processingStats.total})` : '开始OCR识别'}
-              </div>
-            )}
-          </Button>
+          {/* OCR控制按钮 */}
+          {isProcessing ? (
+            <Button
+              onClick={stopOCRProcessing}
+              variant="destructive"
+              className="flex items-center gap-2 font-medium px-6"
+            >
+              <Square className="w-4 h-4" />
+              停止OCR处理
+            </Button>
+          ) : hasFailedImages ? (
+            <div className="flex gap-2">
+              <Button
+                onClick={processAllImages}
+                variant="secondary"
+                className="bg-gradient-to-r from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 text-amber-700 border-amber-200 font-medium px-6"
+              >
+                <RotateCcw className="w-4 h-4" />
+                重试失败的OCR
+              </Button>
+
+              <Button
+                onClick={restartOCRProcessing}
+                variant="outline"
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium px-6"
+              >
+                <Camera className="w-4 h-4" />
+                重置全部并开始OCR
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={processAllImages}
+              disabled={uploadedImages.length === 0}
+              variant="secondary"
+              className="bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-700 border-blue-200 font-medium px-6"
+            >
+              <Eye className="w-4 h-4" />
+              {processingStats.total > 0 ? `继续OCR (${processingStats.completed}/${processingStats.total})` : '开始OCR识别'}
+            </Button>
+          )}
 
           <Button
             onClick={onNext}

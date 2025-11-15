@@ -32,6 +32,9 @@
     },
     "src/app/api/export/class-analysis/route.ts": {
       "maxDuration": 180
+    },
+    "src/app/api/ai/text-formatting/route.ts": {
+      "maxDuration": 120
     }
   }
 }

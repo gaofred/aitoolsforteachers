@@ -7,15 +7,20 @@ export interface Student {
 
 // OCR识别结果
 export interface OCRResult {
+  success: boolean;
   imageId: string;
   studentName: string;
   originalText: string; // 完整的OCR原文
   chineseContent: string; // 提取的中文内容（包含姓名、班级、学号等）
   editedText?: string; // 用户编辑后的文本
   content: string; // 应用文内容
+  wordCount: number; // 作文词数（代码精确统计）
   confidence: number;
   processedAt: Date;
   imageData?: string; // 图片Base64数据
+  englishOnly?: string; // 纯英文内容
+  model?: string; // OCR模型
+  originalContent?: string; // 原始内容（alias for originalText）
 }
 
 // 应用文批改结果

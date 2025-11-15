@@ -11,11 +11,11 @@ import { updateOCRResultWordCount } from "../utils/wordCount";
 
 interface BatchImageUploaderProps {
   task: ContinuationWritingBatchTask | null;
-  setTask: (task: ContinuationWritingBatchTask | null) => void;
+  setTask: React.Dispatch<React.SetStateAction<ContinuationWritingBatchTask | null>>;
   onNext: () => void;
   onPrev: () => void;
   processingStats: ProcessingStats;
-  setProcessingStats: (stats: ProcessingStats) => void;
+  setProcessingStats: React.Dispatch<React.SetStateAction<ProcessingStats>>;
 }
 
 interface UploadedImage {
@@ -120,10 +120,28 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
             console.log('🔄 从localStorage恢复读后续写OCR数据:', {
               taskId: parsed.taskId,
               imageCount: parsed.uploadedImages.length,
-              timestamp: parsed.timestamp
+              timestamp: parsed.timestamp,
+              version: parsed.version || 'legacy'
             });
 
-            setUploadedImages(parsed.uploadedImages);
+            // 处理优化后的数据格式
+            if (parsed.version === 'optimized') {
+              // 对于优化后的数据，需要重建文件对象结构
+              const restoredImages = parsed.uploadedImages.map((img: any) => ({
+                ...img,
+                // 重建空的文件对象（实际文件数据已丢失，但保留状态）
+                file: img.fileSize ? new File([], img.fileName || 'unknown.jpg', { type: 'image/jpeg' }) : undefined,
+                originalFile: img.fileSize ? new File([], img.fileName || 'unknown.jpg', { type: 'image/jpeg' }) : undefined,
+                // 重新生成预览（使用占位符）
+                preview: img.status === 'completed' ? `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAAAAAAD/2wBDACgcHiQGSWUgACEV5i0mMzc7P/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=` : ''
+              }));
+
+              setUploadedImages(restoredImages);
+            } else {
+              // 传统数据格式，直接使用
+              setUploadedImages(parsed.uploadedImages);
+            }
+
             setOcrProgressMessage(parsed.ocrProgressMessage || '');
             setIsProcessing(parsed.isProcessing || false);
             hasRestoredData = true;
@@ -146,27 +164,114 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     restoreData();
   }, [task?.id, task?.assignments, STORAGE_KEY]);
 
-  // 保存数据到localStorage
+  // 存储空间检测函数
+  const checkStorageQuota = () => {
+    try {
+      const testKey = 'test_storage_quota_continuation';
+      const testData = 'x'.repeat(1024); // 1KB测试数据
+
+      // 测试存储空间
+      localStorage.setItem(testKey, testData);
+      localStorage.removeItem(testKey);
+      return true;
+    } catch (error) {
+      console.warn('存储空间不足:', error);
+      return false;
+    }
+  };
+
+  // 清理过期数据函数
+  const cleanupExpiredData = () => {
+    try {
+      const keys = Object.keys(localStorage).filter(key =>
+        key.startsWith('batch_ocr_continuation_') && key.includes('task_')
+      );
+
+      // 删除超过2小时的数据
+      const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+
+      keys.forEach(key => {
+        try {
+          const data = JSON.parse(localStorage.getItem(key) || '{}');
+          if (data.timestamp && data.timestamp < twoHoursAgo) {
+            localStorage.removeItem(key);
+            console.log('🗑️ 已清理过期数据:', key);
+          }
+        } catch (error) {
+          // 如果解析失败，直接删除这个key
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.warn('清理过期数据失败:', error);
+    }
+  };
+
+  // 优化的数据保存函数（只保存必要数据，排除大文件）
+  const saveOptimizedData = () => {
+    if (!checkStorageQuota()) {
+      console.warn('存储空间不足，跳过保存');
+      return false;
+    }
+
+    try {
+      // 清理过期数据
+      cleanupExpiredData();
+
+      // 优化图片数据，只保存必要字段
+      const optimizedImages = uploadedImages.map(img => ({
+        id: img.id,
+        status: img.status,
+        error: img.error,
+        ocrResult: img.ocrResult ? {
+          success: img.ocrResult.success,
+          result: img.ocrResult.result,
+          englishOnly: img.ocrResult.englishOnly,
+          imageId: img.ocrResult.imageId,
+          model: img.ocrResult.model
+        } : undefined,
+        // 保存文件大小信息但不保存文件对象
+        fileSize: img.file?.size,
+        fileName: img.file?.name,
+        compressionInfo: img.compressionInfo
+        // 注意：不保存 file, originalFile, preview 这些大的数据
+      }));
+
+      const dataToSave = {
+        taskId: task?.id,
+        uploadedImages: optimizedImages, // 使用优化后的数据
+        isProcessing,
+        ocrProgressMessage,
+        timestamp: Date.now(),
+        version: 'optimized' // 标记这是优化后的数据格式
+      };
+
+      const jsonString = JSON.stringify(dataToSave);
+
+      // 检查数据大小（限制在2MB以内）
+      if (jsonString.length > 2 * 1024 * 1024) {
+        console.warn('数据过大，跳过保存。大小:', Math.round(jsonString.length / 1024), 'KB');
+        return false;
+      }
+
+      localStorage.setItem(STORAGE_KEY, jsonString);
+      console.log('💾 读后续写OCR数据已优化保存:', {
+        taskId: task?.id,
+        imageCount: uploadedImages.length,
+        isProcessing,
+        dataSize: Math.round(jsonString.length / 1024) + 'KB'
+      });
+      return true;
+    } catch (error) {
+      console.warn('保存读后续写OCR数据失败:', error);
+      return false;
+    }
+  };
+
+  // 保存数据到localStorage（使用优化版本）
   useEffect(() => {
     if (uploadedImages.length > 0 || isProcessing) {
-      try {
-        const dataToSave = {
-          taskId: task?.id,
-          uploadedImages,
-          isProcessing,
-          ocrProgressMessage,
-          timestamp: Date.now()
-        };
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-        console.log('💾 读后续写OCR数据已保存到localStorage:', {
-          taskId: task?.id,
-          imageCount: uploadedImages.length,
-          isProcessing
-        });
-      } catch (error) {
-        console.warn('保存读后续写OCR数据失败:', error);
-      }
+      saveOptimizedData();
     }
   }, [uploadedImages, isProcessing, ocrProgressMessage, task?.id, STORAGE_KEY]);
 
@@ -807,11 +912,13 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
           // 创建OCR结果
           const ocrResult: OCRResult = {
+            success: true,
             imageId,
             studentName: ocrData.studentName || '',
             originalText: ocrData.originalText || '',
             chineseContent: ocrData.chineseContent || '',
             content: ocrData.content || '',
+            wordCount: 0, // 将在后面计算
             confidence: ocrData.confidence || 0,
             processedAt: new Date(),
             imageData: compressedImageBase64
@@ -969,7 +1076,12 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
-              handleFileUpload(e.dataTransfer.files);
+              const syntheticEvent = {
+                target: {
+                  files: e.dataTransfer.files
+                }
+              } as React.ChangeEvent<HTMLInputElement>;
+              handleFileUpload(syntheticEvent);
             }}
           >
             <input

@@ -716,9 +716,9 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                   </div>
                 </div>
 
-                {/* 作文内容 - 两栏布局 */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* 左栏：作文内容编辑/显示 */}
+                {/* 作文内容 - 上下布局 */}
+                <div className="space-y-6">
+                  {/* 上部分：作文内容编辑/显示 */}
                   <div>
                     <div className="font-medium text-gray-700 mb-2 text-sm">作文内容:</div>
                   {editingAssignments[assignment.id] ? (
@@ -843,7 +843,7 @@ const ApplicationContentConfirmation: React.FC<ApplicationContentConfirmationPro
                   )}
                   </div>
 
-                  {/* 右栏：原始图片 */}
+                  {/* 下部分：原始图片 */}
                   <div>
                     <div className="font-medium text-gray-700 mb-2 text-sm">原始图片:</div>
                     {assignment.ocrResult.imageData ? (

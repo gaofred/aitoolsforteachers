@@ -21,6 +21,57 @@ export async function POST(request: NextRequest) {
 
     console.log('🎯 开始AI智能排版处理，文本长度:', originalText.length);
 
+    // 积分相关变量
+    let userId = null;
+    let pointsDeducted = false;
+
+    // 获取用户身份并验证积分
+    try {
+      // 获取请求的基础URL，支持动态端口
+      const requestUrl = request.headers.get('host')
+        ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+        : process.env.NEXTAUTH_URL || 'http://localhost:3004';
+
+      const userResponse = await fetch(`${requestUrl}/api/auth/user`, {
+        headers: {
+          'Cookie': request.headers.get('Cookie') || ''
+        }
+      });
+
+      if (!userResponse.ok) {
+        throw new Error('用户身份验证失败');
+      }
+
+      const userData = await userResponse.json();
+      userId = userData.id;
+
+      if (!userId) {
+        return NextResponse.json({
+          success: false,
+          error: '用户身份验证失败，请重新登录'
+        }, { status: 401 });
+      }
+
+      console.log('🔐 用户身份验证成功:', { userId, userEmail: userData.email });
+
+      // 检查用户积分是否足够
+      if (userData.user_points && userData.user_points.points < 1) {
+        return NextResponse.json({
+          success: false,
+          error: '积分不足，需要1积分才能进行AI智能排版'
+        }, { status: 402 });
+      }
+
+      console.log('💰 用户积分充足:', { currentPoints: userData.user_points.points, requiredPoints: 1 });
+
+    } catch (authError) {
+      console.error('❌ 用户身份验证失败:', authError);
+      return NextResponse.json({
+        success: false,
+        error: '用户身份验证失败，请重新登录'
+      }, { status: 401 });
+    }
+
     // 调用火山引擎豆包API
     const response = await fetch(VOLCENGINE_API_URL, {
       method: 'POST',
@@ -68,11 +119,49 @@ export async function POST(request: NextRequest) {
 
       console.log('✅ AI排版完成，输出长度:', formattedText.length);
 
+      // 扣除用户积分
+      try {
+        const requestUrl = request.headers.get('host')
+          ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+          : process.env.NEXTAUTH_URL || 'http://localhost:3004';
+
+        const deductResponse = await fetch(`${requestUrl}/api/points/deduct`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': request.headers.get('Cookie') || ''
+          },
+          body: JSON.stringify({
+            userId: userId,
+            points: 1,
+            description: `AI智能排版服务 - 文本长度: ${originalText.length}字符`
+          })
+        });
+
+        if (deductResponse.ok) {
+          pointsDeducted = true;
+          console.log('💰 积分扣除成功: -1积分');
+        } else {
+          console.warn('⚠️ 积分扣除失败:', await deductResponse.text());
+        }
+      } catch (deductError) {
+        console.error('❌ 积分扣除异常:', deductError);
+        // 不影响主功能，继续执行
+      }
+
+      console.log('🎉 AI智能排版完成:', {
+        resultLength: formattedText.length,
+        userId: userId,
+        pointsDeducted: pointsDeducted
+      });
+
       return NextResponse.json({
         success: true,
         formattedText: formattedText.trim(),
         originalText: originalText,
-        usage: data.usage || null
+        usage: data.usage || null,
+        pointsDeducted: pointsDeducted,
+        pointsCost: 1
       });
     } else {
       console.error('❌ 火山引擎API返回格式异常:', data);
@@ -81,6 +170,36 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ AI排版处理失败:', error);
+
+    // 如果已经扣除了积分，需要退还
+    if (pointsDeducted && userId) {
+      try {
+        const requestUrl = request.headers.get('host')
+          ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+          : process.env.NEXTAUTH_URL || 'http://localhost:3004';
+
+        const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': request.headers.get('Cookie') || ''
+          },
+          body: JSON.stringify({
+            userId: userId,
+            points: 1,
+            description: 'AI智能排版失败退款'
+          })
+        });
+
+        if (refundResponse.ok) {
+          console.log('💰 已退还1积分（AI排版失败退款）');
+        } else {
+          console.error('❌ 积分退还失败:', await refundResponse.text());
+        }
+      } catch (refundError) {
+        console.error('❌ 积分退还错误:', refundError);
+      }
+    }
 
     // 根据错误类型提供不同的错误信息
     let errorMessage = 'AI排版失败，使用规则排版';
@@ -106,7 +225,8 @@ export async function POST(request: NextRequest) {
       originalText: originalText,
       error: errorMessage,
       fallback: true,
-      apiError: error instanceof Error ? error.message : '未知错误'
+      apiError: error instanceof Error ? error.message : '未知错误',
+      pointsRefunded: pointsDeducted
     });
   }
 }

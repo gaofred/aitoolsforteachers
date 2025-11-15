@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, FileText, TrendingDown, BarChart3, Eye, Edit, Package, Loader2 } from "lucide-react";
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import type { ContinuationWritingBatchTask, ContinuationWritingAssignment } from "../types";
 
 interface ContinuationWritingResultTableProps {
@@ -113,41 +114,283 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
   const exportIndividualResult = async (assignment: ContinuationWritingAssignment) => {
     if (!assignment.gradingResult) return;
 
+    const studentName = assignment.student.name;
+    const feedback = assignment.gradingResult.feedback || '';
+    const detailedFeedback = assignment.gradingResult.detailedFeedback || '';
+    const gradingDetails = assignment.gradingResult.gradingDetails;
+    const improvedVersion = assignment.gradingResult.improvedVersion || '';
+    const score = assignment.gradingResult.score || 0;
+    const gradedTime = assignment.gradingResult.gradedAt ? new Date(assignment.gradingResult.gradedAt).toLocaleString() : '';
+
     try {
-      const response = await fetch('/api/export/individual-result-fixed', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          studentName: assignment.student.name,
-          content: assignment.ocrResult.editedText || assignment.ocrResult.content,
-          gradingResult: assignment.gradingResult,
-          topic: task.topic || '',
-          type: 'continuation-writing'
-        }),
+      // 创建Word文档
+      const doc = new Document({
+        sections: [{
+          properties: {
+            page: {
+              // 页面边距：上、右、下、左 (单位：磅，1厘米=28.35磅)
+              margin: {
+                top: 284,   // 1厘米
+                right: 284, // 1厘米
+                bottom: 284,// 1厘米
+                left: 284   // 1厘米
+              }
+            }
+          },
+          children: [
+            // 标题
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "读后续写批改报告",
+                  bold: true,
+                  size: 18,
+                  color: "2E74B5"
+                })
+              ],
+              heading: HeadingLevel.TITLE,
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 400 }
+            }),
+
+            // 学生信息
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `学生姓名：${studentName}`,
+                  bold: true,
+                  size: 18
+                })
+              ],
+              spacing: { after: 200 }
+            }),
+
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `得分：${score}`,
+                  bold: true,
+                  size: 18
+                })
+              ],
+              spacing: { after: 100 }
+            }),
+
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `批改时间：${gradedTime}`,
+                  bold: true,
+                  size: 18
+                })
+              ],
+              spacing: { after: 400 }
+            }),
+
+            // 批改意见
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "批改意见",
+                  bold: true,
+                  size: 18,
+                  color: "2E74B5"
+                })
+              ],
+              heading: HeadingLevel.HEADING_1,
+              spacing: { before: 20, after: 20 }
+            }),
+
+            // 添加批改意见段落
+            ...feedback.split('\n').filter(line => line.trim()).map(line =>
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: line.trim(),
+                    size: 18
+                  })
+                ],
+                spacing: { after: 200 }
+              })
+            ),
+
+            // 详细批改意见（如果存在）
+            ...(detailedFeedback ? [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "详细批改意见",
+                    bold: true,
+                    size: 18,
+                    color: "2E74B5"
+                  })
+                ],
+                heading: HeadingLevel.HEADING_1,
+                spacing: { before: 20, after: 20 }
+              }),
+
+              ...detailedFeedback.split('\n').filter(line => line.trim()).map(line =>
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: line.trim(),
+                      size: 18
+                    })
+                  ],
+                  spacing: { after: 200 }
+                })
+              )
+            ] : []),
+
+            // 详细批改分析（如果存在）
+            ...(gradingDetails ? [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "详细分析",
+                    bold: true,
+                    size: 18,
+                    color: "2E74B5"
+                  })
+                ],
+                heading: HeadingLevel.HEADING_1,
+                spacing: { before: 20, after: 20 }
+              }),
+
+              // 内容要点分析
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "内容要点分析：",
+                    bold: true,
+                    size: 18
+                  }),
+                  new TextRun({
+                    text: gradingDetails.contentPoints || '',
+                    size: 18
+                  })
+                ],
+                spacing: { after: 200 }
+              }),
+
+              // 语言错误分析
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "语言错误分析：",
+                    bold: true,
+                    size: 18
+                  }),
+                  new TextRun({
+                    text: gradingDetails.languageErrors || '',
+                    size: 18
+                  })
+                ],
+                spacing: { after: 200 }
+              }),
+
+              // 逻辑问题分析
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "逻辑问题分析：",
+                    bold: true,
+                    size: 18
+                  }),
+                  new TextRun({
+                    text: gradingDetails.logicalIssues || '',
+                    size: 18
+                  })
+                ],
+                spacing: { after: 200 }
+              }),
+
+              // 逐句分析
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "逐句分析：",
+                    bold: true,
+                    size: 18
+                  }),
+                  new TextRun({
+                    text: gradingDetails.sentenceAnalysis || '',
+                    size: 18
+                  })
+                ],
+                spacing: { after: 200 }
+              }),
+
+              // 整体评价
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "整体评价：",
+                    bold: true,
+                    size: 18
+                  }),
+                  new TextRun({
+                    text: gradingDetails.overallEvaluation || '',
+                    size: 18
+                  })
+                ],
+                spacing: { after: 400 }
+              })
+            ] : []),
+
+            // 高分范文（如果存在）
+            ...(improvedVersion ? [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "高分范文",
+                    bold: true,
+                    size: 18,
+                    color: "2E74B5"
+                  })
+                ],
+                heading: HeadingLevel.HEADING_1,
+                spacing: { before: 20, after: 20 }
+              }),
+
+              ...improvedVersion.split('\n').filter(line => line.trim()).map(line =>
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: line.trim(),
+                      size: 18
+                    })
+                  ],
+                  spacing: { after: 200 }
+                })
+              )
+            ] : [])
+          ]
+        }]
       });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${assignment.student.name}_读后续写批改结果.txt`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert('导出失败');
-      }
+      // 生成并下载
+      const buffer = await Packer.toBuffer(doc);
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${studentName}_读后续写批改报告.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log('✅ 单个学生Word文档导出成功');
+
     } catch (error) {
-      console.error('导出失败:', error);
-      alert('导出失败');
+      console.error('单个学生Word文档导出失败:', error);
+      alert('Word文档导出失败，请稍后重试');
     }
   };
 
-  // 导出批改结果为ZIP包（每个学生一个TXT文件）
+  // 导出批改结果为ZIP包（每个学生一个Word文件）
   const exportBatchResultsToZip = async () => {
     if (completedAssignments.length === 0 || exporting.zip) {
       if (exporting.zip) {
@@ -160,44 +403,254 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
 
     try {
       setExporting(prev => ({ ...prev, zip: true }));
-      console.log('📦 开始生成学生文档ZIP包...');
+      console.log('📦 开始生成学生Word文档ZIP包...');
       const zip = new JSZip();
 
-      const promises = completedAssignments.map(async (assignment) => {
+      const promises = completedAssignments.map(async (assignment, index) => {
         if (!assignment.gradingResult) return null;
 
+        const studentNumber = (index + 1).toString().padStart(2, '0'); // 两位编号，如01, 02, 03...
+        const studentName = assignment.student.name;
+        const content = assignment.ocrResult.editedText || assignment.ocrResult.content;
+        const feedback = assignment.gradingResult.feedback || '';
+        const improvedVersion = assignment.gradingResult.improvedVersion || '';
+        const score = assignment.gradingResult.score || 0;
+        const gradedTime = assignment.gradingResult.gradedAt ? new Date(assignment.gradingResult.gradedAt).toLocaleString() : '';
+
         try {
-          const response = await fetch('/api/export/individual-result-fixed', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              studentName: assignment.student.name,
-              content: assignment.ocrResult.editedText || assignment.ocrResult.content,
-              gradingResult: assignment.gradingResult,
-              topic: task?.topic || '',
-              type: 'continuation-writing'
-            }),
+          // 创建Word文档
+          const doc = new Document({
+            sections: [{
+              properties: {
+                page: {
+                  // 页面边距：上、右、下、左 (单位：磅，1厘米=28.35磅)
+                  margin: {
+                    top: 284,   // 1厘米
+                    right: 284, // 1厘米
+                    bottom: 284,// 1厘米
+                    left: 284   // 1厘米
+                  }
+                }
+              },
+              children: [
+                // 标题
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "读后续写批改报告",
+                      bold: true,
+                      size: 18,
+                      color: "2E74B5"
+                    })
+                  ],
+                  heading: HeadingLevel.TITLE,
+                  alignment: AlignmentType.CENTER,
+                  spacing: { after: 400 }
+                }),
+
+                // 学生信息
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `学生姓名：${studentName}`,
+                      bold: true,
+                      size: 18
+                    })
+                  ],
+                  spacing: { after: 200 }
+                }),
+
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `得分：${score}`,
+                      bold: true,
+                      size: 18
+                    })
+                  ],
+                  spacing: { after: 100 }
+                }),
+
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `批改时间：${gradedTime}`,
+                      bold: true,
+                      size: 18
+                    })
+                  ],
+                  spacing: { after: 400 }
+                }),
+
+                // 批改意见
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "批改意见",
+                      bold: true,
+                      size: 18,
+                      color: "2E74B5"
+                    })
+                  ],
+                  heading: HeadingLevel.HEADING_1,
+                  spacing: { before: 20, after: 20 }
+                }),
+
+                // 添加批改意见段落
+                ...feedback.split('\n').filter(line => line.trim()).map(line =>
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: line.trim(),
+                        size: 18
+                      })
+                    ],
+                    spacing: { after: 0 }
+                  })
+                ),
+
+                // 详细批改分析（如果存在）
+                ...(assignment.gradingResult?.gradingDetails ? [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: "详细分析",
+                        bold: true,
+                        size: 18,
+                        color: "2E74B5"
+                      })
+                    ],
+                    heading: HeadingLevel.HEADING_1,
+                    spacing: { before: 20, after: 20 }
+                  }),
+
+                  // 内容要点分析
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: "内容要点分析：",
+                        bold: true,
+                        size: 18
+                      }),
+                      new TextRun({
+                        text: assignment.gradingResult.gradingDetails.contentPoints || '',
+                        size: 18
+                      })
+                    ],
+                    spacing: { after: 200 }
+                  }),
+
+                  // 语言错误分析
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: "语言错误分析：",
+                        bold: true,
+                        size: 18
+                      }),
+                      new TextRun({
+                        text: assignment.gradingResult.gradingDetails.languageErrors || '',
+                        size: 18
+                      })
+                    ],
+                    spacing: { after: 200 }
+                  }),
+
+                  // 逻辑问题分析
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: "逻辑问题分析：",
+                        bold: true,
+                        size: 18
+                      }),
+                      new TextRun({
+                        text: assignment.gradingResult.gradingDetails.logicalIssues || '',
+                        size: 18
+                      })
+                    ],
+                    spacing: { after: 200 }
+                  }),
+
+                  // 逐句分析
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: "逐句分析：",
+                        bold: true,
+                        size: 18
+                      }),
+                      new TextRun({
+                        text: assignment.gradingResult.gradingDetails.sentenceAnalysis || '',
+                        size: 18
+                      })
+                    ],
+                    spacing: { after: 200 }
+                  }),
+
+                  // 整体评价
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: "整体评价：",
+                        bold: true,
+                        size: 18
+                      }),
+                      new TextRun({
+                        text: assignment.gradingResult.gradingDetails.overallEvaluation || '',
+                        size: 18
+                      })
+                    ],
+                    spacing: { after: 400 }
+                  })
+                ] : []),
+
+                // 高分范文
+                ...(improvedVersion ? [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: "高分范文",
+                        bold: true,
+                        size: 18,
+                        color: "2E74B5"
+                      })
+                    ],
+                    heading: HeadingLevel.HEADING_1,
+                    spacing: { before: 20, after: 20 }
+                  }),
+
+                  // 添加范文段落
+                  ...improvedVersion.split('\n').filter(line => line.trim()).map(line =>
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: line.trim(),
+                          size: 18
+                        })
+                      ],
+                      spacing: { after: 0 }
+                    })
+                  )
+                ] : [])
+              ]
+            }]
           });
 
-          if (response.ok) {
-            const buffer = await response.arrayBuffer();
-            // 使用英文文件名避免中文编码问题
-            const fileName = `${assignment.student.name}_读后续写批改结果_${Date.now()}.txt`;
-            zip.file(fileName, buffer);
-            console.log(`✅ 已添加到ZIP: ${fileName}`);
-            return fileName;
-          } else {
-            console.error(`❌ 学生 ${assignment.student.name} 导出失败`);
-            return null;
-          }
+          // 生成buffer并添加到ZIP
+          const buffer = await Packer.toBuffer(doc);
+          const fileName = `${studentNumber}_${studentName}_读后续写批改报告.docx`;
+          zip.file(fileName, buffer);
+
+          console.log(`✅ 已添加到ZIP包: ${fileName}`);
+          return fileName;
         } catch (error) {
-          console.error(`❌ 学生 ${assignment.student.name} 处理失败:`, error);
+          console.error(`❌ 生成${studentName}的Word文档失败:`, error);
           return null;
         }
       });
 
+      // 等待所有文档生成完成
       const fileNames = await Promise.all(promises);
       const successfulFiles = fileNames.filter(name => name !== null);
 
@@ -212,7 +665,7 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
         saveAs(zipBuffer, zipFileName);
 
         console.log(`✅ ZIP包下载完成: ${zipFileName}`);
-        alert(`✅ 文档包导出成功！\n共包含 ${successfulFiles.length} 个学生的批改结果\n文件名: ${zipFileName}`);
+        alert(`✅ Word文档包导出成功！\n共包含 ${successfulFiles.length} 个学生的批改结果\n文件名: ${zipFileName}`);
       } else {
         alert('⚠️ 没有找到可导出的批改数据，请先完成批改');
       }
@@ -476,7 +929,7 @@ ${'='.repeat(80)}`;
     setIsAnalyzing(true);
 
     try {
-      // 构建请求数据
+      // 构建请求数据（恢复完整数据，因为已修复超时问题）
       const studentEssays = completedAssignments.map(assignment => ({
         studentName: assignment.student.name,
         content: assignment.ocrResult.editedText || assignment.ocrResult.content,

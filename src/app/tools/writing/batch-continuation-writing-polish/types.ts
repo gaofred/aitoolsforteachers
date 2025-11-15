@@ -7,6 +7,7 @@ export interface Student {
 
 // OCR识别结果
 export interface OCRResult {
+  success: boolean;
   imageId: string;
   studentName: string;
   originalText: string; // 完整的OCR原文
@@ -17,6 +18,9 @@ export interface OCRResult {
   confidence: number;
   processedAt: Date;
   imageData?: string; // 图片Base64数据
+  englishOnly?: string; // 纯英文内容
+  model?: string; // OCR模型
+  originalContent?: string; // 原始内容（alias for originalText）
 }
 
 // 读后续写批改结果

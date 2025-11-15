@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// 极客智坊API配置 - 与批量应用文和读后续写批改保持一致
+// 极客智坊API配置 - 与应用文API保持一致
 const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
-const GEEKAI_API_URL = 'https://geekai.co/v1/chat/completions';
+const GEEKAI_API_URL = 'https://geekai.co/api/v1/chat/completions';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,45 +34,52 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ 基本参数验证通过');
 
-    // 使用Supabase进行用户认证和点数管理
-    const { createServerSupabaseClient } = await import('@/lib/supabase-server');
-    const supabase = createServerSupabaseClient();
-
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (!user || error) {
-      console.log('全班共性分析API - 用户认证失败', { error: error?.message });
-      return NextResponse.json({
-        success: false,
-        error: '用户认证失败，请重新登录'
-      }, { status: 401 });
-    }
-
-    console.log('全班共性分析API - 用户验证成功', { userId: user.id, email: user.email });
-    userId = user.id;
-
-    // 点数管理 - 每次分析消耗3点数
-    const pointsCost = 3;
-    const { SupabasePointsService } = await import('@/lib/supabase-points-service');
-
+    // 获取用户身份并验证积分
     try {
-      const pointsDeducted = await SupabasePointsService.deductPoints(userId, pointsCost, 'continuation_writing_common_analysis');
+      // 获取用户信息
+      // 获取请求的基础URL，支持动态端口
+    const requestUrl = request.headers.get('host')
+      ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+      : process.env.NEXTAUTH_URL || 'http://localhost:3004';
 
-      if (!pointsDeducted) {
-        console.log('全班共性分析API - 点数不足，拒绝请求', { userId });
+    const userResponse = await fetch(`${requestUrl}/api/auth/user`, {
+        headers: {
+          'Cookie': request.headers.get('Cookie') || ''
+        }
+      });
+
+      if (!userResponse.ok) {
+        throw new Error('用户身份验证失败');
+      }
+
+      const userData = await userResponse.json();
+      userId = userData.id;
+
+      if (!userId) {
         return NextResponse.json({
           success: false,
-          error: `积分不足，需要${pointsCost}点数才能进行全班共性分析`
+          error: '用户身份验证失败，请重新登录'
+        }, { status: 401 });
+      }
+
+      console.log('🔐 用户身份验证成功:', { userId, userEmail: userData.email });
+
+      // 检查用户积分是否足够
+      if (userData.user_points && userData.user_points.points < 3) {
+        return NextResponse.json({
+          success: false,
+          error: '积分不足，需要3积分才能进行全班共性分析'
         }, { status: 402 });
       }
 
-      console.log('全班共性分析API - 点数扣除成功', { userId, pointsCost });
-    } catch (pointsError) {
-      console.error('全班共性分析API - 点数扣除失败:', pointsError);
+      console.log('💰 用户积分充足:', { currentPoints: userData.user_points.points, requiredPoints: 3 });
+
+    } catch (authError) {
+      console.error('❌ 用户身份验证失败:', authError);
       return NextResponse.json({
         success: false,
-        error: '点数验证失败，请稍后重试'
-      }, { status: 500 });
+        error: '用户身份验证失败，请重新登录'
+      }, { status: 401 });
     }
 
     console.log('📝 分析参数:', {
@@ -220,13 +227,7 @@ try {
 
       console.log('✅ 极客智坊API密钥验证通过，密钥长度:', GEEKAI_API_KEY.length);
 
-      // 创建一个超时控制器 - 设置比Vercel更短的超时时间
-      const controller = new AbortController();
-      const timeout = setTimeout(() => {
-        controller.abort();
-        console.log('⏰ API请求超时，终止连接');
-      }, 150000); // 150秒超时，给Vercel留出处理时间
-
+      // 🔧 修复：移除超时限制，与应用文API保持一致
       // 检查prompt长度，如果太长则截断
       let promptToUse = fullPrompt;
       if (fullPrompt.length > 50000) { // 50KB limit
@@ -241,32 +242,24 @@ try {
           'Authorization': `Bearer ${GEEKAI_API_KEY}`
         },
         body: JSON.stringify({
-          model: "qwen-plus",
+          model: 'gemini-2.5-pro', // 🔧 修复：使用与应用文相同的模型
           messages: [
-            {
-              role: 'system',
-              content: '你是一位专业的高中英语教师，擅长分析学生的读后续写作文，能够准确识别共性问题并提供实用的教学建议。'
-            },
             {
               role: 'user',
               content: promptToUse
             }
           ],
-          temperature: 0.3,
-          max_tokens: 25000, // 增加到25000 tokens以支持80个人的作文分析
+          temperature: 0.2, // 🔧 修复：使用与应用文相同的参数
+          max_tokens: 18000, // 🔧 修复：使用与应用文相同的参数
           stream: false
-        }),
-        signal: controller.signal
+        })
       });
 
-      // 清除超时计时器
-      clearTimeout(timeout);
-
-      console.log('🔍 极客智坊 qwen-plus API响应状态:', response.status);
+      console.log('🔍 极客智坊 Gemini 2.5 Pro API响应状态:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ 极客智坊 qwen-plus API调用失败:', {
+        console.error('❌ 极客智坊 Gemini 2.5 Pro API调用失败:', {
           status: response.status,
           statusText: response.statusText,
           errorText: errorText
@@ -279,11 +272,11 @@ try {
           }, { status: 500 });
         }
 
-        throw new Error(`极客智坊 qwen-plus API调用失败: ${response.status}`);
+        throw new Error(`极客智坊 Gemini 2.5 Pro API调用失败: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ 极客智坊 qwen-plus API调用成功:', {
+      console.log('✅ 极客智坊 Gemini 2.5 Pro API调用成功:', {
         hasChoices: !!data.choices,
         choicesLength: data.choices?.length || 0,
         hasContent: !!data.choices?.[0]?.message?.content
@@ -295,8 +288,35 @@ try {
         throw new Error('极客智坊 API返回了空结果');
       }
 
-      // 积分已在前面成功扣除
-      pointsDeducted = true;
+      // 扣除用户积分
+      try {
+        const requestUrl = request.headers.get('host')
+          ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+          : process.env.NEXTAUTH_URL || 'http://localhost:3004';
+
+        const deductResponse = await fetch(`${requestUrl}/api/points/deduct`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': request.headers.get('Cookie') || ''
+          },
+          body: JSON.stringify({
+            userId: userId,
+            points: 3,
+            description: `读后续写全班共性分析 - ${studentEssays.length}名学生作文`
+          })
+        });
+
+        if (deductResponse.ok) {
+          pointsDeducted = true;
+          console.log('💰 积分扣除成功: -3积分');
+        } else {
+          console.warn('⚠️ 积分扣除失败:', await deductResponse.text());
+        }
+      } catch (deductError) {
+        console.error('❌ 积分扣除异常:', deductError);
+        // 不影响主功能，继续执行
+      }
 
       console.log('🎉 读后续写全班共性分析完成:', {
         resultLength: analysisResult.length,
@@ -322,13 +342,27 @@ try {
         // 如果已经扣除了积分，需要退还
         if (pointsDeducted && userId) {
           try {
-            const { SupabasePointsService } = await import('@/lib/supabase-points-service');
-            const refundSuccess = await SupabasePointsService.addPoints(userId, 3, '读后续写全班共性分析超时退款');
+            const requestUrl = request.headers.get('host')
+              ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+              : process.env.NEXTAUTH_URL || 'http://localhost:3004';
 
-            if (refundSuccess) {
+            const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Cookie': request.headers.get('Cookie') || ''
+              },
+              body: JSON.stringify({
+                userId: userId,
+                points: 3,
+                description: '读后续写全班共性分析超时退款'
+              })
+            });
+
+            if (refundResponse.ok) {
               console.log('💰 已退还3积分（超时退款）');
             } else {
-              console.error('❌ 积分退还失败');
+              console.error('❌ 积分退还失败:', await refundResponse.text());
             }
           } catch (refundError) {
             console.error('❌ 积分退还错误:', refundError);
@@ -348,13 +382,27 @@ try {
         // 如果已经扣除了积分，需要退还
         if (pointsDeducted && userId) {
           try {
-            const { SupabasePointsService } = await import('@/lib/supabase-points-service');
-            const refundSuccess = await SupabasePointsService.addPoints(userId, 3, '读后续写全班共性分析服务终止退款');
+            const requestUrl = request.headers.get('host')
+              ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+              : process.env.NEXTAUTH_URL || 'http://localhost:3004';
 
-            if (refundSuccess) {
+            const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Cookie': request.headers.get('Cookie') || ''
+              },
+              body: JSON.stringify({
+                userId: userId,
+                points: 3,
+                description: '读后续写全班共性分析服务终止退款'
+              })
+            });
+
+            if (refundResponse.ok) {
               console.log('💰 已退还3积分（服务终止退款）');
             } else {
-              console.error('❌ 积分退还失败');
+              console.error('❌ 积分退还失败:', await refundResponse.text());
             }
           } catch (refundError) {
             console.error('❌ 积分退还错误:', refundError);
@@ -370,13 +418,27 @@ try {
       // 如果已经扣除了积分，需要退还
       if (pointsDeducted && userId) {
         try {
-          const { SupabasePointsService } = await import('@/lib/supabase-points-service');
-          const refundSuccess = await SupabasePointsService.addPoints(userId, 3, '读后续写全班共性分析失败退款');
+          const requestUrl = request.headers.get('host')
+            ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
+            : process.env.NEXTAUTH_URL || 'http://localhost:3004';
 
-          if (refundSuccess) {
+          const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': request.headers.get('Cookie') || ''
+            },
+            body: JSON.stringify({
+              userId: userId,
+              points: 3,
+              description: '读后续写全班共性分析失败退款'
+            })
+          });
+
+          if (refundResponse.ok) {
             console.log('💰 已退还3积分');
           } else {
-            console.error('❌ 积分退还失败');
+            console.error('❌ 积分退还失败:', await refundResponse.text());
           }
         } catch (refundError) {
           console.error('❌ 积分退还错误:', refundError);

@@ -164,22 +164,43 @@ export function needsFormatting(text: string): boolean {
     return false;
   }
 
-  // 检查常见问题
-  const issues = [
-    text.includes('  '), // 多余空格
-    text.includes('..'), // 多余句号
-    /[.!?][a-z]/.test(text), // 标点后小写字母
-    text.length > 100 && !text.includes('\n'), // 较长文本无分段
-    text.includes('"') && !text.includes('"'), // 引号不匹配
-    /-\s*\n/.test(text), // 连字符后换行
-    /\n\s*-\s*/.test(text), // 换行连字符
-    /：.*[a-zA-Z]/.test(text), // 中文冒号后跟英文字母
-    /[a-zA-Z].*：/.test(text), // 英文字母后跟中文冒号
-    /\s*[，。！？]/.test(text), // 英文内容中有中文标点
-    /[^a-zA-Z0-9\s.,;:!?'"()\-\[\]\n]/.test(text), // 包含非标准字符
+  // 如果文本已经格式化良好（包含合理的换行和段落），则不需要格式化
+  const lines = text.split('\n');
+  const hasReasonableLineBreaks = lines.some(line => line.trim().length > 0);
+
+  // 如果文本很短且已经合理分段，则不需要格式化
+  if (text.length < 100 && hasReasonableLineBreaks) {
+    return false;
+  }
+
+  // 检查OCR常见的格式问题
+  const formattingIssues = [
+    // 明显的OCR换行问题
+    text.length > 50 && /\n.{1,10}\n/.test(text), // 过短的行（断开的单词）
+    /[a-zA-Z]\n[a-zA-Z]/.test(text), // 单词中间换行
+    /\n\s{2,}/.test(text), // 连续空行过多
+    /\s*[\w.,!?;:]\s*\n/.test(text), // 标点后直接换行（通常不应该）
+
+    // 明显需要格式化的情况
+    text.length > 200 && lines.length < 3, // 长文本但分段过少
+    /\n\s*\n\s*\n/.test(text), // 多个连续空行
+    text.replace(/\s/g, '').length > 100 && !text.includes('\n'), // 长文本无任何换行
+
+    // OCR导致的断开单词情况
+    /\b[a-z]+\n[a-z]+\b/i.test(text), // 小写单词断开
+    /\b[A-Z]+\n[A-Z]+\b/.test(text), // 大写单词断开
+    /ing\n.*ing/i.test(text), // -ing词断开
+
+    // 需要处理的多余空格
+    /  +/.test(text), // 连续多个空格
+    /^ +/.test(text), // 行首空格
+    / +$/.test(text), // 行尾空格
+
+    // 明显的格式错误
+    text.includes(',,') || text.includes('..') || text.includes(';;'), // 重复标点
   ];
 
-  return issues.some(Boolean);
+  return formattingIssues.some(Boolean);
 }
 
 /**

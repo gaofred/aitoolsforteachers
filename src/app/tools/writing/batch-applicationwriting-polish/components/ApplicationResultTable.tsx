@@ -172,13 +172,14 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             new TextRun({
               text: "学生共性问题分析报告",
               bold: true,
-              size: 32,
+              size: 18,
               color: "2E74B5"
             })
           ],
           heading: HeadingLevel.TITLE,
           alignment: AlignmentType.CENTER,
-          spacing: { after: 400 }
+          spacing: { after: 400 },
+          lineSpacing: 18 // 9磅行距
         }),
 
         // 基本信息
@@ -187,14 +188,15 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             new TextRun({
               text: "应用文题目：",
               bold: true,
-              size: 24
+              size: 18
             }),
             new TextRun({
               text: task.topic,
-              size: 24
+              size: 18
             })
           ],
-          spacing: { after: 200 }
+          spacing: { after: 200 },
+          lineSpacing: 18 // 9磅行距
         }),
 
         new Paragraph({
@@ -202,14 +204,15 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             new TextRun({
               text: "分析时间：",
               bold: true,
-              size: 24
+              size: 18
             }),
             new TextRun({
               text: new Date().toLocaleString('zh-CN'),
-              size: 24
+              size: 18
             })
           ],
-          spacing: { after: 200 }
+          spacing: { after: 200 },
+          lineSpacing: 18 // 9磅行距
         }),
 
         // 统计数据
@@ -218,12 +221,13 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             new TextRun({
               text: "数据统计",
               bold: true,
-              size: 28,
+              size: 18,
               color: "2E74B5"
             })
           ],
           heading: HeadingLevel.HEADING_1,
-          spacing: { before: 0, after: 0 }
+          spacing: { before: 0, after: 0 },
+          lineSpacing: 18 // 9磅行距
         }),
 
         new Paragraph({
@@ -233,10 +237,11 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     `• 平均分数：${(completedAssignments.reduce((sum, a) => sum + (a.gradingResult?.score || 0), 0) / completedAssignments.length).toFixed(1)} 分\n` +
                     `• 优秀作文（≥80分）：${completedAssignments.filter(a => (a.gradingResult?.score || 0) >= 80).length} 篇\n` +
                     `• 需要提高（<60分）：${completedAssignments.filter(a => (a.gradingResult?.score || 0) < 60).length} 篇`,
-              size: 22
+              size: 18
             })
           ],
-          spacing: { after: 400 }
+          spacing: { after: 400 },
+          lineSpacing: 18 // 9磅行距
         }),
 
         // 分析结果
@@ -245,12 +250,13 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
             new TextRun({
               text: "详细分析结果",
               bold: true,
-              size: 28,
+              size: 18,
               color: "2E74B5"
             })
           ],
           heading: HeadingLevel.HEADING_1,
-          spacing: { before: 0, after: 0 }
+          spacing: { before: 0, after: 0 },
+          lineSpacing: 18 // 9磅行距
         })
       ];
 
@@ -266,12 +272,13 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                   new TextRun({
                     text: titleText,
                     bold: true,
-                    size: 26,
+                    size: 18,
                     color: "2E74B5"
                   })
                 ],
                 heading: paragraph.includes('###') ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_1,
-                spacing: { before: 20, after: 20 }
+                spacing: { before: 20, after: 20 },
+                lineSpacing: 18 // 9磅行距
               })
             );
           } else {
@@ -281,10 +288,11 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                 children: [
                   new TextRun({
                     text: paragraph.trim(),
-                    size: 22
+                    size: 18
                   })
                 ],
-                spacing: { after: 200 }
+                spacing: { after: 200 },
+                lineSpacing: 18 // 9磅行距
               })
             );
           }
@@ -297,21 +305,36 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
           children: [
             new TextRun({
               text: "---\n*注：此分析报告基于Gemini 2.5 Pro模型生成，建议结合具体教学实际情况进行调整。*",
-              size: 20,
+              size: 18,
               color: "666666",
               italics: true
             })
           ],
           alignment: AlignmentType.CENTER,
-          spacing: { before: 0 }
+          spacing: { before: 0 },
+          lineSpacing: 18 // 9磅行距
         })
       );
 
       // 创建Word文档
       const doc = new Document({
         sections: [{
-          properties: {},
-          children: documentChildren
+          properties: {
+            page: {
+              // 页面边距：上、右、下、左 (单位：磅，1厘米=28.35磅)
+              margin: {
+                top: 284,   // 1厘米
+                right: 284, // 1厘米
+                bottom: 284,// 1厘米
+                left: 284   // 1厘米
+              }
+            }
+          },
+          children: documentChildren.map(child => ({
+            ...child,
+            // 为所有段落设置行距
+            lineSpacing: child.lineSpacing || 18 // 9磅行距
+          }))
         }]
       });
 
@@ -497,7 +520,17 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
           // 创建Word文档
           const doc = new Document({
             sections: [{
-              properties: {},
+              properties: {
+                page: {
+                  // 页面边距：上、右、下、左 (单位：磅，1厘米=28.35磅)
+                  margin: {
+                    top: 284,   // 1厘米
+                    right: 284, // 1厘米
+                    bottom: 284,// 1厘米
+                    left: 284   // 1厘米
+                  }
+                }
+              },
               children: [
                 // 标题
                 new Paragraph({
@@ -505,7 +538,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     new TextRun({
                       text: "应用文批改报告",
                       bold: true,
-                      size: 32,
+                      size: 18,
                       color: "2E74B5"
                     })
                   ],
@@ -520,7 +553,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     new TextRun({
                       text: `学生姓名：${studentName}`,
                       bold: true,
-                      size: 24
+                      size: 18
                     })
                   ],
                   spacing: { after: 200 }
@@ -531,7 +564,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     new TextRun({
                       text: `得分：${score}`,
                       bold: true,
-                      size: 20
+                      size: 18
                     })
                   ],
                   spacing: { after: 100 }
@@ -542,7 +575,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     new TextRun({
                       text: `批改时间：${gradedTime}`,
                       bold: true,
-                      size: 20
+                      size: 18
                     })
                   ],
                   spacing: { after: 400 }
@@ -554,12 +587,13 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     new TextRun({
                       text: "原文内容",
                       bold: true,
-                      size: 24,
+                      size: 18,
                       color: "2E74B5"
                     })
                   ],
                   heading: HeadingLevel.HEADING_1,
-                  spacing: { before: 20, after: 20 }
+                  spacing: { before: 20, after: 20 },
+                  lineSpacing: 18 // 9磅行距
                 }),
 
                 // 添加原文段落
@@ -568,10 +602,11 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     children: [
                       new TextRun({
                         text: line.trim(),
-                        size: 22
+                        size: 18
                       })
                     ],
-                    spacing: { after: 0 }
+                    spacing: { after: 0 },
+                    lineSpacing: 18 // 9磅行距
                   })
                 ),
 
@@ -581,12 +616,13 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     new TextRun({
                       text: "批改意见",
                       bold: true,
-                      size: 24,
+                      size: 18,
                       color: "2E74B5"
                     })
                   ],
                   heading: HeadingLevel.HEADING_1,
-                  spacing: { before: 20, after: 20 }
+                  spacing: { before: 20, after: 20 },
+                  lineSpacing: 18 // 9磅行距
                 }),
 
                 // 添加批改意见段落
@@ -595,10 +631,11 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     children: [
                       new TextRun({
                         text: line.trim(),
-                        size: 22
+                        size: 18
                       })
                     ],
-                    spacing: { after: 0 }
+                    spacing: { after: 0 },
+                    lineSpacing: 18 // 9磅行距
                   })
                 ),
 
@@ -609,12 +646,13 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                       new TextRun({
                         text: "高分范文",
                         bold: true,
-                        size: 24,
+                        size: 18,
                         color: "2E74B5"
                       })
                     ],
                     heading: HeadingLevel.HEADING_1,
-                    spacing: { before: 20, after: 20 }
+                    spacing: { before: 20, after: 20 },
+                    lineSpacing: 18 // 9磅行距
                   }),
 
                   // 添加范文段落
@@ -623,10 +661,11 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                       children: [
                         new TextRun({
                           text: line.trim(),
-                          size: 22
+                          size: 18
                         })
                       ],
-                      spacing: { after: 0 }
+                      spacing: { after: 0 },
+                      lineSpacing: 18 // 9磅行距
                     })
                   )
                 ] : [])
@@ -868,8 +907,22 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
     // 创建文档
     const doc = new Document({
       sections: [{
-        properties: {},
-        children: children
+        properties: {
+          page: {
+            // 页面边距：上、右、下、左 (单位：磅，1厘米=28.35磅)
+            margin: {
+              top: 284,   // 1厘米
+              right: 284, // 1厘米
+              bottom: 284,// 1厘米
+              left: 284   // 1厘米
+            }
+          }
+        },
+        children: children.map(child => ({
+          ...child,
+          // 为所有段落设置行距
+          lineSpacing: child.lineSpacing || 18 // 9磅行距
+        }))
       }]
     });
 
@@ -922,13 +975,13 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
           const doc = new Document({
             sections: [{
               properties: {
-                // 1cm边距 (567 twips per cm)
+                // 1cm边距 (284 twips per cm)
                 page: {
                   margin: {
-                    top: 567,    // 1cm
-                    right: 567,  // 1cm
-                    bottom: 567, // 1cm
-                    left: 567    // 1cm
+                    top: 284,    // 1cm
+                    right: 284,  // 1cm
+                    bottom: 284, // 1cm
+                    left: 284    // 1cm
                   }
                 }
               },
@@ -939,7 +992,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                     new TextRun({
                       text: "应用文批改报告",
                       bold: true,
-                      size: 20, // 10pt字体
+                      size: 18, // 9pt字体
                       color: "2E74B5"
                     })
                   ],
@@ -948,7 +1001,7 @@ const ApplicationResultTable: React.FC<ApplicationResultTableProps> = ({
                   spacing: {
                     before: 20,        // 段前1磅
                     after: 20,         // 段后1磅
-                    line: 200,         // 固定值10磅行距
+                    line: 180,         // 固定值9磅行距
                     lineRule: 'exact'  // 设置为固定值行距
                   }
                 }),

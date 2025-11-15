@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
 interface UserContextType {
   currentUser: any;
@@ -16,12 +16,64 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 const USER_STORAGE_KEY = 'english_teaching_user';
 const USER_POINTS_KEY = 'english_teaching_user_points';
 
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userPoints, setUserPoints] = useState(25);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false); // 防止并发刷新
+
+  // 检查是否有正在进行的OCR任务
+  const checkForActiveOCRTasks = useCallback((): boolean => {
+    if (typeof window === 'undefined') return false;
+
+    try {
+      // 检查localStorage中是否有正在进行的OCR任务
+      const keys = Object.keys(localStorage).filter(key =>
+        key.startsWith('batch_ocr_') && key.includes('task_')
+      );
+
+      for (const key of keys) {
+        try {
+          const data = JSON.parse(localStorage.getItem(key) || '{}');
+
+          // 检查是否是正在进行的任务
+          if (data.isProcessing === true) {
+            console.log('🔍 检测到正在进行的OCR任务:', key);
+            return true;
+          }
+
+          // 检查是否有待处理的图片
+          if (data.uploadedImages && Array.isArray(data.uploadedImages)) {
+            const pendingImages = data.uploadedImages.filter((img: any) =>
+              img.status === 'pending' || img.status === 'processing' || img.status === 'compressing'
+            );
+
+            if (pendingImages.length > 0) {
+              console.log('🔍 检测到待处理的OCR图片:', key, pendingImages.length, '张');
+              return true;
+            }
+          }
+
+          // 检查任务时间戳，如果是最近5分钟的任务，可能还在进行中
+          if (data.timestamp && (Date.now() - data.timestamp) < 5 * 60 * 1000) {
+            console.log('🔍 检测到最近5分钟的OCR任务:', key);
+            return true;
+          }
+
+        } catch (error) {
+          // 忽略单个key的解析错误，继续检查其他key
+          continue;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.warn('🔍 检查OCR任务状态时出错:', error);
+      return false;
+    }
+  }, []);
 
   // 从本地存储恢复用户数据
   const restoreFromLocalStorage = () => {
@@ -31,19 +83,38 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const storedPoints = localStorage.getItem(USER_POINTS_KEY);
 
         if (storedUser) {
-          const userData = JSON.parse(storedUser);
-          setCurrentUser(userData);
-          console.log('📱 从本地存储恢复用户数据:', userData.name);
+          try {
+            const userData = JSON.parse(storedUser);
+            setCurrentUser(userData);
+            console.log('📱 从本地存储恢复用户数据:', userData.name);
+          } catch (parseError) {
+            console.warn('⚠️ 用户数据解析失败，清除损坏的数据:', parseError);
+            localStorage.removeItem(USER_STORAGE_KEY);
+          }
         }
 
         if (storedPoints) {
-          const points = parseInt(storedPoints);
-          setUserPoints(points);
-          console.log('📱 从本地存储恢复用户积分:', points);
+          const points = parseInt(storedPoints, 10);
+          if (!isNaN(points)) {
+            setUserPoints(points);
+            console.log('📱 从本地存储恢复用户积分:', points);
+          } else {
+            console.warn('⚠️ 积分数据格式错误，清除损坏的数据');
+            localStorage.removeItem(USER_POINTS_KEY);
+          }
         }
       }
     } catch (error) {
       console.error('❌ 从本地存储恢复数据失败:', error);
+      // 如果localStorage访问完全失败，清除可能的损坏数据
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem(USER_STORAGE_KEY);
+          localStorage.removeItem(USER_POINTS_KEY);
+        } catch (clearError) {
+          console.warn('⚠️ 清除localStorage数据也失败:', clearError);
+        }
+      }
     }
   };
 
@@ -256,10 +327,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
         // 延迟3秒后刷新，给OCR等重负载操作缓冲时间
         visibilityTimeout = setTimeout(() => {
+          // 检查是否有正在进行的OCR任务
+          const hasActiveOCRTasks = checkForActiveOCRTasks();
+
           // 检查页面是否有大量活动请求（避免在OCR处理时刷新）
           const hasActiveRequests = navigator.onLine &&
             !isLoadingUser &&
-            retryCount === 0; // 只有在没有重试时才刷新
+            retryCount === 0 && // 只有在没有重试时才刷新
+            !hasActiveOCRTasks; // 确保没有正在进行的OCR任务
+
+          if (hasActiveOCRTasks) {
+            console.log('👁️ 检测到OCR任务正在进行，跳过用户状态刷新');
+            return;
+          }
 
           if (hasActiveRequests) {
             console.log('👁️ 智能条件满足，检查用户状态');
@@ -278,7 +358,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         clearTimeout(visibilityTimeout);
       }
     };
-  }, [currentUser, isLoadingUser, retryCount]);
+  }, [currentUser, isLoadingUser, retryCount, checkForActiveOCRTasks]);
 
   // 网络连接状态变化时刷新（添加防抖）
   useEffect(() => {
@@ -293,6 +373,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (currentUser) {
         console.log('🌐 网络连接恢复，准备刷新用户状态');
         onlineTimeout = setTimeout(() => {
+          // 检查是否有正在进行的OCR任务
+          const hasActiveOCRTasks = checkForActiveOCRTasks();
+
+          if (hasActiveOCRTasks) {
+            console.log('🌐 检测到OCR任务正在进行，跳过网络恢复时的用户状态刷新');
+            return;
+          }
+
           console.log('🌐 延迟刷新用户状态');
           refreshUser();
         }, 2000); // 网络恢复后等待2秒
@@ -316,7 +404,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         clearTimeout(onlineTimeout);
       }
     };
-  }, [currentUser]);
+  }, [currentUser, checkForActiveOCRTasks]);
 
   // 移除用户空闲刷新机制，减少不必要的网络请求
   // 现在只在关键事件时刷新，避免过度刷新
