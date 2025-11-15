@@ -1255,7 +1255,26 @@ The future of AI depends on our ability to balance innovation with responsibilit
     const item = navigationData
       .find(cat => cat.id === categoryId)
       ?.items.find(item => item.id === itemId);
-    
+
+    // 批量修改工具点数检测
+    if ((itemId === 'batch-applicationwriting-polish' || itemId === 'batch-continuation-writing-polish') && item) {
+      const requiredPoints = 50;
+
+      // 检查用户登录状态
+      if (!currentUser) {
+        alert('请先登录后使用批量修改功能');
+        router.push('/auth/signin');
+        return;
+      }
+
+      // 检查用户点数
+      if (!currentUser.user_points || currentUser.user_points.points < requiredPoints) {
+        const currentPoints = currentUser.user_points?.points || 0;
+        alert(`批量修改功能需要${requiredPoints}点数，您当前只有${currentPoints}点数。\n\n点数不足，无法使用此功能。请通过以下方式获取更多点数：\n• 邀请好友奖励\n• 每日登录奖励\n• 兑换卡充值`);
+        return;
+      }
+    }
+
     if (item && (item as any).route) {
       // 使用 startTransition 包装导航，避免预取错误
       startTransition(() => {
@@ -1263,7 +1282,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
       });
       return;
     }
-    
+
     // 否则使用原来的逻辑
     setActiveItem(itemId);
     if (!expandedCategories.includes(categoryId)) {
