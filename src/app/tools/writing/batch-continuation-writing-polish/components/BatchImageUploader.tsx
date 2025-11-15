@@ -164,18 +164,86 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     restoreData();
   }, [task?.id, task?.assignments, STORAGE_KEY]);
 
-  // 存储空间检测函数
-  const checkStorageQuota = () => {
+  // 🔧 增强的存储空间检测函数
+  const checkStorageQuota = (requiredSpace = 1024) => {
     try {
-      const testKey = 'test_storage_quota_continuation';
-      const testData = 'x'.repeat(1024); // 1KB测试数据
+      // 先清理过期数据释放空间
+      cleanupExpiredData();
 
-      // 测试存储空间
-      localStorage.setItem(testKey, testData);
-      localStorage.removeItem(testKey);
-      return true;
+      // 计算当前存储使用情况
+      let totalSize = 0;
+      let batchSize = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) {
+          const value = localStorage.getItem(key);
+          if (value) {
+            const size = new Blob([value]).size;
+            totalSize += size;
+            if (key.startsWith('batch_ocr_')) {
+              batchSize += size;
+            }
+          }
+        }
+      }
+
+      console.log('💾 存储使用情况:', {
+        总使用: Math.round(totalSize / 1024) + 'KB',
+        批量OCR: Math.round(batchSize / 1024) + 'KB',
+        需要空间: Math.round(requiredSpace / 1024) + 'KB'
+      });
+
+      // 估算localStorage限制（通常为5-10MB）
+      const estimatedLimit = 5 * 1024 * 1024; // 5MB保守估计
+      const availableSpace = estimatedLimit - totalSize;
+
+      // 如果可用空间不足，尝试清理
+      if (availableSpace < requiredSpace) {
+        console.warn('⚠️ 存储空间不足，尝试清理历史数据');
+
+        // 清理过期数据
+        cleanupExpiredData();
+
+        // 如果批量数据超过2MB，进行紧急清理
+        if (batchSize > 2 * 1024 * 1024) {
+          cleanupAllBatchData();
+        }
+
+        // 重新计算可用空间
+        let newTotalSize = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key) {
+            const value = localStorage.getItem(key);
+            if (value) {
+              newTotalSize += new Blob([value]).size;
+            }
+          }
+        }
+
+        const newAvailableSpace = estimatedLimit - newTotalSize;
+        if (newAvailableSpace < requiredSpace) {
+          console.error('❌ 清理后空间仍不足:', {
+            需要空间: Math.round(requiredSpace / 1024) + 'KB',
+            可用空间: Math.round(newAvailableSpace / 1024) + 'KB'
+          });
+          return false;
+        }
+      }
+
+      // 实际测试写入
+      const testKey = 'test_storage_quota_continuation_' + Date.now();
+      try {
+        localStorage.setItem(testKey, 'x'.repeat(requiredSpace));
+        localStorage.removeItem(testKey);
+        return true;
+      } catch (testError) {
+        console.error('❌ 存储写入测试失败:', testError);
+        return false;
+      }
+
     } catch (error) {
-      console.warn('存储空间不足:', error);
+      console.error('❌ 存储空间检测异常:', error);
       return false;
     }
   };
@@ -207,10 +275,70 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     }
   };
 
+  // 🔧 紧急清理所有批量数据的函数
+  const cleanupAllBatchData = () => {
+    try {
+      const keys = Object.keys(localStorage).filter(key =>
+        key.startsWith('batch_ocr_') || key.startsWith('batch_ocr_continuation_')
+      );
+
+      let cleanedCount = 0;
+      keys.forEach(key => {
+        localStorage.removeItem(key);
+        cleanedCount++;
+      });
+
+      if (cleanedCount > 0) {
+        console.log('🗑️ 紧急清理批量数据，清理数量:', cleanedCount);
+      }
+    } catch (error) {
+      console.error('❌ 紧急清理批量数据失败:', error);
+    }
+  };
+
+  // 估算数据大小函数
+  const estimateDataSize = () => {
+    try {
+      // 优化图片数据，只保存必要字段
+      const optimizedImages = uploadedImages.map(img => ({
+        id: img.id,
+        status: img.status,
+        error: img.error,
+        ocrResult: img.ocrResult ? {
+          success: img.ocrResult.success,
+          result: img.ocrResult.result,
+          englishOnly: img.ocrResult.englishOnly,
+          imageId: img.ocrResult.imageId,
+          model: img.ocrResult.model
+        } : undefined,
+        fileSize: img.file?.size,
+        fileName: img.file?.name,
+        compressionInfo: img.compressionInfo
+      }));
+
+      const dataToSave = {
+        taskId: task?.id,
+        uploadedImages: optimizedImages,
+        isProcessing,
+        ocrProgressMessage,
+        timestamp: Date.now(),
+        version: 'optimized'
+      };
+
+      const jsonString = JSON.stringify(dataToSave);
+      return jsonString.length * 2; // 乘以2作为缓冲，考虑字符串开销
+    } catch (error) {
+      console.warn('估算数据大小失败:', error);
+      return 50 * 1024; // 默认50KB
+    }
+  };
+
   // 优化的数据保存函数（只保存必要数据，排除大文件）
   const saveOptimizedData = () => {
-    if (!checkStorageQuota()) {
-      console.warn('存储空间不足，跳过保存');
+    // 先估算要保存的数据大小
+    const estimatedSize = estimateDataSize();
+    if (!checkStorageQuota(estimatedSize)) {
+      console.warn('存储空间不足，跳过保存。需要空间:', Math.round(estimatedSize / 1024), 'KB');
       return false;
     }
 
@@ -218,7 +346,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       // 清理过期数据
       cleanupExpiredData();
 
-      // 优化图片数据，只保存必要字段
+      // 使用估算的数据，避免重复计算
       const optimizedImages = uploadedImages.map(img => ({
         id: img.id,
         status: img.status,
@@ -239,29 +367,99 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
       const dataToSave = {
         taskId: task?.id,
-        uploadedImages: optimizedImages, // 使用优化后的数据
+        uploadedImages: optimizedImages,
         isProcessing,
         ocrProgressMessage,
         timestamp: Date.now(),
-        version: 'optimized' // 标记这是优化后的数据格式
+        version: 'optimized'
       };
 
       const jsonString = JSON.stringify(dataToSave);
 
-      // 检查数据大小（限制在2MB以内）
-      if (jsonString.length > 2 * 1024 * 1024) {
-        console.warn('数据过大，跳过保存。大小:', Math.round(jsonString.length / 1024), 'KB');
-        return false;
+      // 如果数据超过500KB，尝试最小化格式
+      if (jsonString.length > 500 * 1024) {
+        console.warn('⚠️ 数据过大，尝试最小化格式。大小:', Math.round(jsonString.length / 1024), 'KB');
+
+        const minimalData = {
+          taskId: task?.id,
+          uploadedImages: uploadedImages.map(img => ({
+            id: img.id,
+            status: img.status,
+            // 只保存成功结果的基本信息
+            hasResult: img.status === 'completed' && !!img.ocrResult?.result,
+            resultLength: img.status === 'completed' && img.ocrResult?.result ? img.ocrResult.result.length : 0,
+            studentName: img.status === 'completed' && img.ocrResult?.result && img.ocrResult.result.includes('学生姓名：') ?
+              img.ocrResult.result.split('学生姓名：')[1]?.split('\n')[0]?.trim() : '未知',
+          })),
+          completedCount: uploadedImages.filter(img => img.status === 'completed').length,
+          totalCount: uploadedImages.length,
+          isProcessing,
+          timestamp: Date.now(),
+          version: 'minimal'
+        };
+
+        const minimalJson = JSON.stringify(minimalData);
+        if (minimalJson.length <= 500 * 1024) {
+          localStorage.setItem(STORAGE_KEY, minimalJson);
+          console.log('💾 已使用最小化格式保存:', {
+            taskId: task?.id,
+            原始大小: Math.round(jsonString.length / 1024) + 'KB',
+            压缩后: Math.round(minimalJson.length / 1024) + 'KB'
+          });
+          return true;
+        } else {
+          console.warn('⚠️ 即使最小化格式也超过500KB限制');
+          return false;
+        }
       }
 
-      localStorage.setItem(STORAGE_KEY, jsonString);
-      console.log('💾 读后续写OCR数据已优化保存:', {
-        taskId: task?.id,
-        imageCount: uploadedImages.length,
-        isProcessing,
-        dataSize: Math.round(jsonString.length / 1024) + 'KB'
-      });
-      return true;
+      try {
+        localStorage.setItem(STORAGE_KEY, jsonString);
+        console.log('💾 已保存读后续写OCR数据:', {
+          taskId: task?.id,
+          imageSize: Math.round(jsonString.length / 1024) + 'KB',
+          imagesCount: uploadedImages.length
+        });
+        return true;
+      } catch (saveError) {
+        // 检查是否是配额超限错误
+        if (saveError instanceof Error && saveError.name === 'QuotaExceededError') {
+          console.error('❌ localStorage配额已满，尝试紧急清理后重试');
+
+          // 紧急清理所有批量数据
+          cleanupAllBatchData();
+
+          // 清理后，尝试只保存最关键的信息
+          try {
+            const minimalData = {
+              taskId: task?.id,
+              completedCount: uploadedImages.filter(img => img.status === 'completed').length,
+              totalCount: uploadedImages.length,
+              isProcessing,
+              timestamp: Date.now(),
+              version: 'emergency'
+            };
+
+            const minimalJson = JSON.stringify(minimalData);
+            localStorage.setItem(STORAGE_KEY, minimalJson);
+            console.log('💾 紧急模式保存成功，仅保存关键状态信息');
+            return true;
+          } catch (emergencyError) {
+            console.error('❌ 即使是紧急模式也无法保存数据:', emergencyError);
+            // 最后的手段：完全清除存储
+            try {
+              clearStoredData();
+              console.log('🗑️ 已清除所有存储数据，释放空间');
+            } catch (clearError) {
+              console.error('❌ 连清除存储都失败了:', clearError);
+            }
+            return false;
+          }
+        } else {
+          console.warn('保存读后续写OCR数据失败:', saveError);
+          return false;
+        }
+      }
     } catch (error) {
       console.warn('保存读后续写OCR数据失败:', error);
       return false;
@@ -998,7 +1196,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
       setOcrProgressMessage('读后续写OCR处理完成！');
 
-      // 保存最终状态到localStorage
+      // 🔧 优化：保存最终状态到localStorage，使用增强的存储检查
       const finalData = {
         taskId: task?.id,
         uploadedImages: uploadedImages.map(img => ({ ...img, status: img.status === 'completed' ? img.status : 'failed' })),
@@ -1006,7 +1204,46 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         ocrProgressMessage: '读后续写OCR处理完成！',
         timestamp: Date.now()
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalData));
+
+      try {
+        const finalJsonString = JSON.stringify(finalData);
+
+        // 检查最终数据大小
+        if (finalJsonString.length > 500 * 1024) {
+          console.warn('⚠️ 最终数据也过大，使用最小化格式保存');
+
+          // 使用最小化格式只保存必要信息
+          const minimalFinalData = {
+            taskId: finalData.taskId,
+            uploadedImages: finalData.uploadedImages.map(img => ({
+              id: img.id,
+              status: img.status
+            })),
+            isProcessing: false,
+            timestamp: finalData.timestamp,
+            version: 'final_minimal'
+          };
+
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(minimalFinalData));
+          console.log('💾 已使用最小化格式保存最终状态:', {
+            taskId: task?.id,
+            originalSize: Math.round(finalJsonString.length / 1024) + 'KB',
+            minimalSize: Math.round(JSON.stringify(minimalFinalData).length / 1024) + 'KB'
+          });
+        } else {
+          localStorage.setItem(STORAGE_KEY, finalJsonString);
+          console.log('💾 读后续写OCR最终状态已保存:', {
+            taskId: task?.id,
+            imageCount: uploadedImages.length,
+            successCount: uploadedImages.filter(img => img.status === 'completed').length,
+            failedCount: uploadedImages.filter(img => img.status === 'failed').length,
+            dataSize: Math.round(finalJsonString.length / 1024) + 'KB'
+          });
+        }
+      } catch (saveError) {
+        console.warn('⚠️ 保存最终状态失败:', saveError);
+        // 不中断处理，只记录错误
+      }
 
     } catch (error) {
       console.error('批量读后续写OCR处理失败:', error);

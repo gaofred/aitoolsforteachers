@@ -113,8 +113,8 @@ const navigationData = [
     ),
     items: [
       { id: "batch-assignment-polish", title: "批量润色学生句子", active: true, cost: 10, route: "/tools/writing/batch-assignment-polish" },
-      { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 10, route: "/tools/writing/batch-applicationwriting-polish" },
-      { id: "batch-continuation-writing-polish", title: "批量修改学生读后续写", active: true, cost: 10, route: "/tools/writing/batch-continuation-writing-polish" },
+      { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 50, route: "/tools/writing/batch-applicationwriting-polish" },
+      { id: "batch-continuation-writing-polish", title: "批量修改学生读后续写", active: true, cost: 50, route: "/tools/writing/batch-continuation-writing-polish" },
       { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
       { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
       { id: "continuation-writing", title: "读后续写范文", cost: 6, route: "/tools/writing/continuation_writing_model_essay" },

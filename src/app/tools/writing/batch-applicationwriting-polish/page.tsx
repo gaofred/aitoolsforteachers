@@ -152,6 +152,21 @@ const BatchApplicationWritingPolish = () => {
     }
   }, [currentUser, router]);
 
+  // 点数检测 - 批量修改应用文需要50点数
+  useEffect(() => {
+    if (currentUser && currentUser.user_points) {
+      const requiredPoints = 50;
+      const currentPoints = currentUser.user_points.points;
+
+      if (currentPoints < requiredPoints) {
+        // 点数不足，跳转回首页
+        alert(`批量修改应用文需要${requiredPoints}点数，您当前只有${currentPoints}点数。点数不足，无法使用此功能。`);
+        router.push('/');
+        return;
+      }
+    }
+  }, [currentUser, router]);
+
   if (!currentUser) {
     return (
       <div className="container mx-auto p-6">
