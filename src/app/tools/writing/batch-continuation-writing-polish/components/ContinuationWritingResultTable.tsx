@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, FileText, TrendingUp, TrendingDown, BarChart3, Eye, Edit, Package, Loader2 } from "lucide-react";
+import { Download, FileText, TrendingDown, BarChart3, Eye, Edit, Package, Loader2 } from "lucide-react";
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import type { ContinuationWritingBatchTask, ContinuationWritingAssignment } from "../types";
@@ -30,7 +30,6 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
     excel: false,
     batch: false,
     zip: false,
-    analysis: false,
     all: false
   });
 
@@ -240,10 +239,8 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
       await exportExcel();
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      await generateClassAnalysis();
-
       console.log('✅ 完整包导出完成');
-      alert(`🎉 完整包导出完成！\n已依次下载：\n✅ 个人结果文档 (${completedAssignments.length}名学生)\n✅ Excel成绩统计表\n✅ 班级分析报告\n\n总计3个文件，请查看下载文件夹`);
+      alert(`🎉 完整包导出完成！\n已依次下载：\n✅ 个人结果文档 (${completedAssignments.length}名学生)\n✅ Excel成绩统计表\n\n总计2个文件，请查看下载文件夹`);
 
     } catch (error) {
       console.error('❌ 完整包导出失败:', error);
@@ -468,89 +465,7 @@ ${'='.repeat(80)}`;
     }
   };
 
-  // 生成班级分析报告
-  const generateClassAnalysis = async () => {
-    if (exporting.analysis) return; // 防止重复点击
-
-    try {
-      setExporting(prev => ({ ...prev, analysis: true }));
-      console.log('📊 开始生成班级分析报告...');
-
-      // 添加详细的调试信息
-      const exportData = {
-        taskTitle: task.title,
-        topic: task.topic,
-        assignments: completedAssignments,
-        stats: stats,
-        type: 'continuation-writing'
-      };
-
-      console.log('📋 班级分析报告导出数据调试信息:', {
-        taskTitle: exportData.taskTitle,
-        topic: exportData.topic,
-        assignmentsCount: exportData.assignments.length,
-        hasStats: !!exportData.stats,
-        type: exportData.type
-      });
-
-      const response = await fetch('/api/export/class-analysis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(exportData),
-      });
-
-      if (response.ok) {
-        try {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-
-          // 使用英文文件名避免编码问题
-          const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-          a.download = `continuation_writing_class_analysis_${timestamp}.docx`;
-
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          console.log('✅ 班级分析报告生成成功');
-
-          // 成功提示
-          alert(`班级分析报告生成成功！共分析了 ${completedAssignments.length} 名学生`);
-
-        } catch (downloadError) {
-          console.error('文件下载失败:', downloadError);
-          alert('文件下载失败，请检查浏览器设置');
-        }
-      } else {
-        // 详细错误处理
-        const errorText = await response.text();
-        console.error('班级分析报告API错误:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorText: errorText
-        });
-
-        let errorMessage = '班级分析报告导出失败';
-        if (response.status === 400) {
-          errorMessage = '没有可分析的数据';
-        } else if (response.status === 500) {
-          errorMessage = '服务器内部错误，请稍后重试';
-        }
-
-        alert(`${errorMessage} (${response.status})`);
-      }
-    } catch (error) {
-      console.error('班级分析报告导出异常:', error);
-      alert(`导出异常: ${error instanceof Error ? error.message : '未知错误'}`);
-    } finally {
-      setExporting(prev => ({ ...prev, analysis: false }));
-    }
-  };
-
+  
   // 全班共性分析
   const analyzeCommonIssues = async () => {
     if (completedAssignments.length === 0) {
@@ -627,7 +542,7 @@ ${'='.repeat(80)}`;
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">查看结果导出</h2>
         <p className="text-gray-600 text-sm">
-          查看批改结果统计，支持导出个人结果、全班结果、Excel成绩表和班级分析报告。
+          查看批改结果统计，支持导出个人结果、全班结果和Excel成绩表。
         </p>
       </div>
 
@@ -981,43 +896,7 @@ ${'='.repeat(80)}`;
                   </Button>
                 </div>
 
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <TrendingUp className="w-6 h-6 text-purple-600" />
-                    <h3 className="font-medium">班级分析报告</h3>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">
-                    生成详细的班级分析报告，包含成绩统计、共性问题分析和教学建议
-                  </p>
-                  <div className="flex items-center gap-1 text-xs text-orange-600 mb-3">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                    </svg>
-                    预计 {Math.ceil(completedAssignments.length * 0.3)}-{Math.ceil(completedAssignments.length * 0.8)} 秒
-                  </div>
-                  <Button
-                    onClick={() => {
-                      console.log('🔥 生成分析报告按钮被点击', completedAssignments.length);
-                      generateClassAnalysis();
-                    }}
-                    disabled={completedAssignments.length === 0 || exporting.analysis}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    {exporting.analysis ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        正在分析数据... ({completedAssignments.length}名学生)
-                      </>
-                    ) : (
-                      <>
-                        <TrendingUp className="w-4 h-4 mr-2" />
-                        生成分析报告 ({completedAssignments.length})
-                      </>
-                    )}
-                  </Button>
-                </div>
-
+  
                 <div className="border rounded-lg p-4">
                   <div className="flex items-center gap-3 mb-2">
                     <Download className="w-6 h-6 text-orange-600" />
