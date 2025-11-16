@@ -115,10 +115,24 @@ const navigationData = [
       { id: "batch-assignment-polish", title: "批量润色学生句子", active: true, cost: 10, route: "/tools/writing/batch-assignment-polish" },
       { id: "batch-applicationwriting-polish", title: "批量修改学生应用文", active: true, cost: 1, route: "/tools/writing/batch-applicationwriting-polish", note: "1点/学生" },
       { id: "batch-continuation-writing-polish", title: "批量修改学生读后续写", active: true, cost: 1, route: "/tools/writing/batch-continuation-writing-polish", note: "1点/学生" },
+      { id: "application-writing-scaffold", title: "应用文写作支架练习", active: true, cost: 6, route: "/tools/writing/application-writing-scaffold" },
       { id: "application-writing", title: "应用文高分范文", cost: 4, disabled: true },
       { id: "application-lesson", title: "应用文学案", cost: 6, disabled: true },
       { id: "continuation-writing", title: "读后续写范文", cost: 6, route: "/tools/writing/continuation_writing_model_essay" },
       { id: "continuation-lesson", title: "读后续写学案", cost: 7, disabled: true }
+    ]
+  },
+  {
+    id: "subjects",
+    title: "K12全能答疑",
+    subtitle: "小初高全科智能解析（语数英理化生等各学科）",
+    icon: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
+      </svg>
+    ),
+    items: [
+      { id: "k12-problem-solving", title: "K12全科答疑", active: true, cost: 8, route: "/tools/subjects/problem-solving" }
     ]
   },
   {

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathJax 独立测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .math-container {
+            background-color: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>MathJax 独立测试页面</h1>
+    <p>这个页面测试MathJax是否能正确渲染数学公式。</p>
+
+    <div class="math-container">
+        <h2>基础行内公式测试</h2>
+        <p><strong>问题示例</strong>：求解方程 $\sqrt{90} = 3\sqrt{10}$ 是否成立？</p>
+        <p><strong>简化过程</strong>：$\sqrt{90} = \sqrt{9 \times 10} = \sqrt{9} \times \sqrt{10} = 3\sqrt{10}$</p>
+    </div>
+
+    <div class="math-container">
+        <h2>块级公式测试</h2>
+        <p><strong>二次方程求解公式</strong>：</p>
+        $$
+        x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+        $$
+
+        <p><strong>积分公式</strong>：</p>
+        $$
+        \int_{a}^{b} f(x)dx = F(b) - F(a)
+        $$
+
+        <p><strong>欧拉公式</strong>：</p>
+        $$
+        e^{i\pi} + 1 = 0
+        $$
+    </div>
+
+    <div class="math-container">
+        <h2>复杂公式测试</h2>
+        <p><strong>求和公式</strong>：$\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$</p>
+        <p><strong>极限</strong>：$\lim_{x \to \infty} \left(1 + \frac{1}{x}\right)^x = e$</p>
+        <p><strong>矩阵</strong>：$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$</p>
+        <p><strong>偏微分</strong>：$\frac{\partial^2 u}{\partial t^2} = c^2 \frac{\partial^2 u}{\partial x^2}$</p>
+    </div>
+
+    <script>
+        console.log('🚀 开始配置MathJax...');
+
+        // 配置MathJax
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true,
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process',
+            },
+            startup: {
+                typeset: false,
+                ready: () => {
+                    console.log('✅ MathJax配置完成，开始初始化');
+                    MathJax.startup.defaultReady();
+                    MathJax.startup.promise.then(() => {
+                        console.log('✅ MathJax初始化完成，开始渲染公式');
+                        return MathJax.typesetPromise();
+                    }).then(() => {
+                        console.log('✅ 所有数学公式渲染完成！');
+                    }).catch((error) => {
+                        console.error('❌ MathJax渲染失败:', error);
+                    });
+                }
+            },
+        };
+
+        // 加载MathJax
+        console.log('📦 加载MathJax脚本...');
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+        script.async = true;
+        script.onload = () => {
+            console.log('✅ MathJax脚本加载完成');
+        };
+        script.onerror = (error) => {
+            console.error('❌ MathJax脚本加载失败:', error);
+        };
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>

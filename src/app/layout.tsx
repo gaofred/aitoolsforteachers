@@ -103,6 +103,8 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className={`${inter.variable} ${jetBrainsMono.variable}`}>
       <head>
+        {/* KaTeX CSS - 现在由react-katex自动加载 */}
+
         {/* 暂时移除same-runtime脚本以解决加载问题 */}
         {/* <Script
           crossOrigin="anonymous"

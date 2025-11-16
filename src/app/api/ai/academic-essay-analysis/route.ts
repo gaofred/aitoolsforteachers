@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     // 使用智谱官方API进行学术论文分析
     const apiKey = process.env.ZhipuOfficial;
     const apiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-    const model = 'glm-4-flash';
+    const model = 'glm-4.6';
 
     if (!apiKey) {
       return NextResponse.json(

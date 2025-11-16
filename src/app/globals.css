@@ -29,6 +29,98 @@
     animation: fadeIn 0.5s ease-out;
   }
 
+  /* 数学公式样式 */
+  .math-formula {
+    font-family: 'Cambria Math', 'Times New Roman', 'Times New Roman', serif;
+    font-style: italic;
+    white-space: nowrap;
+  }
+
+  .math-formula-block {
+    font-family: 'Cambria Math', 'Times New Roman', serif;
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+
+  /* 滚动条样式 */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  .scrollbar-track-gray-100::-webkit-scrollbar-track {
+    background: #f3f4f6;
+  }
+
+  .scrollbar-thumb-gray-400::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+  }
+
+  .hover\:scrollbar-thumb-gray-500:hover::-webkit-scrollbar-thumb {
+    background: #6b7280;
+  }
+
+  /* 分数样式 */
+  .math-fraction {
+    font-family: 'Cambria Math', 'Times New Roman', serif;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    margin: 0 2px;
+    font-style: italic;
+    color: #2563eb;
+  }
+
+  .fraction-numerator {
+    border-bottom: 1px solid #374151;
+    padding: 0 4px;
+    text-align: center;
+  }
+
+  .fraction-line {
+    color: #374151;
+    font-weight: normal;
+  }
+
+  .fraction-denominator {
+    padding: 0 4px;
+    text-align: center;
+  }
+
+  /* 通用上标下标 */
+  sup {
+    font-family: 'Cambria Math', 'Times New Roman', serif;
+    font-size: 0.75em;
+    vertical-align: super;
+    line-height: 0;
+  }
+
+  sub {
+    font-family: 'Cambria Math', 'Times New Roman', serif;
+    font-size: 0.75em;
+    vertical-align: sub;
+    line-height: 0;
+  }
+
   .animate-slide-up {
     animation: slideUp 0.6s ease-out;
   }
