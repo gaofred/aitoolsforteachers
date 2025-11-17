@@ -772,8 +772,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
       console.log(`🔄 开始处理图片 ${image.id.substring(0, 8)}... (尝试${retryCount + 1}/${maxRetries + 1})`);
 
-      // 使用专门的作文OCR API，提供更好的读后续写识别效果
-      const response = await fetch('/api/ai/essay-ocr', {
+      // 使用阿里云新加坡OCR API，提供更好的读后续写识别效果
+      const response = await fetch('/api/ai/ocr-aliyun-singapore', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -814,11 +814,11 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       if (data.success && data.result) {
         // 直接解析OCR结果，使用读后续写OCR的英文分离结果，包含图片数据
         const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id, base64);
-        console.log(`✅ 读后续写OCR识别完成 (${image.id.substring(0, 8)}...)`)
+        console.log(`✅ 阿里云新加坡OCR识别完成 (${image.id.substring(0, 8)}...)`)
         return parsedResult;
       } else {
         // 构建详细错误信息
-        let errorMessage = data.error || '读后续写OCR识别失败';
+        let errorMessage = data.error || '阿里云新加坡OCR识别失败';
         if (data.details) {
           if (typeof data.details === 'string') {
             errorMessage += ` (${data.details})`;

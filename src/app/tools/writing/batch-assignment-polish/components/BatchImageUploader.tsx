@@ -216,8 +216,8 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
       const base64Data = await base64Promise;
 
-      // 调用极客智坊OCR API（与批量应用文相同）
-      const response = await fetch('/api/ai/essay-ocr', {
+      // 调用阿里云新加坡OCR API，提供更好的OCR识别效果
+      const response = await fetch('/api/ai/ocr-aliyun-singapore', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -228,22 +228,22 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error(`极客智坊OCR API错误: ${response.status}`);
+        throw new Error(`阿里云新加坡OCR API错误: ${response.status}`);
       }
 
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || '极客智坊OCR识别失败');
+        throw new Error(data.error || '阿里云新加坡OCR识别失败');
       }
 
-      // 极客智坊返回格式：使用result字段，优先使用englishOnly字段（如果存在）
-      const ocrText = data.englishOnly || data.result;
-      console.log(`🤖 极客智坊OCR识别 (尝试${retryCount + 1}):`, ocrText);
-      console.log(`📊 极客智坊OCR信息:`, {
-        模型: data.metadata?.model || 'glm-4.1v-thinking-flashx',
-        处理时间: data.metadata?.processingTime || '未知',
-        原文长度: data.metadata?.originalLength || '未知',
+      // 阿里云新加坡返回格式：使用result字段
+      const ocrText = data.result;
+      console.log(`🤖 阿里云新加坡OCR识别 (尝试${retryCount + 1}):`, ocrText);
+      console.log(`📊 阿里云新加坡OCR信息:`, {
+        模型: data.model || 'qwen3-vl-flash',
+        处理时间: data.usage?.processing_time || '未知',
+        原文长度: ocrText?.length || '未知',
         纯英文长度: data.metadata?.englishOnlyLength || '未知'
       });
 
