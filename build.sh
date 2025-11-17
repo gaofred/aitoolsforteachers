@@ -5,9 +5,11 @@ echo "🚀 开始 Next.js 项目构建（含环境变量全校验）"
 # ==============================================
 # 第一步：环境变量注入（优先使用平台配置，兜底手动注入）
 # ==============================================
-# 若平台配置未生效，解开下方注释并替换为你的真实值（手动兜底）
-# export NEXT_PUBLIC_SUPABASE_URL="https://beevwnzudplsrseehrgn.supabase.co"
-# export NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZXZ3bnp1ZHBsc3JzZWVocmduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMzU4NTIsImV4cCI6MjA3NjcxMTg1Mn0.XGmYb8VkvtH62oeW9-YukrOfP5hZhsjjNksyVWq3WbA"
+# 🔥 紧急兜底：平台配置未生效时，使用手动注入
+export NEXT_PUBLIC_SUPABASE_URL="https://beevwnzudplsrseehrgn.supabase.co"
+export NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZXZ3bnp1ZHBsc3JzZWVocmduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMzU4NTIsImV4cCI6MjA3NjcxMTg1Mn0.XGmYb8VkvtH62oeW9-YukrOfP5hZhsjjNksyVWq3WbA"
+export ZhipuOfficial="47812fc92da84de3953e8dc565c1b646.X3Muu34yJMODdN2Q"
+export OPENAI_API_KEY="sk-placeholder-key-for-build-validation"
 
 # 检查是否存在兜底配置文件，自动加载
 if [ -f ".env.fallback" ]; then
