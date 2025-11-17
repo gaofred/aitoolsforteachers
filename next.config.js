@@ -7,7 +7,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  distDir: 'build', // 使用不同的构建输出目录绕过权限问题
+  // distDir: 'build', // 恢复使用默认的 .next 目录以兼容 Vercel
   images: {
     unoptimized: true,
     domains: [
