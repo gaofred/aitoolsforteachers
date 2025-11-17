@@ -1,0 +1,51 @@
+service: english-teaching-tools
+
+provider:
+  name: tencent
+  runtime: Nodejs18.x  # 关键：指定 Node.js 18.x 以兼容 Next.js 15.x
+  region: ap-beijing
+  memorySize: 512
+  timeout: 120
+
+# 部署前的钩子
+hooks:
+  before:deploy:
+    - npm install --production
+
+functions:
+  # API 路由处理
+  api:
+    handler: index.handler
+    runtime: Nodejs18.x  # 明确指定运行时
+    memorySize: 512
+    timeout: 120
+    events:
+      - apigw:
+          path: /api/{proxy+}
+          method: ANY
+          cors: true
+
+  # 页面处理
+  pages:
+    handler: index.handler
+    runtime: Nodejs18.x  # 明确指定运行时
+    memorySize: 512
+    timeout: 120
+    events:
+      - apigw:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+
+# 包配置
+package:
+  exclude:
+    - .git/**
+    - .vscode/**
+    - '*.log'
+    - .DS_Store
+    - README.md
+    - .env.local
+    - node_modules/**/test/**
+    - node_modules/**/tests/**
+    - node_modules/**/*.md

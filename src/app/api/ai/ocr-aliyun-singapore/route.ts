@@ -71,72 +71,112 @@ export async function POST(request: NextRequest) {
 
     console.log('🚀 发送请求到阿里云新加坡DashScope API');
 
-    // 调用阿里云新加坡DashScope API
-    const response = await fetch(DASHSCOPE_SG_BASE_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${DASHSCOPE_SG_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'qwen3-vl-flash',
-        messages: messages,
-        max_tokens: 4000,
-        temperature: 0.1,
-        stream: false
-      })
-    });
+    // 创建超时控制器
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      console.log('⏰ 阿里云新加坡API请求超时，已取消请求');
+    }, 120000); // 120秒超时
 
-    console.log('📡 收到API响应，状态码:', response.status);
+    try {
+      // 调用阿里云新加坡DashScope API
+      const response = await fetch(DASHSCOPE_SG_BASE_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${DASHSCOPE_SG_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'qwen3-vl-flash',
+          messages: messages,
+          max_tokens: 4000,
+          temperature: 0.1,
+          stream: false
+        }),
+        signal: controller.signal
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ 阿里云新加坡API请求失败:', response.status, errorText);
+      // 清除超时定时器
+      clearTimeout(timeoutId);
 
-      if (response.status === 401) {
+      console.log('📡 收到API响应，状态码:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ 阿里云新加坡API请求失败:', response.status, errorText);
+
+        if (response.status === 401) {
+          return NextResponse.json(
+            { success: false, error: '阿里云新加坡API密钥无效，请检查配置' },
+            { status: 401 }
+          );
+        } else if (response.status === 429) {
+          return NextResponse.json(
+            { success: false, error: '阿里云新加坡API调用频率限制，请稍后重试' },
+            { status: 429 }
+          );
+        } else if (response.status === 400) {
+          return NextResponse.json(
+            { success: false, error: '请求参数错误，请检查图片格式和大小' },
+            { status: 400 }
+          );
+        } else {
+          return NextResponse.json(
+            { success: false, error: `阿里云新加坡API调用失败: ${response.status} ${errorText}` },
+            { status: response.status }
+          );
+        }
+      }
+
+      const result = await response.json();
+      console.log('✅ 阿里云新加坡API调用成功，获得识别结果');
+
+      if (result.choices && result.choices.length > 0) {
+        const ocrResult = result.choices[0].message.content;
+        console.log('📝 阿里云新加坡OCR识别结果长度:', ocrResult?.length);
+
+        return NextResponse.json({
+          success: true,
+          result: ocrResult,
+          usage: result.usage,
+          imagesProcessed: imageData.length,
+          provider: '阿里云新加坡',
+          model: 'qwen3-vl-flash'
+        });
+      } else {
+        console.error('❌ 阿里云新加坡API响应格式异常:', result);
         return NextResponse.json(
-          { success: false, error: '阿里云新加坡API密钥无效，请检查配置' },
-          { status: 401 }
+          { success: false, error: 'API响应格式异常' },
+          { status: 500 }
         );
-      } else if (response.status === 429) {
+      }
+
+    } catch (fetchError) {
+      // 清除超时定时器（如果还未清除）
+      clearTimeout(timeoutId);
+
+      console.error('❌ 阿里云新加坡OCR处理过程中发生错误:', fetchError);
+
+      // 处理超时错误
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('⏰ 阿里云新加坡API请求超时');
         return NextResponse.json(
-          { success: false, error: '阿里云新加坡API调用频率限制，请稍后重试' },
-          { status: 429 }
+          { success: false, error: 'OCR处理超时，请尝试压缩图片或减少批量处理数量' },
+          { status: 408 }
         );
-      } else if (response.status === 400) {
+      }
+
+      if (fetchError instanceof Error) {
         return NextResponse.json(
-          { success: false, error: '请求参数错误，请检查图片格式和大小' },
-          { status: 400 }
+          { success: false, error: `阿里云新加坡OCR处理失败: ${fetchError.message}` },
+          { status: 500 }
         );
       } else {
         return NextResponse.json(
-          { success: false, error: `阿里云新加坡API调用失败: ${response.status} ${errorText}` },
-          { status: response.status }
+          { success: false, error: '阿里云新加坡OCR处理失败：未知错误' },
+          { status: 500 }
         );
       }
-    }
-
-    const result = await response.json();
-    console.log('✅ 阿里云新加坡API调用成功，获得识别结果');
-
-    if (result.choices && result.choices.length > 0) {
-      const ocrResult = result.choices[0].message.content;
-      console.log('📝 阿里云新加坡OCR识别结果长度:', ocrResult?.length);
-
-      return NextResponse.json({
-        success: true,
-        result: ocrResult,
-        usage: result.usage,
-        imagesProcessed: imageData.length,
-        provider: '阿里云新加坡',
-        model: 'qwen3-vl-flash'
-      });
-    } else {
-      console.error('❌ 阿里云新加坡API响应格式异常:', result);
-      return NextResponse.json(
-        { success: false, error: 'API响应格式异常' },
-        { status: 500 }
-      );
     }
 
   } catch (error) {

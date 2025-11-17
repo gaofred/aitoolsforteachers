@@ -1,5 +1,17 @@
 /** @type {import('next').NextConfig} */
+const isProd = process.env.NODE_ENV === "production";
+
 const nextConfig = {
+  env: {
+    STATIC_URL: isProd ? process.env.STATIC_URL : "",
+  },
+  assetPrefix: isProd ? process.env.STATIC_URL : "",
+
+  // Serverless 部署配置
+  output: 'standalone',
+
+  // 服务器外部包配置（Next.js 15.x）
+  serverExternalPackages: ['@supabase/supabase-js'],
   allowedDevOrigins: ["*.preview.same-app.com"],
   eslint: {
     ignoreDuringBuilds: true,
