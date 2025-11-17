@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
 const isProd = process.env.NODE_ENV === "production";
 
 const nextConfig = {
@@ -30,6 +31,13 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
+  },
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, 'src'),
+    }
+    return config
   },
   // distDir: 'build', // 恢复使用默认的 .next 目录以兼容 Vercel
   images: {
