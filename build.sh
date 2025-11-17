@@ -188,11 +188,29 @@ npm run build
 if [ $? -eq 0 ]; then
     echo -e "\n🎉 构建完成！环境变量已正常注入"
 
+    # ==============================================
+    # 第六步：创建 veFaaS 启动脚本
+    # ==============================================
+    echo -e "\n🔧 创建 veFaaS 启动脚本..."
+
+    # 检查是否已存在 run.sh 模板文件
+    if [ -f "run.sh" ]; then
+        echo "📁 发现现有 run.sh 文件，确保格式正确..."
+        # 修复换行符格式并设置权限
+        sed -i '' 's/\r$//' run.sh
+        chmod +x run.sh
+        echo "✅ veFaaS 启动脚本已准备就绪: run.sh"
+    else
+        echo "❌ 错误: run.sh 模板文件不存在"
+        exit 1
+    fi
+
     # 显示构建结果
     echo -e "\n📁 构建产物："
     echo "  - .next 目录: $([ -d .next ] && 'EXISTS' || 'MISSING')"
     echo "  - server.js: $([ -f server.js ] && 'EXISTS' || 'MISSING')"
     echo "  - package.json: $([ -f package.json ] && 'EXISTS' || 'MISSING')"
+    echo "  - run.sh: $([ -f run.sh ] && 'EXISTS' || 'MISSING')"
 
     if [ -d .next ]; then
         echo "  - .next 大小: $(du -sh .next | cut -f1)"
