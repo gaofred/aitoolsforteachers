@@ -27,6 +27,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { useUser } from "@/lib/user-context";
+import Head from 'next/head';
 
 interface AIGeneration {
   id: string;
@@ -115,6 +116,8 @@ export default function AIGenerationHistory() {
   const [error, setError] = useState<string>("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(7);
 
   useEffect(() => {
     if (!currentUser) {
