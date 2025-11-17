@@ -189,14 +189,13 @@ if [ $? -eq 0 ]; then
     echo -e "\n🎉 构建完成！环境变量已正常注入"
 
     # ==============================================
-    # 第六步：创建 veFaaS 启动脚本
+    # 第六步：创建多平台启动脚本
     # ==============================================
-    echo -e "\n🔧 创建 veFaaS 启动脚本..."
+    echo -e "\n🔧 创建多平台启动脚本..."
 
-    # 检查是否已存在 run.sh 模板文件
+    # 处理火山引擎 veFaaS 启动脚本
     if [ -f "run.sh" ]; then
-        echo "📁 发现现有 run.sh 文件，确保格式正确..."
-        # 修复换行符格式并设置权限
+        echo "📁 处理火山引擎 veFaaS 启动脚本..."
         sed -i '' 's/\r$//' run.sh
         chmod +x run.sh
         echo "✅ veFaaS 启动脚本已准备就绪: run.sh"
@@ -205,12 +204,23 @@ if [ $? -eq 0 ]; then
         exit 1
     fi
 
+    # 处理阿里云函数计算启动脚本
+    if [ -f "start-alibaba.sh" ]; then
+        echo "📁 处理阿里云函数计算启动脚本..."
+        sed -i '' 's/\r$//' start-alibaba.sh
+        chmod +x start-alibaba.sh
+        echo "✅ 阿里云启动脚本已准备就绪: start-alibaba.sh"
+    else
+        echo "⚠️  警告: start-alibaba.sh 文件不存在，跳过阿里云支持"
+    fi
+
     # 显示构建结果
     echo -e "\n📁 构建产物："
-    echo "  - .next 目录: $([ -d .next ] && 'EXISTS' || 'MISSING')"
-    echo "  - server.js: $([ -f server.js ] && 'EXISTS' || 'MISSING')"
-    echo "  - package.json: $([ -f package.json ] && 'EXISTS' || 'MISSING')"
-    echo "  - run.sh: $([ -f run.sh ] && 'EXISTS' || 'MISSING')"
+    echo "  - .next 目录: $([ -d .next ] && echo "EXISTS" || echo "MISSING")"
+    echo "  - server.js: $([ -f server.js ] && echo "EXISTS" || echo "MISSING")"
+    echo "  - package.json: $([ -f package.json ] && echo "EXISTS" || echo "MISSING")"
+    echo "  - run.sh (veFaaS): $([ -f run.sh ] && echo "EXISTS" || echo "MISSING")"
+    echo "  - start-alibaba.sh (阿里云): $([ -f start-alibaba.sh ] && echo "EXISTS" || echo "MISSING")"
 
     if [ -d .next ]; then
         echo "  - .next 大小: $(du -sh .next | cut -f1)"
