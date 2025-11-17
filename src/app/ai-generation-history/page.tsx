@@ -161,6 +161,95 @@ export default function AIGenerationHistory() {
     }
   };
 
+  // 格式化输出数据，使其更易读
+  const formatOutputData = (data: any): string => {
+    if (typeof data === 'string') {
+      // 清理可能的Markdown标记
+      return data
+        .replace(/\*\*(.*?)\*\*/g, '$1') // 移除粗体标记
+        .replace(/\*(.*?)\*/g, '$1')   // 移除斜体标记
+        .replace(/#{1,6}\s+/g, '')   // 移除标题标记
+        .replace(/```[\s\S]*?```/g, (match) => {
+          // 处理代码块
+          const codeContent = match.replace(/```[\s\S]*?```/g, '').slice(3, -3);
+          return `[代码块]\n${codeContent}`;
+        })
+        .trim();
+    }
+
+    if (typeof data === 'object' && data !== null) {
+      // 如果是复杂对象，尝试提取主要内容
+      if (data.result) {
+        return formatOutputData(data.result);
+      }
+      if (data.content) {
+        return formatOutputData(data.content);
+      }
+      if (data.text) {
+        return formatOutputData(data.text);
+      }
+      if (data.output) {
+        return formatOutputData(data.output);
+      }
+      if (data.generated_text) {
+        return formatOutputData(data.generated_text);
+      }
+      if (data.response) {
+        return formatOutputData(data.response);
+      }
+
+      // 如果是数组，取第一个有效项
+      if (Array.isArray(data) && data.length > 0) {
+        return formatOutputData(data[0]);
+      }
+
+      // 智能格式化复杂对象
+      const formatted = Object.entries(data)
+        .filter(([_, value]) => value !== null && value !== undefined)
+        .map(([key, value]) => {
+          if (typeof value === 'string') {
+            return `${key}: ${value}`;
+          } else if (typeof value === 'object') {
+            return `${key}: ${JSON.stringify(value, null, 2)}`;
+          } else {
+            return `${key}: ${String(value)}`;
+          }
+        })
+        .join('\n\n');
+
+      return formatted;
+    }
+
+    return String(data);
+  };
+
+  // 格式化输入数据
+  const formatInputData = (data: any): string => {
+    if (typeof data === 'string') {
+      return data;
+    }
+
+    if (typeof data === 'object' && data !== null) {
+      // 提取常见的输入字段
+      if (data.text || data.prompt || data.content) {
+        return formatOutputData(data.text || data.prompt || data.content);
+      }
+
+      // 如果有其他字段，格式化为易读格式
+      const entries = Object.entries(data);
+      if (entries.length > 0) {
+        return entries.map(([key, value]) => {
+          if (typeof value === 'string' && value.length > 100) {
+            return `${key}: ${value.substring(0, 100)}...`;
+          }
+          return `${key}: ${JSON.stringify(value)}`;
+        }).join('\n');
+      }
+    }
+
+    return String(data);
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString('zh-CN', {
@@ -244,6 +333,24 @@ export default function AIGenerationHistory() {
           </div>
         </div>
       </header>
+
+      {/* 功能说明 */}
+      <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-0.5">
+            <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <h4 className="font-medium text-amber-900 mb-1">功能说明</h4>
+            <p className="text-sm text-amber-800">
+              目前功能不完善，部分AI工具生成的结果不会出现在这里。历史记录功能仅显示通过 ai_generations 数据表记录的生成结果。
+              如果您使用的某些工具生成的结果没有显示，说明该工具尚未接入统一的历史记录系统。
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* 主要内容 */}
       <main className="container mx-auto px-4 py-6 max-w-6xl">
@@ -395,21 +502,14 @@ export default function AIGenerationHistory() {
                                 <div className="mb-4">
                                   <h4 className="text-sm font-medium text-gray-700 mb-2">输入内容:</h4>
                                   <div className="bg-gray-50 rounded-lg p-3">
-                                    <pre className="text-sm text-gray-600 whitespace-pre-wrap break-words">
-                                      {typeof generation.input_data === 'string'
-                                        ? generation.input_data
-                                        : JSON.stringify(generation.input_data, null, 2)
-                                      }
-                                    </pre>
+                                    <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                                      {formatInputData(generation.input_data)}
+                                    </div>
                                     <div className="flex gap-2 mt-2">
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => copyToClipboard(
-                                          typeof generation.input_data === 'string'
-                                            ? generation.input_data
-                                            : JSON.stringify(generation.input_data, null, 2)
-                                        )}
+                                        onClick={() => copyToClipboard(formatInputData(generation.input_data))}
                                       >
                                         <Copy className="w-3 h-3 mr-1" />
                                         复制
@@ -425,20 +525,13 @@ export default function AIGenerationHistory() {
                                   <h4 className="text-sm font-medium text-gray-700 mb-2">生成结果:</h4>
                                   <div className="bg-blue-50 rounded-lg p-3">
                                     <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">
-                                      {typeof generation.output_data === 'string'
-                                        ? generation.output_data
-                                        : JSON.stringify(generation.output_data, null, 2)
-                                      }
+                                      {formatOutputData(generation.output_data)}
                                     </div>
                                     <div className="flex gap-2 mt-2">
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => copyToClipboard(
-                                          typeof generation.output_data === 'string'
-                                            ? generation.output_data
-                                            : JSON.stringify(generation.output_data, null, 2)
-                                        )}
+                                        onClick={() => copyToClipboard(formatOutputData(generation.output_data))}
                                       >
                                         <Copy className="w-3 h-3 mr-1" />
                                         复制结果
@@ -454,20 +547,13 @@ export default function AIGenerationHistory() {
                                   <h4 className="text-sm font-medium text-gray-700 mb-2">最终输出:</h4>
                                   <div className="bg-green-50 rounded-lg p-3">
                                     <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">
-                                      {typeof generation.final_output === 'string'
-                                        ? generation.final_output
-                                        : JSON.stringify(generation.final_output, null, 2)
-                                      }
+                                      {formatOutputData(generation.final_output)}
                                     </div>
                                     <div className="flex gap-2 mt-2">
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => copyToClipboard(
-                                          typeof generation.final_output === 'string'
-                                            ? generation.final_output
-                                            : JSON.stringify(generation.final_output, null, 2)
-                                        )}
+                                        onClick={() => copyToClipboard(formatOutputData(generation.final_output))}
                                       >
                                         <Copy className="w-3 h-3 mr-1" />
                                         复制
