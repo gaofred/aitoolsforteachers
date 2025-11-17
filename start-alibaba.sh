@@ -27,21 +27,50 @@ if [ ! -f "server.js" ]; then
     exit 1
 fi
 
-# 检查 .next 目录
-if [ ! -d ".next" ]; then
-    echo "❌ 错误: .next 构建目录不存在"
-    exit 1
+# 智能检查和准备环境
+NEED_BUILD=false
+NEED_INSTALL=false
+
+# 检查 node_modules
+if [ ! -d "node_modules" ]; then
+    echo "⚠️  警告: node_modules 不存在"
+    NEED_INSTALL=true
+    NEED_BUILD=true
 fi
 
-# 检查 node_modules（关键步骤）
-if [ ! -d "node_modules" ]; then
-    echo "⚠️  警告: node_modules 不存在，尝试安装生产依赖..."
-    npm install --production --no-audit --no-fund
+# 检查 .next 构建目录
+if [ ! -d ".next" ]; then
+    echo "⚠️  警告: .next 构建目录不存在"
+    NEED_BUILD=true
+fi
+
+# 安装依赖（如果需要）
+if [ "$NEED_INSTALL" = true ]; then
+    echo "📦 正在安装所有依赖..."
+    npm install --no-audit --no-fund
 
     if [ $? -ne 0 ]; then
         echo "❌ 依赖安装失败"
         exit 1
     fi
+    echo "✅ 依赖安装完成"
+fi
+
+# 构建项目（如果需要）
+if [ "$NEED_BUILD" = true ]; then
+    echo "🔨 正在构建项目..."
+
+    # 设置构建环境变量
+    export NODE_ENV=production
+    export NODE_OPTIONS="--max-old-space-size=4096"
+
+    npm run build
+
+    if [ $? -ne 0 ]; then
+        echo "❌ 项目构建失败"
+        exit 1
+    fi
+    echo "✅ 项目构建完成"
 fi
 
 # 检查 next 命令是否可用
