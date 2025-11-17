@@ -28,10 +28,7 @@ services:
         caPort: 9000
         customRuntimeConfig:
           command:
-            - npm
-          args:
-            - run
-            - start
+            - ./start-alibaba.sh
       triggers:
         - name: httpTrigger
           type: http
