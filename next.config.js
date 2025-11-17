@@ -43,8 +43,6 @@ const nextConfig = {
   },
   // 禁用构建时的严格检查
   distDir: '.next',
-  // 跳过某些优化以确保兼容性
-  swcMinify: false,
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
