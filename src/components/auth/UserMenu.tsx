@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { User, LogOut, Star, Gift, Users, Crown, Calendar, Sparkles, Diamond } from 'lucide-react'
+import { User, LogOut, Star, Gift, Users, Crown, Calendar, Sparkles, Diamond, History } from 'lucide-react'
 
 interface UserProfile {
   id: string
@@ -198,6 +198,10 @@ export function UserMenu() {
         <DropdownMenuItem onClick={() => router.push('/invite')} className="text-purple-600">
           <Gift className="mr-2 h-4 w-4" />
           <span>邀请有礼</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push('/ai-generation-history')} className="text-blue-600">
+          <History className="mr-2 h-4 w-4" />
+          <span>历史记录</span>
         </DropdownMenuItem>
         {user.role === 'ADMIN' && (
           <DropdownMenuItem onClick={() => router.push('/admin')}>
