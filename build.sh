@@ -8,6 +8,7 @@ echo "🚀 开始 Next.js 项目构建（含环境变量全校验）"
 # 🔥 紧急兜底：平台配置未生效时，使用手动注入
 export NEXT_PUBLIC_SUPABASE_URL="https://beevwnzudplsrseehrgn.supabase.co"
 export NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZXZ3bnp1ZHBsc3JzZWVocmduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMzU4NTIsImV4cCI6MjA3NjcxMTg1Mn0.XGmYb8VkvtH62oeW9-YukrOfP5hZhsjjNksyVWq3WbA"
+export SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZXZ3bnp1ZHBsc3JzZWVocmduIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTc1MDI1MCwiZXhwIjoyMDc2NzE0ODMwLCJhdXRoIjoiaHR0cHM6Ly9zdXBhYmFzZS1hdXRobi13c2VyaG5kLnN1cGFiYXNlLmNvbSIsInN1YmFfdXJsIjoiaHR0cHM6Ly9zdXBhYmFzZS1hdXRobi13c2VyaW5rLnN1cGFiYXNlLmNvbSIsInN1YmFfa2JzIjoic3ZlY2F0aW9uX3JvbCIsInJvbGVfdXJsIjoiaHR0cHM6Ly9zdXBhYmFzZS1hdXRobi13c2VyaW5rLnN1cGFiYXNlLmNvbSJ9.f2oJ5zJQ2h6qK9T9r7XJ8k5W3nL4qP5mG2H1V7Yb8VkvtH62oeW9-YukrOfP5hZhsjjNksyVWq3WbA"
 export ZhipuOfficial="47812fc92da84de3953e8dc565c1b646.X3Muu34yJMODdN2Q"
 export OPENAI_API_KEY="sk-placeholder-key-for-build-validation"
 
@@ -25,6 +26,7 @@ echo -e "\n🔍 开始环境变量校验..."
 REQUIRED_ENVS=(
     "NEXT_PUBLIC_SUPABASE_URL"
     "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    "SUPABASE_SERVICE_ROLE_KEY"
     "ZhipuOfficial"
     "OPENAI_API_KEY"
 )
