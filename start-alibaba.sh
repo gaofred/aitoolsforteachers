@@ -24,88 +24,12 @@ if [ ! -d "node_modules" ]; then
     npm install --no-audit --no-fund
 fi
 
-# 检查并构建项目
+# 检查是否需要构建（开发模式下不需要完整构建）
 if [ ! -d ".next" ]; then
-    echo "🔨 构建项目..."
-    export NODE_OPTIONS="--max-old-space-size=4096"
-    export NODE_NO_WARNINGS=1
-
-    # 检查 Node.js 版本兼容性
-    NODE_VERSION=$(node --version | sed 's/v//')
-    echo "🔍 检测到 Node.js 版本: $NODE_VERSION"
-
-    # 尝试构建，增加重试机制
-    echo "📦 尝试标准构建..."
-    if npm run build 2>/dev/null; then
-        echo "✅ 标准构建成功"
-    else
-        echo "⚠️  标准构建失败，尝试兼容性构建..."
-
-        # 设置更多环境变量来跳过检查
-        export NODE_OPTIONS="--max-old-space-size=4096 --no-warnings"
-        export SKIP_ENV_VALIDATION=1
-        export NEXT_TELEMETRY_DISABLED=1
-
-        # 再次尝试构建
-        if npm run build 2>/dev/null; then
-            echo "✅ 兼容性构建成功"
-        else
-            echo "❌ 构建失败，创建生产构建结构并使用自定义服务器启动..."
-            # 如果构建失败，创建完整的 Next.js 生产构建结构
-            mkdir -p .next/server/pages .next/static/chunks/pages .next/static/webpack .next/static/css
-
-            # 创建必要的 Next.js 构建文件
-            echo '{"name":"nextjs-shadcn","version":"0.1.0","type":"module"}' > .next/package.json
-
-            # 创建 build-manifest.json（Next.js 检查的关键文件）
-            cat > .next/build-manifest.json << 'EOF'
-{
-  "polyfillFiles": [],
-  "devFiles": [],
-  "ampDevFiles": [],
-  "lowPriorityFiles": [],
-  "rootMainFiles": [],
-  "pages": {
-    "/": {
-      "file": "pages/index.js",
-      "page": "/",
-      "isStaticFont": false
-    }
-  },
-  "ampFirstPages": []
-}
-EOF
-
-            # 创建 prerender-manifest.json
-            cat > .next/prerender-manifest.json << 'EOF'
-{
-  "version": 3,
-  "routes": [
-    {
-      "route": "/",
-      "dataRoute": "/_next/data/{}.json"
-    }
-  ]
-}
-EOF
-
-            # 创建 pages-manifest.json
-            cat > .next/pages-manifest.json << 'EOF'
-"/pages/index.js"
-EOF
-
-            # 创建基本的页面文件
-            cat > .next/server/pages/index.js << 'EOF'
-module.exports = function() {
-  return { props: {} };
-}
-EOF
-
-            echo "✅ 创建了完整的 Next.js 生产构建结构"
-        fi
-    fi
+    echo "📦 检测到无构建目录，将使用开发模式启动"
+    echo "💡 在阿里云 FC 环境中，应用将以开发模式运行"
 else
-    echo "✅ .next 目录已存在，跳过构建"
+    echo "✅ .next 目录已存在"
 fi
 
 echo "✅ 环境准备完成，启动应用..."
