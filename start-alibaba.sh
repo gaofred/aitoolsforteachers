@@ -32,6 +32,11 @@ else
     echo "✅ .next 目录已存在"
 fi
 
+# 设置环境变量，确保 server.js 能识别为阿里云 FC 环境
+export FUNCTION_NAME="aitoolsforteachers-gcn5"
+export FC_ACCOUNT_ID="151**********202"
+export FAAS_RUNTIME="nodejs18"
+
 echo "✅ 环境准备完成，启动应用..."
 
 # 启动应用
