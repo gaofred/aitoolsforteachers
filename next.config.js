@@ -7,8 +7,8 @@ const nextConfig = {
   },
   assetPrefix: isProd ? process.env.STATIC_URL : "",
 
-  // Serverless 部署配置
-  output: 'standalone',
+  // Serverless 部署配置 - 使用传统构建模式配合自定义server.js
+  // output: 'standalone', // 暂时注释掉，使用自定义server.js
 
   // 服务器外部包配置（Next.js 15.x）
   serverExternalPackages: ['@supabase/supabase-js'],

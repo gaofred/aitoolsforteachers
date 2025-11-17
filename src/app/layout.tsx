@@ -1,25 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+// import { Inter, JetBrains_Mono } from "next/font/google"; // 暂时注释避免网络依赖
 import "./globals.css";
 import ClientBody from "./ClientBody";
 import Script from "next/script";
 import { Providers } from "@/components/providers/SessionProvider";
 import { Analytics } from "@vercel/analytics/react";
 
-// 主要字体 - Inter (现代、简洁)
-const inter = Inter({
+// 暂时使用系统字体变量，避免Google Fonts网络依赖
+const inter = {
   variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
-});
+  className: "font-sans",
+};
 
-// 等宽字体 - JetBrains Mono (用于代码等特殊内容)
-const jetBrainsMono = JetBrains_Mono({
+const jetBrainsMono = {
   variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
+  className: "font-mono",
+};
 
 export const metadata: Metadata = {
   title: "英语AI教学工具 - 专业的智能英语教学材料生成平台 | AI工具网",

@@ -1,0 +1,75 @@
+service: english-teaching-tools-node20
+
+provider:
+  name: tencent
+  runtime: Nodejs20.x  # 使用Node.js 20.x
+  region: ap-beijing
+  environment:
+    NODE_ENV: production
+    NODE_OPTIONS: --max-old-space-size=4096
+    STATIC_URL: ${self:custom.staticUrl}
+  memorySize: 2048  # 增加到2GB内存
+  timeout: 300     # 增加到5分钟超时
+
+# 自定义配置
+custom:
+  # 静态文件URL配置
+  staticUrl: https://${self:service}-${sls:stage}.cos.ap-beijing.myqcloud.com
+
+functions:
+  # Next.js 服务器函数
+  server:
+    handler: server.js
+    runtime: Nodejs20.x  # 使用Node.js 20.x
+    memorySize: 2048
+    timeout: 300
+    environment:
+      NODE_ENV: production
+      STATIC_URL: ${self:custom.staticUrl}
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    # 事件配置
+    events:
+      - apigw:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+
+# 部署配置
+package:
+  # 包配置
+  artifact:
+    exclude:
+      - .git/**
+      - .vscode/**
+      - src/**  # 排除源代码，只使用构建输出
+      - pages/**
+      - components/**
+      - app/**
+      - '*.log'
+      - .DS_Store
+      - README.md
+      - .env.local
+      - node_modules/**/test/**
+      - node_modules/**/tests/**
+      - node_modules/**/*.md
+      - build.log
+      - .next/cache/**
+
+# 阶段配置
+stages:
+  dev:
+    environment:
+      NODE_ENV: production
+    memorySize: 1024
+    timeout: 180
+
+  prod:
+    environment:
+      NODE_ENV: production
+    memorySize: 2048
+    timeout: 300
+
+# 插件配置
+plugins:
+  - serverless-dotenv-plugin  # 环境变量管理
