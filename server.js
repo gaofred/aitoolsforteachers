@@ -58,7 +58,7 @@ app.prepare().then(() => {
   }).listen(port, hostname, () => {
     console.log(`✅ 应用启动成功！`);
     console.log(`🔗 访问地址: http://${hostname}:${port}`);
-    console.log(`📍 环境: ${isAlibabaCloud ? '阿里云函数计算' : '本地环境'}`);
+    console.log(`📍 环境: ${isCloudFunction ? '阿里云函数计算' : '本地环境'}`);
   });
 }).catch((err) => {
   console.error('❌ 应用启动失败:', err);
