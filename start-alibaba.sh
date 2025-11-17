@@ -39,16 +39,68 @@ export FAAS_RUNTIME="nodejs18"
 
 echo "✅ 环境准备完成，启动应用..."
 
-# 启动应用 - 优先使用简化版服务器
-echo "🔍 检查可用的服务器..."
+# 提供启动选项
+echo "🔍 选择启动模式："
+echo "1. 完整功能 Next.js (推荐)"
+echo "2. 简化版静态服务器 (备用)"
 
-if [ -f "simple-server.js" ]; then
-    echo "🌟 使用简化版服务器启动（快速可靠）..."
-    exec node simple-server.js
-elif [ -f "server.js" ]; then
-    echo "🌟 使用自定义服务器启动..."
-    exec node server.js
-else
-    echo "🌟 使用 Next.js 启动..."
-    exec npm run start
+# 检查是否存在增强版启动脚本
+if [ -f "start-alibaba-enhanced.sh" ]; then
+    echo "3. 阿里云FC优化版 Next.js"
 fi
+
+# 读取用户选择（在实际部署中可以通过环境变量设置）
+START_MODE=${START_MODE:-"1"}
+
+echo "选择: $START_MODE"
+
+case $START_MODE in
+  "1")
+    echo "🌟 使用完整功能 Next.js 启动..."
+    if [ -f "server.js" ]; then
+        exec node server.js
+    elif [ -f "package.json" ]; then
+        exec npm run start
+    else
+        echo "❌ 未找到启动文件"
+        exit 1
+    fi
+    ;;
+  "2")
+    echo "🌟 使用简化版静态服务器..."
+    if [ -f "simple-server.js" ]; then
+        exec node simple-server.js
+    else
+        echo "❌ 简化版服务器文件不存在"
+        exit 1
+    fi
+    ;;
+  "3")
+    echo "🌟 使用阿里云FC优化版启动..."
+    if [ -f "start-alibaba-enhanced.sh" ]; then
+        chmod +x start-alibaba-enhanced.sh
+        exec ./start-alibaba-enhanced.sh
+    else
+        echo "❌ 增强版启动脚本不存在，使用完整功能"
+        if [ -f "server.js" ]; then
+            exec node server.js
+        elif [ -f "package.json" ]; then
+            exec npm run start
+        else
+            echo "❌ 未找到启动文件"
+            exit 1
+        fi
+    fi
+    ;;
+  *)
+    echo "❌ 无效选择，默认使用完整功能"
+    if [ -f "server.js" ]; then
+        exec node server.js
+    elif [ -f "package.json" ]; then
+        exec npm run start
+    else
+        echo "❌ 未找到启动文件"
+        exit 1
+    fi
+    ;;
+esac
