@@ -390,9 +390,9 @@ const ContinuationWritingTopicInput: React.FC<ContinuationWritingTopicInputProps
       // 并行识别所有图片（使用快照，防止状态被清除）
       const recognitionPromises = imageSnapshot.map(async (imageBase64, index) => {
         try {
-          setRecognitionMessage(`阿里云新加坡正在识别第${index + 1}张图片...`);
+          setRecognitionMessage(`极客智坊正在识别第${index + 1}张图片...`);
 
-          const response = await fetch('/api/ai/ocr-aliyun-singapore', {
+          const response = await fetch('/api/ai/ocr-geekai', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

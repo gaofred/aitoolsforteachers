@@ -216,8 +216,8 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
       const base64Data = await base64Promise;
 
-      // 调用阿里云新加坡OCR API，提供更好的OCR识别效果
-      const response = await fetch('/api/ai/ocr-aliyun-singapore', {
+      // 调用极客智坊OCR API，提供更好的OCR识别效果
+      const response = await fetch('/api/ai/ocr-geekai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

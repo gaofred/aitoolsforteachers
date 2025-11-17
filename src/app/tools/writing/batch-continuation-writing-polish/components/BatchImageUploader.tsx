@@ -772,8 +772,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
       console.log(`🔄 开始处理图片 ${image.id.substring(0, 8)}... (尝试${retryCount + 1}/${maxRetries + 1})`);
 
-      // 使用阿里云新加坡OCR API，提供更好的读后续写识别效果
-      const response = await fetch('/api/ai/ocr-aliyun-singapore', {
+      // 使用极客智坊OCR API，提供更好的读后续写识别效果
+      const response = await fetch('/api/ai/ocr-geekai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
