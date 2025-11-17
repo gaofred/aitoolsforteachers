@@ -378,7 +378,7 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         const batch = batches[batchIndex];
 
-        setGradingMessage(`🔥 正在高速批改中，请耐心等待... (第 ${batchIndex + 1}/${batches.length} 批，${batch.length} 个作业)`);
+        setGradingMessage(`🔥 正在高速批改中，请耐心等待...注意，没有卡死。第1篇出得比较慢，耐心等待即可。 (第 ${batchIndex + 1}/${batches.length} 批，${batch.length} 个作业)`);
 
         console.log(`🔄 开始处理第 ${batchIndex + 1} 批，包含 ${batch.length} 个作业`);
 
@@ -728,7 +728,7 @@ ${assignment.gradingResult.improvedVersion}` : ''}
                   预计消耗点数：{calculatePointsCost()} 点
                 </span>
                 <span className="text-sm text-blue-600">
-                  单个作业：2点
+                  单篇作文:1点
                 </span>
               </div>
             </div>
@@ -1138,7 +1138,7 @@ ${assignment.gradingResult.detailedFeedback}
                   批改失败：{assignments.filter(a => a.status === 'failed').map(a => a.student.name).join('、')}
                 </div>
                 <div className="text-xs text-gray-600">
-                  失败作业将自动退还2点数/每学生，请点击"重新批改"按钮重试
+                  失败作业将自动退还1点数/每学生，请点击"重新批改"按钮重试
                 </div>
               </>
             )}

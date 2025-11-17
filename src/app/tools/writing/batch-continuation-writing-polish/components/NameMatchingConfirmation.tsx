@@ -49,7 +49,7 @@ const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> = ({
     const assignment = assignments.find(a => a.id === assignmentId);
     if (!assignment) return { type: 'none', student: null };
 
-    // 使用已经提取的学生姓名
+    // 使用已经提取的学生姓名 - 这里使用的是assignment.student.name，它已经在内容确认页面被更新
     const currentName = assignment.student?.name || '';
 
     // 如果已经有姓名且不是默认值，则认为已匹配
@@ -120,7 +120,12 @@ const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> = ({
     assignmentsCount: assignments.length,
     hasAssignments: assignments.length > 0,
     studentsCount: students.length,
-    canShowExtractButton: assignments.length > 0
+    canShowExtractButton: assignments.length > 0,
+    assignmentNames: assignments.map(a => ({
+      id: a.id,
+      studentName: a.student.name,
+      originalName: a.ocrResult.originalText?.split('\n')?.find(line => /^[\u4e00-\u9fff]{2,4}$/.test(line.trim())) || 'OCR识别'
+    }))
   });
 
   return (
@@ -128,8 +133,8 @@ const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> = ({
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">学生姓名匹配确认 (可选)</h2>
         <p className="text-gray-600 text-sm">
-          确认学生作业与姓名的对应关系。系统已自动匹配，您可以手动调整匹配结果。
-          如暂时不需要，可以直接跳过此步骤。
+          确认学生作业与姓名的对应关系。显示的姓名是您在上一步"学生作文内容确认"中修改后的姓名。
+          系统已自动匹配，您可以手动调整匹配结果。如暂时不需要，可以直接跳过此步骤。
         </p>
       </div>
 
@@ -182,19 +187,19 @@ const NameMatchingConfirmation: React.FC<NameMatchingConfirmationProps> = ({
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-gray-500" />
                         <span className="font-medium">
-                          OCR识别姓名: {assignment.student.name}
+                          当前学生姓名: {assignment.student.name}
                         </span>
                       </div>
 
                       {matchStatus.student && (
                         <Badge variant="default" className="bg-green-100 text-green-800">
-                          {matchStatus.type === 'extracted' && '已提取'}
+                          {matchStatus.type === 'extracted' && '已确认'}
                           {matchStatus.type === 'auto' && '自动匹配'}
                           {matchStatus.type === 'manual' && '手动匹配'}
                         </Badge>
                       )}
 
-                      {matchStatus.student && (
+                      {matchStatus.student && matchStatus.student.name !== assignment.student.name && (
                         <div className="text-green-700 font-medium">
                           → {matchStatus.student.name}
                         </div>

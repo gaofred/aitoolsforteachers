@@ -1,149 +1,173 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import {
-  History,
-  ArrowLeft,
-  Calendar,
-  Clock,
-  User,
-  FileText,
-  Image,
-  Music,
-  BookOpen,
-  PenTool,
-  Volume2,
-  Brain,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Download,
-  ExternalLink
-} from "lucide-react";
+import { Copy, Calendar, Clock, Eye, EyeOff, Users, Search, History, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { createSupabaseClient } from "@/lib/supabase-client";
 import { useUser } from "@/lib/user-context";
-import Head from 'next/head';
 
-interface AIGeneration {
+interface GenerationRecord {
   id: string;
   tool_type: string;
   input_data: any;
   output_data: any;
-  final_output: any;
+  final_output?: any;
   tokens_used: number;
   points_cost: number;
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  status: string;
   created_at: string;
   updated_at: string;
 }
 
-interface ToolConfig {
-  [key: string]: {
-    name: string;
-    icon: React.ReactNode;
-    category: string;
-    color: string;
-  };
-}
-
-const toolConfig: ToolConfig = {
-  'academic': {
-    name: '学术论文分析',
-    icon: <FileText className="w-4 h-4" />,
-    category: '阅读教学',
-    color: 'bg-purple-100 text-purple-700'
-  },
-  'reading': {
-    name: '阅读理解',
-    icon: <BookOpen className="w-4 h-4" />,
-    category: '阅读教学',
-    color: 'bg-blue-100 text-blue-700'
-  },
-  'qixuanwu_vocabulary_organise': {
-    name: '七选五词汇整理',
-    icon: <PenTool className="w-4 h-4" />,
-    category: '词汇学习',
-    color: 'bg-green-100 text-green-700'
-  },
-  'bcd_vocabulary_organise': {
-    name: 'BCD篇词汇整理',
-    icon: <PenTool className="w-4 h-4" />,
-    category: '词汇学习',
-    color: 'bg-green-100 text-green-700'
-  },
-  'vocabulary': {
-    name: '词汇整理',
-    icon: <PenTool className="w-4 h-4" />,
-    category: '词汇学习',
-    color: 'bg-green-100 text-green-700'
-  },
-  'music_generator': {
-    name: '音乐生成',
-    icon: <Music className="w-4 h-4" />,
-    category: '创意工具',
-    color: 'bg-pink-100 text-pink-700'
-  },
-  'lyric_exercise': {
-    name: '歌词练习',
-    icon: <Volume2 className="w-4 h-4" />,
-    category: '创意工具',
-    color: 'bg-pink-100 text-pink-700'
-  },
-  'writing': {
-    name: '写作辅助',
-    icon: <PenTool className="w-4 h-4" />,
-    category: '写作教学',
-    color: 'bg-orange-100 text-orange-700'
-  },
-  'simple_explanation': {
-    name: '简单解释',
-    icon: <Brain className="w-4 h-4" />,
-    category: '教学工具',
-    color: 'bg-yellow-100 text-yellow-700'
-  }
-};
-
 export default function AIGenerationHistory() {
   const router = useRouter();
   const { currentUser } = useUser();
-  const [generations, setGenerations] = useState<AIGeneration[]>([]);
+  const [generations, setGenerations] = useState<GenerationRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState("all");
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(7);
+  const [activeTab, setActiveTab] = useState("all");
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!currentUser) {
-      router.push('/auth/signin');
-      return;
-    }
     fetchGenerations();
-  }, [currentUser]);
+  }, []);
 
   const fetchGenerations = async () => {
     try {
-      setLoading(true);
       const response = await fetch('/api/ai/generations/history');
+      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error('获取历史记录失败');
+      if (!data.success) {
+        setError(data.error || '获取历史记录失败');
+        return;
       }
 
-      const data = await response.json();
+      console.log('✅ 成功获取历史记录，数量:', data.generations?.length || 0);
       setGenerations(data.generations || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '获取历史记录失败');
+      setError(null);
+    } catch (error) {
+      console.error('❌ 获取历史记录过程中发生错误:', error);
+      setError('服务器内部错误');
     } finally {
       setLoading(false);
     }
   };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error('复制失败:', err);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getToolIcon = (toolType: string) => {
+    switch (toolType) {
+      case 'reading': return '📖';
+      case 'vocabulary': return '📚';
+      case 'writing': return '✍️';
+      case 'creative': return '🎨';
+      case 'teaching': return '👨‍🏫';
+      default: '🔧';
+    }
+  };
+
+  const getToolName = (toolType: string) => {
+    switch (toolType) {
+      case 'reading': return '阅读教学';
+      case 'vocabulary': return '词汇学习';
+      case 'writing': return '写作辅助';
+      case 'creative': return '创意工具';
+      case 'teaching': return '教学工具';
+      default: '其他工具';
+    }
+  };
+
+  const formatInputData = (data: any): string => {
+    if (typeof data === 'string') {
+      return data;
+    }
+    if (typeof data === 'object' && data !== null) {
+      try {
+        return JSON.stringify(data, null, 2);
+      } catch {
+        return '[复杂数据]';
+      }
+    }
+    return String(data);
+  };
+
+  const formatOutputData = (data: any): string => {
+    if (typeof data === 'string') {
+      return data
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/#{1,6}\s+/g, '')
+        .replace(/```[\s\S]*?```/g, (match) => {
+          const codeContent = match.replace(/```[\s\S]*?```/g, '').slice(3, -3);
+          return `[代码块]\n${codeContent}`;
+        })
+        .trim();
+    }
+
+    if (typeof data === 'object' && data !== null) {
+      if (Array.isArray(data)) {
+        return data.map(item => formatOutputData(item)).join('\n');
+      } else {
+        const formatted = Object.entries(data)
+          .filter(([key, value]) => value !== null && value !== undefined)
+          .map(([key, value]) => {
+            const formattedValue = formatOutputData(value);
+            return `${key}: ${formattedValue}`;
+          })
+          .join('\n');
+        return formatted;
+      }
+    }
+
+    return String(data);
+  };
+
+  const getToolCategory = (toolType: string) => {
+    switch (toolType) {
+      case 'reading': return 'reading';
+      case 'vocabulary': return 'vocabulary';
+      case 'writing': return 'writing';
+      case 'creative': return 'creative';
+      case 'teaching': return 'teaching';
+      default: 'other';
+    }
+  };
+
+  const filterGenerations = () => {
+    if (activeTab === 'all') return generations;
+    return generations.filter(gen => getToolCategory(gen.tool_type) === activeTab);
+  };
+
+  const totalPages = Math.ceil(filterGenerations().length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filterGenerations().slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   const toggleExpanded = (id: string) => {
     const newExpanded = new Set(expandedItems);
@@ -155,164 +179,6 @@ export default function AIGenerationHistory() {
     setExpandedItems(newExpanded);
   };
 
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('复制失败:', err);
-    }
-  };
-
-  // 格式化输出数据，使其更易读
-  const formatOutputData = (data: any): string => {
-    if (typeof data === 'string') {
-      // 清理可能的Markdown标记
-      return data
-        .replace(/\*\*(.*?)\*\*/g, '$1') // 移除粗体标记
-        .replace(/\*(.*?)\*/g, '$1')   // 移除斜体标记
-        .replace(/#{1,6}\s+/g, '')   // 移除标题标记
-        .replace(/```[\s\S]*?```/g, (match) => {
-          // 处理代码块
-          const codeContent = match.replace(/```[\s\S]*?```/g, '').slice(3, -3);
-          return `[代码块]\n${codeContent}`;
-        })
-        .trim();
-    }
-
-    if (typeof data === 'object' && data !== null) {
-      // 如果是复杂对象，尝试提取主要内容
-      if (data.result) {
-        return formatOutputData(data.result);
-      }
-      if (data.content) {
-        return formatOutputData(data.content);
-      }
-      if (data.text) {
-        return formatOutputData(data.text);
-      }
-      if (data.output) {
-        return formatOutputData(data.output);
-      }
-      if (data.generated_text) {
-        return formatOutputData(data.generated_text);
-      }
-      if (data.response) {
-        return formatOutputData(data.response);
-      }
-
-      // 如果是数组，取第一个有效项
-      if (Array.isArray(data) && data.length > 0) {
-        return formatOutputData(data[0]);
-      }
-
-      // 智能格式化复杂对象
-      const formatted = Object.entries(data)
-        .filter(([_, value]) => value !== null && value !== undefined)
-        .map(([key, value]) => {
-          if (typeof value === 'string') {
-            return `${key}: ${value}`;
-          } else if (typeof value === 'object') {
-            return `${key}: ${JSON.stringify(value, null, 2)}`;
-          } else {
-            return `${key}: ${String(value)}`;
-          }
-        })
-        .join('\n\n');
-
-      return formatted;
-    }
-
-    return String(data);
-  };
-
-  // 格式化输入数据
-  const formatInputData = (data: any): string => {
-    if (typeof data === 'string') {
-      return data;
-    }
-
-    if (typeof data === 'object' && data !== null) {
-      // 提取常见的输入字段
-      if (data.text || data.prompt || data.content) {
-        return formatOutputData(data.text || data.prompt || data.content);
-      }
-
-      // 如果有其他字段，格式化为易读格式
-      const entries = Object.entries(data);
-      if (entries.length > 0) {
-        return entries.map(([key, value]) => {
-          if (typeof value === 'string' && value.length > 100) {
-            return `${key}: ${value.substring(0, 100)}...`;
-          }
-          return `${key}: ${JSON.stringify(value)}`;
-        }).join('\n');
-      }
-    }
-
-    return String(data);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'COMPLETED': { color: 'bg-green-100 text-green-700', text: '已完成' },
-      'PROCESSING': { color: 'bg-blue-100 text-blue-700', text: '处理中' },
-      'PENDING': { color: 'bg-yellow-100 text-yellow-700', text: '等待中' },
-      'FAILED': { color: 'bg-red-100 text-red-700', text: '失败' }
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
-    return <Badge className={config.color}>{config.text}</Badge>;
-  };
-
-  const getToolInfo = (toolType: string) => {
-    return toolConfig[toolType] || {
-      name: toolType,
-      icon: <FileText className="w-4 h-4" />,
-      category: '其他',
-      color: 'bg-gray-100 text-gray-700'
-    };
-  };
-
-  const filterGenerations = () => {
-    if (activeTab === "all") return generations;
-
-    const categoryMap: { [key: string]: string[] } = {
-      'reading': ['academic', 'reading'],
-      'vocabulary': ['qixuanwu_vocabulary_organise', 'bcd_vocabulary_organise', 'vocabulary'],
-      'creative': ['music_generator', 'lyric_exercise'],
-      'writing': ['writing'],
-      'teaching': ['simple_explanation']
-    };
-
-    const toolTypes = categoryMap[activeTab] || [];
-    return generations.filter(gen => toolTypes.includes(gen.tool_type));
-  };
-
-  const filteredGenerations = filterGenerations();
-
-  // 分页逻辑
-  const totalPages = Math.ceil(filteredGenerations.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentItems = filteredGenerations.slice(startIndex, endIndex);
-
-  // 重置页码当标签切换时
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab]);
-
-  // 分页组件
   const PaginationComponent = () => {
     if (totalPages <= 1) return null;
 
@@ -356,39 +222,32 @@ export default function AIGenerationHistory() {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md mx-4">
-          <CardContent className="p-6 text-center">
-            <p className="text-gray-600 mb-4">请先登录后查看历史记录</p>
-            <Button onClick={() => router.push('/auth/signin')}>
-              前往登录
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">正在加载用户信息...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      <Head>
-        <title>AI生成历史记录 - 英语教学工具</title>
-        <style>{`
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-          }
-        `}</style>
-      </Head>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #c1c1c1;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #a8a8a8;
+        }
+      `}</style>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
         {/* 顶部导航 */}
         <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
@@ -410,24 +269,6 @@ export default function AIGenerationHistory() {
 
         {/* 主要内容 */}
         <main className="container mx-auto px-4 py-6 max-w-6xl">
-          {/* 功能说明 */}
-          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 mt-0.5">
-                <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h4 className="font-medium text-amber-900 mb-1">功能说明</h4>
-                <p className="text-sm text-amber-800">
-                  目前功能不完善，部分AI工具生成的结果不会出现在这里。历史记录功能仅显示通过 ai_generations 数据表记录的生成结果。
-                  如果您使用的某些工具生成的结果没有显示，说明该工具尚未接入统一的历史记录系统。
-                </p>
-              </div>
-            </div>
-          </div>
-
           {loading ? (
             <div className="flex items-center justify-center min-h-[400px]">
               <div className="text-center">
@@ -446,57 +287,32 @@ export default function AIGenerationHistory() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <History className="w-5 h-5 text-blue-600" />
-                      <div>
-                        <p className="text-2xl font-bold">{generations.length}</p>
-                        <p className="text-sm text-gray-600">总生成次数</p>
-                      </div>
-                    </div>
+                    <div className="text-2xl font-bold text-blue-600">{generations.length}</div>
+                    <div className="text-sm text-gray-600">总生成次数</div>
                   </CardContent>
                 </Card>
-
                 <Card>
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-green-600" />
-                      <div>
-                        <p className="text-2xl font-bold">
-                          {generations.filter(g => g.status === 'COMPLETED').length}
-                        </p>
-                        <p className="text-sm text-gray-600">成功完成</p>
-                      </div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {generations.filter(g => g.status === 'COMPLETED').length}
                     </div>
+                    <div className="text-sm text-gray-600">成功完成</div>
                   </CardContent>
                 </Card>
-
                 <Card>
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center">
-                        <span className="text-xs text-yellow-700">⚡</span>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold">
-                          {generations.reduce((sum, g) => sum + g.points_cost, 0)}
-                        </p>
-                        <p className="text-sm text-gray-600">总消耗点数</p>
-                      </div>
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {generations.reduce((sum, g) => sum + g.points_cost, 0)}
                     </div>
+                    <div className="text-sm text-gray-600">总消耗点数</div>
                   </CardContent>
                 </Card>
-
                 <Card>
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-purple-600" />
-                      <div>
-                        <p className="text-2xl font-bold">
-                          {generations.reduce((sum, g) => sum + g.tokens_used, 0)}
-                        </p>
-                        <p className="text-sm text-gray-600">总使用Token</p>
-                      </div>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {generations.reduce((sum, g) => sum + g.tokens_used, 0)}
                     </div>
+                    <div className="text-sm text-gray-600">总使用Token</div>
                   </CardContent>
                 </Card>
               </div>
@@ -513,7 +329,7 @@ export default function AIGenerationHistory() {
                 </TabsList>
 
                 <TabsContent value={activeTab} className="mt-6">
-                  {filteredGenerations.length === 0 ? (
+                  {filterGenerations().length === 0 ? (
                     <div className="text-center py-12">
                       <History className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                       <p className="text-gray-500">暂无{activeTab === "all" ? "" : "此类"}历史记录</p>
@@ -523,7 +339,7 @@ export default function AIGenerationHistory() {
                       {/* 页码信息 */}
                       <div className="flex justify-between items-center mb-4 text-sm text-gray-600">
                         <span>
-                          显示第 {startIndex + 1} - {Math.min(endIndex, filteredGenerations.length)} 条，共 {filteredGenerations.length} 条记录
+                          显示第 {startIndex + 1} - {Math.min(endIndex, filterGenerations().length)} 条，共 {filterGenerations().length} 条记录
                         </span>
                         {totalPages > 1 && (
                           <span>第 {currentPage} / {totalPages} 页</span>
@@ -532,22 +348,21 @@ export default function AIGenerationHistory() {
 
                       <div className="space-y-4">
                         {currentItems.map((generation) => {
-                          const toolInfo = getToolInfo(generation.tool_type);
                           const isExpanded = expandedItems.has(generation.id);
+                          const toolIcon = getToolIcon(generation.tool_type);
+                          const toolName = getToolName(generation.tool_type);
 
                           return (
                             <Card key={generation.id} className="overflow-hidden">
-                              <CardHeader className="pb-3">
-                                <div className="flex items-start justify-between">
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-4">
                                   <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg ${toolInfo.color}`}>
-                                      {toolInfo.icon}
-                                    </div>
+                                    <div className="text-2xl">{toolIcon}</div>
                                     <div>
-                                      <CardTitle className="text-lg">{toolInfo.name}</CardTitle>
+                                      <CardTitle className="text-lg">{toolName}</CardTitle>
                                       <div className="flex items-center gap-2 mt-1">
                                         <Badge variant="outline" className="text-xs">
-                                          {toolInfo.category}
+                                          {toolName}
                                         </Badge>
                                         <span className="text-xs text-gray-500">
                                           {formatDate(generation.created_at)}
@@ -555,100 +370,107 @@ export default function AIGenerationHistory() {
                                       </div>
                                     </div>
                                   </div>
+
                                   <div className="flex items-center gap-2">
-                                    {getStatusBadge(generation.status)}
+                                    <Badge
+                                      variant={generation.status === 'COMPLETED' ? 'default' : 'secondary'}
+                                      className={
+                                        generation.status === 'COMPLETED'
+                                          ? 'bg-green-100 text-green-800'
+                                          : 'bg-yellow-100 text-yellow-800'
+                                      }
+                                    >
+                                      {generation.status === 'COMPLETED' ? '成功' : '处理中'}
+                                    </Badge>
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => toggleExpanded(generation.id)}
                                     >
                                       {isExpanded ? (
-                                        <ChevronUp className="w-4 h-4" />
+                                        <EyeOff className="w-4 h-4" />
                                       ) : (
-                                        <ChevronDown className="w-4 h-4" />
+                                        <Eye className="w-4 h-4" />
                                       )}
                                     </Button>
                                   </div>
                                 </div>
 
-                                {/* 消耗信息 */}
                                 <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
                                   <span>消耗: {generation.points_cost} 点数</span>
                                   <span>Token: {generation.tokens_used}</span>
                                 </div>
-                              </CardHeader>
 
-                              {isExpanded && (
-                                <CardContent className="pt-0">
-                                  <Separator className="mb-4" />
-
-                                  {/* 输入数据 */}
-                                  {generation.input_data && (
-                                    <div className="mb-4">
-                                      <h4 className="text-sm font-medium text-gray-700 mb-2">输入内容:</h4>
-                                      <div className="bg-gray-50 rounded-lg p-3">
-                                        <div className="max-h-40 overflow-y-auto text-sm text-gray-700 whitespace-pre-wrap break-words custom-scrollbar">
-                                          {formatInputData(generation.input_data)}
-                                        </div>
-                                        <div className="flex gap-2 mt-2">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => copyToClipboard(formatInputData(generation.input_data))}
-                                          >
-                                            <Copy className="w-3 h-3 mr-1" />
-                                            复制
-                                          </Button>
+                                {isExpanded && (
+                                  <div className="space-y-4">
+                                    {/* 输入数据 */}
+                                    {generation.input_data && (
+                                      <div className="mb-4">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-2">输入内容:</h4>
+                                        <div className="bg-gray-50 rounded-lg p-3">
+                                          <div className="max-h-40 overflow-y-auto text-sm text-gray-700 whitespace-pre-wrap break-words custom-scrollbar">
+                                            {formatInputData(generation.input_data)}
+                                          </div>
+                                          <div className="flex gap-2 mt-2">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => copyToClipboard(formatInputData(generation.input_data))}
+                                            >
+                                              <Copy className="w-3 h-3 mr-1" />
+                                              复制
+                                            </Button>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
 
-                                  {/* 输出数据 */}
-                                  {generation.output_data && (
-                                    <div className="mb-4">
-                                      <h4 className="text-sm font-medium text-gray-700 mb-2">生成结果:</h4>
-                                      <div className="bg-blue-50 rounded-lg p-3">
-                                        <div className="max-h-60 overflow-y-auto text-sm text-gray-700 whitespace-pre-wrap break-words custom-scrollbar">
-                                          {formatOutputData(generation.output_data)}
-                                        </div>
-                                        <div className="flex gap-2 mt-2">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => copyToClipboard(formatOutputData(generation.output_data))}
-                                          >
-                                            <Copy className="w-3 h-3 mr-1" />
-                                            复制结果
-                                          </Button>
+                                    {/* 输出数据 */}
+                                    {generation.output_data && (
+                                      <div className="mb-4">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-2">生成结果:</h4>
+                                        <div className="bg-blue-50 rounded-lg p-3">
+                                          <div className="max-h-60 overflow-y-auto text-sm text-gray-700 whitespace-pre-wrap break-words custom-scrollbar">
+                                            {formatOutputData(generation.output_data)}
+                                          </div>
+                                          <div className="flex gap-2 mt-2">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => copyToClipboard(formatOutputData(generation.output_data))}
+                                            >
+                                              <Copy className="w-3 h-3 mr-1" />
+                                              复制结果
+                                            </Button>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
 
-                                  {/* 最终输出 */}
-                                  {generation.final_output && generation.final_output !== generation.output_data && (
-                                    <div>
-                                      <h4 className="text-sm font-medium text-gray-700 mb-2">最终输出:</h4>
-                                      <div className="bg-green-50 rounded-lg p-3">
-                                        <div className="max-h-60 overflow-y-auto text-sm text-gray-700 whitespace-pre-wrap break-words custom-scrollbar">
-                                          {formatOutputData(generation.final_output)}
-                                        </div>
-                                        <div className="flex gap-2 mt-2">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => copyToClipboard(formatOutputData(generation.final_output))}
-                                          >
-                                            <Copy className="w-3 h-3 mr-1" />
-                                            复制
-                                          </Button>
+                                    {/* 最终输出 */}
+                                    {generation.final_output && generation.final_output !== generation.output_data && (
+                                      <div>
+                                        <h4 className="text-sm font-medium text-gray-700 mb-2">最终输出:</h4>
+                                        <div className="bg-green-50 rounded-lg p-3">
+                                          <div className="max-h-60 overflow-y-auto text-sm text-gray-700 whitespace-pre-wrap break-words custom-scrollbar">
+                                            {formatOutputData(generation.final_output)}
+                                          </div>
+                                          <div className="flex gap-2 mt-2">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => copyToClipboard(formatOutputData(generation.final_output))}
+                                            >
+                                              <Copy className="w-3 h-3 mr-1" />
+                                              复制
+                                            </Button>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  )}
-                                </CardContent>
-                              )}
+                                    )}
+                                  </div>
+                                )}
+                              </CardContent>
                             </Card>
                           );
                         })}
