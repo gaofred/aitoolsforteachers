@@ -7,6 +7,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  distDir: 'build', // 使用不同的构建输出目录绕过权限问题
   images: {
     unoptimized: true,
     domains: [
