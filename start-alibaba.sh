@@ -39,8 +39,13 @@ export FAAS_RUNTIME="nodejs18"
 
 echo "✅ 环境准备完成，启动应用..."
 
-# 启动应用
-if [ -f "server.js" ]; then
+# 启动应用 - 优先使用简化版服务器
+echo "🔍 检查可用的服务器..."
+
+if [ -f "simple-server.js" ]; then
+    echo "🌟 使用简化版服务器启动（快速可靠）..."
+    exec node simple-server.js
+elif [ -f "server.js" ]; then
     echo "🌟 使用自定义服务器启动..."
     exec node server.js
 else
