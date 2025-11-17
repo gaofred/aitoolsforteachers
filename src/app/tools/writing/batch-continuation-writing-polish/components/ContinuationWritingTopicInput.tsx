@@ -390,33 +390,34 @@ const ContinuationWritingTopicInput: React.FC<ContinuationWritingTopicInputProps
       // 并行识别所有图片（使用快照，防止状态被清除）
       const recognitionPromises = imageSnapshot.map(async (imageBase64, index) => {
         try {
-          setRecognitionMessage(`正在识别第${index + 1}张图片...`);
+          setRecognitionMessage(`阿里云新加坡正在识别第${index + 1}张图片...`);
 
-          const response = await fetch('/api/ocr', {
+          const response = await fetch('/api/ai/ocr-aliyun-singapore', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              image: imageBase64,
-              type: 'application' // 保持原有的type值，复用现有的OCR接口
+              imageBase64: imageBase64,
+              prompt: '识别图中文字，依次原文输出，不要增加其他多余的解释和说明。特别注意识别读后续写题目的段落结构和P1、P2标记。'
             }),
           });
 
           if (!response.ok) {
-            throw new Error(`OCR请求失败: ${response.status}`);
+            throw new Error(`阿里云新加坡OCR请求失败: ${response.status}`);
           }
 
           const result = await response.json();
 
-          if (result.error) {
-            throw new Error(result.error);
+          if (!result.success) {
+            throw new Error(result.error || '阿里云新加坡OCR识别失败');
           }
 
           return {
             index,
-            text: result.text || '',
-            confidence: result.confidence || 0
+            text: result.result || '',
+            confidence: 1.0, // 阿里云API不返回置信度，设为默认值
+            provider: result.provider || '阿里云新加坡'
           };
         } catch (error) {
           console.error(`第${index + 1}张图片识别失败:`, error);
@@ -457,14 +458,14 @@ const ContinuationWritingTopicInput: React.FC<ContinuationWritingTopicInputProps
         // 检查是否有错误信息
         const errors = results.filter(r => r.error);
         if (errors.length > 0) {
-          alert(`部分图片识别失败：${errors.map(e => e.error).join(', ')}`);
+          alert(`阿里云新加坡OCR识别失败：${errors.map(e => e.error).join(', ')}`);
         } else {
-          alert('未能识别出有效文字，请检查图片质量或重新拍摄');
+          alert('阿里云新加坡OCR未能识别出有效文字，请检查图片质量或重新拍摄');
         }
       }
     } catch (error) {
-      console.error('批量识别失败:', error);
-      alert('图片识别失败，请重试');
+      console.error('阿里云新加坡批量识别失败:', error);
+      alert('阿里云新加坡图片识别失败，请重试');
     } finally {
       setIsRecognizing(false);
       setRecognitionMessage("");

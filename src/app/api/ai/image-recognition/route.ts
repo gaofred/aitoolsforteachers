@@ -1,32 +1,38 @@
 import { NextResponse } from "next/server";
 
-// 火山引擎API配置
+// 阿里云新加坡DashScope API配置（主要服务）
+const DASHSCOPE_SG_API_KEY = process.env.AliYunSingapore_APIKEY;
+const DASHSCOPE_SG_BASE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+
+// 火山引擎API配置（备用方案1）
 const VOLCENGINE_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
 const VOLCENGINE_API_KEY = process.env.VOLCENGINE_API_KEY;
 
-// 极客智坊API配置（备用方案）
+// 极客智坊API配置（备用方案2）
 const GEEKAI_API_URL = "https://geekai.co/api/v1/chat/completions";
 const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
 
 // 备用OCR服务开关
-const FALLBACK_OCR_AVAILABLE = !!GEEKAI_API_KEY;
+const VOLCENGINE_AVAILABLE = !!VOLCENGINE_API_KEY;
+const GEEKAI_AVAILABLE = !!GEEKAI_API_KEY;
 
 export async function POST(request: Request) {
   try {
     // OCR识图是免费功能，无需认证检查
     console.log('🖼️ 图片识别API - 免费功能，跳过认证检查');
 
-    // 检查API密钥配置
-    if (!VOLCENGINE_API_KEY) {
-      console.error('❌ 火山引擎API密钥未配置');
+    // 检查主要API密钥配置
+    if (!DASHSCOPE_SG_API_KEY) {
+      console.error('❌ 阿里云新加坡API密钥未配置');
       return NextResponse.json({
         success: false,
         error: "OCR服务暂时不可用，请稍后重试",
-        details: "API配置错误"
+        details: "阿里云新加坡API配置错误"
       }, { status: 500 });
     }
 
-    console.log(`✅ 火山引擎API密钥已配置，长度: ${VOLCENGINE_API_KEY.length}`);
+    console.log(`✅ 阿里云新加坡API密钥已配置，长度: ${DASHSCOPE_SG_API_KEY.length}`);
+    console.log(`🔧 备用服务配置: 火山引擎=${VOLCENGINE_AVAILABLE}, 极客智坊=${GEEKAI_AVAILABLE}`);
 
     // 获取请求数据
     const { imageBase64, images } = await request.json();
@@ -64,78 +70,97 @@ export async function POST(request: Request) {
 
     // 记录请求开始时间，用于监控网络延迟
     const startTime = Date.now();
-    console.log('🌐 开始调用火山引擎API (北京节点)...');
+    console.log('🌏 开始调用阿里云新加坡API (主要服务)...');
 
     const pointsCost = 0; // 识图功能免费
 
     // 免费功能，无需检查点数
 
-    // 调用火山引擎API进行识图 - 专注于图像识别，添加超时控制
+    // 首先调用阿里云新加坡API进行识图
     let ocrResponse;
     try {
-      // 构建更完整的请求头
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${VOLCENGINE_API_KEY}`,
-        "User-Agent": "AIToolsForTeachers/1.0 (Production)",
-        "Accept": "application/json",
-        "Accept-Encoding": "gzip, deflate, br"
-      };
+      console.log('🚀 调用阿里云新加坡DashScope API...');
 
-      console.log('🔍 请求头配置:', {
-        url: VOLCENGINE_API_URL,
-        hasApiKey: !!VOLCENGINE_API_KEY,
-        apiKeyLength: VOLCENGINE_API_KEY?.length,
-        headers: Object.keys(headers)
-      });
-
-      ocrResponse = await fetch(VOLCENGINE_API_URL, {
+      ocrResponse = await fetch(DASHSCOPE_SG_BASE_URL, {
         method: "POST",
-        headers: headers,
-        signal: AbortSignal.timeout(180000), // 增加到180秒超时
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${DASHSCOPE_SG_API_KEY}`,
+          "User-Agent": "AIToolsForTeachers/1.0 (Production)",
+          "Accept": "application/json",
+          "Accept-Encoding": "gzip, deflate, br"
+        },
+        signal: AbortSignal.timeout(120000), // 120秒超时
         body: JSON.stringify({
-        model: "doubao-seed-1-6-flash-250828",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复'无文字内容'"
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: imageDataUrl
+          model: "qwen3-vl-flash",
+          messages: [
+            {
+              role: "system",
+              content: "你是一个专业的OCR文字识别专家。请准确识别图片中的所有文字内容，保持原文格式不变。"
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复'无文字内容'"
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: imageDataUrl
+                  }
                 }
-              }
-            ]
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 4000  // 增加到4000以支持更长的文本识别
-      })
+              ]
+            }
+          ],
+          temperature: 0.1,
+          max_tokens: 4000,
+          stream: false
+        })
       });
-    } catch (networkError) {
-      console.error('❌ 火山引擎网络请求失败:', networkError);
 
-      // 如果火山引擎网络失败且有备用服务，尝试使用极客智坊
-      if (FALLBACK_OCR_AVAILABLE) {
-        console.log('🔄 火山引擎网络失败，尝试使用极客智坊Gemini模型作为备用...');
+      console.log('📡 阿里云新加坡API响应状态:', ocrResponse.status);
+    } catch (networkError) {
+      console.error('❌ 阿里云新加坡网络请求失败:', networkError);
+
+      // 阿里云新加坡失败，尝试火山引擎作为备用
+      if (VOLCENGINE_AVAILABLE) {
+        console.log('🔄 阿里云新加坡失败，尝试使用火山引擎作为备用服务...');
         try {
-          const fallbackResult = await callGeekAIOCR(imageDataUrl);
-          if (fallbackResult.success) {
-            console.log('✅ 极客智坊备用OCR识别成功！');
+          const volcanoResult = await callVolcengineOCR(imageDataUrl);
+          if (volcanoResult.success) {
+            console.log('✅ 火山引擎备用OCR识别成功！');
             return NextResponse.json({
               success: true,
-              result: fallbackResult.result,
-              provider: 'geekai',
+              result: volcanoResult.result,
+              provider: 'volcengine',
               fallback: true,
-              message: '使用备用OCR服务（极客智坊 Gemini-2.5-flash-lite）'
+              message: '使用备用OCR服务（火山引擎 doubao）'
             });
           }
-        } catch (geekaiError) {
-          console.error('❌ 极客智坊备用OCR也失败:', geekaiError);
+        } catch (volcanoError) {
+          console.error('❌ 火山引擎备用OCR也失败:', volcanoError);
+
+          // 火山引擎也失败，尝试极客智坊作为最终备用
+          if (GEEKAI_AVAILABLE) {
+            console.log('🔄 火山引擎也失败，尝试使用极客智坊Gemini模型作为最终备用...');
+            try {
+              const geekaiResult = await callGeekAIOCR(imageDataUrl);
+              if (geekaiResult.success) {
+                console.log('✅ 极客智坊最终备用OCR识别成功！');
+                return NextResponse.json({
+                  success: true,
+                  result: geekaiResult.result,
+                  provider: 'geekai',
+                  fallback: true,
+                  message: '使用最终备用OCR服务（极客智坊 Gemini-2.5-flash-lite）'
+                });
+              }
+            } catch (geekaiError) {
+              console.error('❌ 极客智坊最终备用OCR也失败:', geekaiError);
+            }
+          }
         }
       }
 
@@ -143,9 +168,9 @@ export async function POST(request: Request) {
         success: false,
         error: "识图服务网络连接失败",
         details: {
-          primaryError: `火山引擎网络请求失败: ${networkError instanceof Error ? networkError.message : 'Unknown error'}`,
-          fallbackAvailable: FALLBACK_OCR_AVAILABLE,
-          fallbackTried: FALLBACK_OCR_AVAILABLE
+          primaryError: `阿里云新加坡网络请求失败: ${networkError instanceof Error ? networkError.message : 'Unknown error'}`,
+          fallbackAvailable: VOLCENGINE_AVAILABLE || GEEKAI_AVAILABLE,
+          fallbackTried: VOLCENGINE_AVAILABLE || GEEKAI_AVAILABLE
         }
       }, { status: 500 });
     }
@@ -153,7 +178,7 @@ export async function POST(request: Request) {
     let ocrData;
     try {
       const responseText = await ocrResponse.text();
-      console.log('🔍 火山引擎API原始响应前500字符:', responseText.substring(0, 500));
+      console.log('🔍 阿里云新加坡API原始响应前500字符:', responseText.substring(0, 500));
       console.log('🔍 响应状态码:', ocrResponse.status);
       console.log('🔍 响应头:', Object.fromEntries(ocrResponse.headers.entries()));
 
@@ -178,7 +203,7 @@ export async function POST(request: Request) {
       // 检查响应是否为JSON格式
       const trimmedText = responseText.trim();
       if (!trimmedText.startsWith('{') && !trimmedText.startsWith('[')) {
-        console.error('❌ API返回的不是JSON格式，可能是错误页面');
+        console.error('❌ 阿里云新加坡API返回的不是JSON格式，可能是错误页面');
         console.error('❌ 完整响应内容:', responseText.substring(0, 1000));
 
         // 尝试提供更具体的错误信息
@@ -198,25 +223,45 @@ export async function POST(request: Request) {
 
       ocrData = JSON.parse(responseText);
     } catch (parseError) {
-      console.error('❌ 火山引擎JSON解析失败:', parseError);
+      console.error('❌ 阿里云新加坡JSON解析失败:', parseError);
 
-      // 如果火山引擎失败且有备用服务，尝试使用极客智坊
-      if (FALLBACK_OCR_AVAILABLE) {
-        console.log('🔄 火山引擎失败，尝试使用极客智坊Gemini模型作为备用...');
+      // 阿里云新加坡失败，尝试火山引擎作为备用
+      if (VOLCENGINE_AVAILABLE) {
+        console.log('🔄 阿里云新加坡失败，尝试使用火山引擎作为备用...');
         try {
-          const fallbackResult = await callGeekAIOCR(imageDataUrl);
-          if (fallbackResult.success) {
-            console.log('✅ 极客智坊备用OCR识别成功！');
+          const volcanoResult = await callVolcengineOCR(imageDataUrl);
+          if (volcanoResult.success) {
+            console.log('✅ 火山引擎备用OCR识别成功！');
             return NextResponse.json({
               success: true,
-              result: fallbackResult.result,
-              provider: 'geekai',
+              result: volcanoResult.result,
+              provider: 'volcengine',
               fallback: true,
-              message: '使用备用OCR服务（极客智坊 Gemini-2.5-flash-lite）'
+              message: '阿里云新加坡失败，使用备用OCR服务（火山引擎 doubao）'
             });
           }
-        } catch (geekaiError) {
-          console.error('❌ 极客智坊备用OCR也失败:', geekaiError);
+        } catch (volcanoError) {
+          console.error('❌ 火山引擎备用OCR也失败:', volcanoError);
+
+          // 火山引擎也失败，尝试极客智坊作为最终备用
+          if (GEEKAI_AVAILABLE) {
+            console.log('🔄 火山引擎也失败，尝试使用极客智坊Gemini模型作为最终备用...');
+            try {
+              const geekaiResult = await callGeekAIOCR(imageDataUrl);
+              if (geekaiResult.success) {
+                console.log('✅ 极客智坊最终备用OCR识别成功！');
+                return NextResponse.json({
+                  success: true,
+                  result: geekaiResult.result,
+                  provider: 'geekai',
+                  fallback: true,
+                  message: '使用最终备用OCR服务（极客智坊 Gemini-2.5-flash-lite）'
+                });
+              }
+            } catch (geekaiError) {
+              console.error('❌ 极客智坊最终备用OCR也失败:', geekaiError);
+            }
+          }
         }
       }
 
@@ -239,7 +284,7 @@ export async function POST(request: Request) {
           responseStatus: ocrResponse.status,
           responseHeaders: Object.fromEntries(ocrResponse.headers.entries()),
           responsePreview: responseText.substring(0, 500),
-          fallbackAvailable: FALLBACK_OCR_AVAILABLE,
+          fallbackAvailable: VOLCENGINE_AVAILABLE || GEEKAI_AVAILABLE,
           timestamp: new Date().toISOString()
         }
       }, { status: 500 });
@@ -248,24 +293,24 @@ export async function POST(request: Request) {
     // 计算并记录网络延迟
     const endTime = Date.now();
     const networkLatency = endTime - startTime;
-    console.log(`🌐 火山引擎API响应完成，总耗时: ${networkLatency}ms (${(networkLatency/1000).toFixed(2)}秒)`);
+    console.log(`🌏 阿里云新加坡API响应完成，总耗时: ${networkLatency}ms (${(networkLatency/1000).toFixed(2)}秒)`);
 
     if (!ocrResponse.ok) {
-      console.error("❌ 火山引擎API HTTP错误:", ocrData);
+      console.error("❌ 阿里云新加坡API HTTP错误:", ocrData);
 
-      // 如果火山引擎HTTP错误且有备用服务，尝试使用极客智坊
-      if (FALLBACK_OCR_AVAILABLE) {
-        console.log('🔄 火山引擎HTTP错误，尝试使用极客智坊Gemini模型作为备用...');
+      // 阿里云新加坡HTTP错误，尝试火山引擎作为备用
+      if (VOLCENGINE_AVAILABLE) {
+        console.log('🔄 阿里云新加坡HTTP错误，尝试使用火山引擎作为备用...');
         try {
-          const fallbackResult = await callGeekAIOCR(imageDataUrl);
-          if (fallbackResult.success) {
-            console.log('✅ 极客智坊备用OCR识别成功！');
+          const volcanoResult = await callVolcengineOCR(imageDataUrl);
+          if (volcanoResult.success) {
+            console.log('✅ 火山引擎备用OCR识别成功！');
             return NextResponse.json({
               success: true,
-              result: fallbackResult.result,
-              provider: 'geekai',
+              result: volcanoResult.result,
+              provider: 'volcengine',
               fallback: true,
-              message: `火山引擎HTTP ${ocrResponse.status} 错误，使用备用OCR服务（极客智坊 Gemini-2.5-flash-lite）`,
+              message: `阿里云新加坡HTTP ${ocrResponse.status} 错误，使用备用OCR服务（火山引擎 doubao）`,
               originalError: {
                 status: ocrResponse.status,
                 statusText: ocrResponse.statusText,
@@ -273,24 +318,49 @@ export async function POST(request: Request) {
               }
             });
           }
-        } catch (geekaiError) {
-          console.error('❌ 极客智坊备用OCR也失败:', geekaiError);
+        } catch (volcanoError) {
+          console.error('❌ 火山引擎备用OCR也失败:', volcanoError);
+
+          // 火山引擎也失败，尝试极客智坊作为最终备用
+          if (GEEKAI_AVAILABLE) {
+            console.log('🔄 火山引擎也失败，尝试使用极客智坊Gemini模型作为最终备用...');
+            try {
+              const geekaiResult = await callGeekAIOCR(imageDataUrl);
+              if (geekaiResult.success) {
+                console.log('✅ 极客智坊最终备用OCR识别成功！');
+                return NextResponse.json({
+                  success: true,
+                  result: geekaiResult.result,
+                  provider: 'geekai',
+                  fallback: true,
+                  message: `阿里云新加坡和火山引擎均失败，使用最终备用OCR服务（极客智坊 Gemini-2.5-flash-lite）`,
+                  originalError: {
+                    status: ocrResponse.status,
+                    statusText: ocrResponse.statusText,
+                    error: ocrData.error?.message || "HTTP错误"
+                  }
+                });
+              }
+            } catch (geekaiError) {
+              console.error('❌ 极客智坊最终备用OCR也失败:', geekaiError);
+            }
+          }
         }
       }
 
       return NextResponse.json({
         success: false,
-        error: `火山引擎HTTP错误 (${ocrResponse.status}): ${ocrData.error?.message || "HTTP请求失败"}`,
+        error: `阿里云新加坡HTTP错误 (${ocrResponse.status}): ${ocrData.error?.message || "HTTP请求失败"}`,
         details: {
           httpStatus: ocrResponse.status,
           httpStatusText: ocrResponse.statusText,
-          fallbackAvailable: FALLBACK_OCR_AVAILABLE,
-          volcanoError: ocrData
+          fallbackAvailable: VOLCENGINE_AVAILABLE || GEEKAI_AVAILABLE,
+          aliyunsgError: ocrData
         }
       }, { status: 500 });
     }
 
-    let rawText = ocrData.choices[0].message.content;
+    let rawText = ocrData.choices[0].message?.content || '';
     console.log('OCR识别完成，原文长度:', rawText.length);
     console.log('OCR识别结果预览:', rawText.substring(0, 200));
 
@@ -371,9 +441,11 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       result: rawText,
-      englishOnly: englishOnlyText, // 新增：纯英文版本
+      englishOnly: englishOnlyText, // 纯英文版本
       pointsCost: pointsCost,
-      message: "OCR识图功能免费使用"
+      provider: '阿里云新加坡',
+      model: 'qwen3-vl-flash',
+      message: "OCR识图功能免费使用（阿里云新加坡）"
     });
   } catch (error) {
     console.error("识图处理错误:", error);
@@ -405,7 +477,71 @@ export async function POST(request: Request) {
   }
 }
 
-// 极客智坊Gemini OCR识别函数（备用方案）
+// 火山引擎OCR识别函数（备用方案1）
+async function callVolcengineOCR(imageDataUrl: string): Promise<{success: boolean, result: string}> {
+  try {
+    if (!VOLCENGINE_API_KEY) {
+      throw new Error('火山引擎API Key未配置');
+    }
+
+    console.log('🌋 开始调用火山引擎doubao OCR...');
+
+    const ocrResponse = await fetch(VOLCENGINE_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${VOLCENGINE_API_KEY}`,
+        "User-Agent": "AIToolsForTeachers/1.0 (Fallback1)"
+      },
+      body: JSON.stringify({
+        model: "doubao-seed-1-6-flash-250828",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复'无文字内容'"
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageDataUrl
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 4000
+      })
+    });
+
+    const ocrData = await ocrResponse.json();
+
+    if (!ocrResponse.ok) {
+      console.error("❌ 火山引擎API错误:", ocrData);
+      throw new Error(`火山引擎API调用失败: ${ocrData.error?.message || "未知错误"}`);
+    }
+
+    const result = ocrData.choices[0]?.message?.content || '';
+    console.log('✅ 火山引擎OCR识别成功，原文长度:', result.length);
+
+    return {
+      success: true,
+      result: result
+    };
+
+  } catch (error) {
+    console.error('❌ 火山引擎OCR识别失败:', error);
+    return {
+      success: false,
+      result: ''
+    };
+  }
+}
+
+// 极客智坊Gemini OCR识别函数（备用方案2）
 async function callGeekAIOCR(imageDataUrl: string): Promise<{success: boolean, result: string}> {
   try {
     if (!GEEKAI_API_KEY) {
@@ -419,7 +555,7 @@ async function callGeekAIOCR(imageDataUrl: string): Promise<{success: boolean, r
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${GEEKAI_API_KEY}`,
-        "User-Agent": "AIToolsForTeachers/1.0 (Fallback)"
+        "User-Agent": "AIToolsForTeachers/1.0 (Fallback2)"
       },
       body: JSON.stringify({
         model: "gemini-2.5-flash-lite",
