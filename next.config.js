@@ -12,6 +12,18 @@ const nextConfig = {
 
   // 服务器外部包配置（Next.js 15.x）
   serverExternalPackages: ['@supabase/supabase-js'],
+
+  // 编译器优化
+  compiler: {
+    removeConsole: {
+      exclude: ['error', 'warn'],
+    },
+  },
+
+  // 实验性功能（如果需要可以取消注释）
+  // experimental: {
+  //   optimizePackageImports: ['@supabase/supabase-js']
+  // },
   allowedDevOrigins: ["*.preview.same-app.com"],
   eslint: {
     ignoreDuringBuilds: true,
