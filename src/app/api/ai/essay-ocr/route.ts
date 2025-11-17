@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 
-// 智谱清言官方API配置
-const GEEKAI_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
-const GEEKAI_API_KEY = process.env.ZhipuOfficial;
+// SSVIP DMX API配置
+const SSVIP_DMX_URL = "https://ssvip.dmxapi.com/v1/chat/completions";
+const SSVIP_DMX_API_KEY = process.env.ssvip_dmx;
 
 export async function POST(request: Request) {
   try {
     console.log('📝 批改作文OCR API - 专门用于作文批改功能');
 
     // 检查API密钥配置
-    if (!GEEKAI_API_KEY) {
-      console.error('❌ 智谱清言API密钥未配置');
+    if (!SSVIP_DMX_API_KEY) {
+      console.error('❌ SSVIP DMX API密钥未配置');
       return NextResponse.json({
         success: false,
         error: "OCR服务暂时不可用，请稍后重试",
@@ -52,22 +52,22 @@ export async function POST(request: Request) {
 
     // 记录请求开始时间
     const startTime = Date.now();
-    console.log('🌐 开始调用极客智坊 glm-4.1v-thinking-flashx模型...');
+    console.log('🌐 开始调用SSVIP DMX doubao-seed-1-6-flash-250615模型...');
 
     try {
       // 构建请求头
       const headers = {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${GEEKAI_API_KEY}`,
+        "Authorization": `Bearer ${SSVIP_DMX_API_KEY}`,
         "User-Agent": "EssayOCR/1.0 (Production)",
         "Accept": "application/json",
         "Accept-Encoding": "gzip, deflate, br"
       };
 
       console.log('🔍 请求头配置:', {
-        url: GEEKAI_URL,
-        hasApiKey: !!GEEKAI_API_KEY,
-        apiKeyLength: GEEKAI_API_KEY?.length,
+        url: SSVIP_DMX_URL,
+        hasApiKey: !!SSVIP_DMX_API_KEY,
+        apiKeyLength: SSVIP_DMX_API_KEY?.length,
         headers: Object.keys(headers)
       });
 
@@ -78,17 +78,17 @@ export async function POST(request: Request) {
 
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          console.log(`🌐 极客智坊 glm-4.1v-thinking-flashx 尝试 ${attempt}/3`);
+          console.log(`🌐 SSVIP DMX doubao-seed-1-6-flash-250615 尝试 ${attempt}/3`);
 
           // 根据尝试次数调整超时时间
           const timeoutMs = attempt === 1 ? 60000 : attempt === 2 ? 90000 : 120000; // 60s, 90s, 120s
 
-          const ocrResponse = await fetch(GEEKAI_URL, {
+          const ocrResponse = await fetch(SSVIP_DMX_URL, {
             method: "POST",
             headers: headers,
             signal: AbortSignal.timeout(timeoutMs),
             body: JSON.stringify({
-              model: "glm-4.1v-thinking-flashx",
+              model: "doubao-seed-1-6-flash-250615",
               messages: [
                 {
                   role: "user",
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
           let responseData;
           try {
             const responseText = await ocrResponse.text();
-            console.log(`🔍 极客智坊 API 尝试 ${attempt} 响应前500字符:`, responseText.substring(0, 500));
+            console.log(`🔍 SSVIP DMX API 尝试 ${attempt} 响应前500字符:`, responseText.substring(0, 500));
             console.log('🔍 响应状态码:', ocrResponse.status);
 
             // 检查响应是否为JSON格式
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
           }
 
           if (!ocrResponse.ok) {
-            console.error("❌ 极客智坊 HTTP错误:", responseData);
+            console.error("❌ SSVIP DMX HTTP错误:", responseData);
             const errorMessage = responseData.error?.message || responseData.message || responseData.error || "HTTP请求失败";
             const errorDetails = {
               status: ocrResponse.status,
@@ -140,18 +140,18 @@ export async function POST(request: Request) {
               details: responseData
             };
             console.error("❌ 详细错误信息:", errorDetails);
-            throw new Error(`极客智坊 HTTP错误 (${ocrResponse.status}): ${errorMessage}`);
+            throw new Error(`SSVIP DMX HTTP错误 (${ocrResponse.status}): ${errorMessage}`);
           }
 
           // 成功获取响应
           ocrData = responseData;
           success = true;
-          console.log(`✅ 极客智坊 glm-4.1v-thinking-flashx 尝试 ${attempt} 成功`);
+          console.log(`✅ SSVIP DMX doubao-seed-1-6-flash-250615 尝试 ${attempt} 成功`);
           break;
 
         } catch (error) {
           lastError = error instanceof Error ? error : new Error('Unknown error');
-          console.error(`❌ 极客智坊 glm-4.1v-thinking-flashx 尝试 ${attempt} 失败:`, lastError.message);
+          console.error(`❌ SSVIP DMX doubao-seed-1-6-flash-250615 尝试 ${attempt} 失败:`, lastError.message);
 
           // 如果是最后一次尝试，不再重试
           if (attempt === 3) {
@@ -173,11 +173,11 @@ export async function POST(request: Request) {
       // 计算并记录网络延迟
       const endTime = Date.now();
       const networkLatency = endTime - startTime;
-      console.log(`🌐 极客智坊 glm-4.1v-thinking-flashx API响应完成，总耗时: ${networkLatency}ms (${(networkLatency/1000).toFixed(2)}秒)`);
+      console.log(`🌐 SSVIP DMX doubao-seed-1-6-flash-250615 API响应完成，总耗时: ${networkLatency}ms (${(networkLatency/1000).toFixed(2)}秒)`);
 
       const rawText = ocrData.choices[0].message.content;
-      console.log('📝 极客智坊 glm-4.1v-thinking-flashx OCR识别完成，原文长度:', rawText.length);
-      console.log('📝 极客智坊 glm-4.1v-thinking-flashx OCR识别结果预览:', rawText.substring(0, 200));
+      console.log('📝 SSVIP DMX doubao-seed-1-6-flash-250615 OCR识别完成，原文长度:', rawText.length);
+      console.log('📝 SSVIP DMX doubao-seed-1-6-flash-250615 OCR识别结果预览:', rawText.substring(0, 200));
 
       // 检查是否包含中文字符
       const hasChineseChars = /[\u4e00-\u9fff]/.test(rawText);
@@ -194,7 +194,7 @@ export async function POST(request: Request) {
         .filter(line => line.length > 0) // 移除空行
         .join('\n');
 
-      console.log('📝 极客智坊 glm-4.1v-thinking-flashx OCR处理完成 - 原文长度:', rawText.length, '纯英文长度:', englishOnlyText.length);
+      console.log('📝 SSVIP DMX doubao-seed-1-6-flash-250615 OCR处理完成 - 原文长度:', rawText.length, '纯英文长度:', englishOnlyText.length);
 
       return NextResponse.json({
         success: true,
@@ -205,13 +205,13 @@ export async function POST(request: Request) {
           originalLength: rawText.length,
           englishOnlyLength: englishOnlyText.length,
           processingTime: networkLatency,
-          model: "glm-4.1v-thinking-flashx"
+          model: "doubao-seed-1-6-flash-250615"
         },
-        message: "极客智坊 glm-4.1v-thinking-flashx OCR识别完成"
+        message: "SSVIP DMX doubao-seed-1-6-flash-250615 OCR识别完成"
       });
 
     } catch (networkError) {
-      console.error('❌ 极客智坊 glm-4.1v-thinking-flashx 网络请求失败:', networkError);
+      console.error('❌ SSVIP DMX doubao-seed-1-6-flash-250615 网络请求失败:', networkError);
 
       // 提供更详细的错误信息
       let errorMessage = "网络连接失败";
@@ -219,10 +219,10 @@ export async function POST(request: Request) {
 
       if (networkError.name === 'AbortError') {
         errorType = "timeout";
-        errorMessage = "极客智坊OCR识别超时，请尝试上传更清晰的图片或稍后重试";
+        errorMessage = "SSVIP DMX OCR识别超时，请尝试上传更清晰的图片或稍后重试";
       } else if (networkError.code === 'ENOTFOUND' || networkError.code === 'ECONNREFUSED') {
         errorType = "connection";
-        errorMessage = "极客智坊网络连接失败，请检查网络连接后重试";
+        errorMessage = "SSVIP DMX网络连接失败，请检查网络连接后重试";
       }
 
       return NextResponse.json({
@@ -237,18 +237,18 @@ export async function POST(request: Request) {
     }
 
   } catch (error) {
-    console.error("❌ 极客智坊 glm-4.1v-thinking-flashx OCR处理错误:", error);
+    console.error("❌ SSVIP DMX doubao-seed-1-6-flash-250615 OCR处理错误:", error);
 
     // 提供更详细的错误信息
-    let errorMessage = "极客智坊 glm-4.1v-thinking-flashx OCR处理失败";
+    let errorMessage = "SSVIP DMX doubao-seed-1-6-flash-250615 OCR处理失败";
     let errorType = "unknown";
 
     if (error.name === 'AbortError') {
       errorType = "timeout";
-      errorMessage = "极客智坊 glm-4.1v-thinking-flashx OCR识别超时，请尝试上传更清晰的图片或稍后重试";
+      errorMessage = "SSVIP DMX doubao-seed-1-6-flash-250615 OCR识别超时，请尝试上传更清晰的图片或稍后重试";
     } else if (error.code === 'ENOTFOUND' || errorError.code === 'ECONNREFUSED') {
       errorType = "network";
-      errorMessage = "极客智坊网络连接失败，请检查网络连接后重试";
+      errorMessage = "SSVIP DMX网络连接失败，请检查网络连接后重试";
     } else if (error.message && error.message.includes('InvalidParameter')) {
       errorType = "image_quality";
       errorMessage = "图片质量问题：请确保图片清晰、文字可辨，且图片尺寸不小于14像素";
@@ -259,7 +259,7 @@ export async function POST(request: Request) {
       error: errorMessage,
       errorType: errorType,
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      service: "geekai-ocr"
+      service: "ssvip-dmx-ocr"
     }, { status: 500 });
   }
 }

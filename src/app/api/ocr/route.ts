@@ -4,9 +4,9 @@ import { NextResponse } from 'next/server';
 const VOLCENGINE_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
 const VOLCENGINE_API_KEY = process.env.VOLCENGINE_API_KEY;
 
-// 极客智坊API配置（备用方案）
-const GEEKAI_API_URL = "https://geekai.co/api/v1/chat/completions";
-const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
+// SSVIP DMX API配置（备用方案）
+const SSVIP_DMX_API_URL = "https://ssvip.dmxapi.com/v1/chat/completions";
+const SSVIP_DMX_API_KEY = process.env.ssvip_dmx;
 
 export async function POST(request: Request) {
   try {
@@ -53,14 +53,14 @@ export async function POST(request: Request) {
     } catch (volcengineError) {
       console.error('❌ 火山引擎OCR识别失败:', volcengineError);
 
-      // 火山引擎失败，尝试极客智坊备用方案
+      // 火山引擎失败，尝试SSVIP DMX备用方案
       try {
-        console.log('🤖 火山引擎失败，尝试使用极客智坊Gemini模型作为备用...');
-        rawText = await recognizeWithGeekai(imageDataUrl);
-        usedProvider = '极客智坊 Gemini-2.5-flash-lite';
-        console.log('✅ 极客智坊OCR识别成功，原文长度:', rawText.length);
-      } catch (geekaiError) {
-        console.error('❌ 极客智坊OCR识别也失败:', geekaiError);
+        console.log('🤖 火山引擎失败，尝试使用SSVIP DMX doubao模型作为备用...');
+        rawText = await recognizeWithSsvipDmx(imageDataUrl);
+        usedProvider = 'SSVIP DMX doubao-seed-1-6-flash-250615';
+        console.log('✅ SSVIP DMX OCR识别成功，原文长度:', rawText.length);
+      } catch (ssvipDmxError) {
+        console.error('❌ SSVIP DMX OCR识别也失败:', ssvipDmxError);
         return NextResponse.json({
           success: false,
           error: "OCR识别失败：主要服务和备用服务均不可用"
@@ -131,20 +131,20 @@ async function recognizeWithVolcengine(imageDataUrl: string): Promise<string> {
   return ocrData.choices[0].message.content;
 }
 
-// 极客智坊Gemini OCR识别函数（备用方案）
-async function recognizeWithGeekai(imageDataUrl: string): Promise<string> {
-  if (!GEEKAI_API_KEY) {
-    throw new Error('极客智坊API Key未配置');
+// SSVIP DMX OCR识别函数（备用方案）
+async function recognizeWithSsvipDmx(imageDataUrl: string): Promise<string> {
+  if (!SSVIP_DMX_API_KEY) {
+    throw new Error('SSVIP DMX API Key未配置');
   }
 
-  const ocrResponse = await fetch(GEEKAI_API_URL, {
+  const ocrResponse = await fetch(SSVIP_DMX_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${GEEKAI_API_KEY}`
+      "Authorization": `Bearer ${SSVIP_DMX_API_KEY}`
     },
     body: JSON.stringify({
-      model: "gemini-2.5-flash-lite",
+      model: "doubao-seed-1-6-flash-250615",
       messages: [
         {
           role: "system",
@@ -175,13 +175,13 @@ async function recognizeWithGeekai(imageDataUrl: string): Promise<string> {
   const ocrData = await ocrResponse.json();
 
   if (!ocrResponse.ok) {
-    console.error("极客智坊API错误:", ocrData);
-    throw new Error(`极客智坊API调用失败: ${ocrResponse.error?.message || "未知错误"}`);
+    console.error("SSVIP DMX API错误:", ocrData);
+    throw new Error(`SSVIP DMX API调用失败: ${ocrData.error?.message || "未知错误"}`);
   }
 
-  // 极客智坊API使用OpenAI兼容格式
+  // SSVIP DMX API使用OpenAI兼容格式
   if (!ocrData.choices || !ocrData.choices[0]) {
-    throw new Error('极客智坊API返回格式异常');
+    throw new Error('SSVIP DMX API返回格式异常');
   }
 
   return ocrData.choices[0].message?.content || '';
