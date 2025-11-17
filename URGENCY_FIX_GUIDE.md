@@ -8,35 +8,51 @@
 3. **Next.js 构建成功** - 生成了199个静态页面，包含完整功能
 4. **本地测试通过** - 增强版启动脚本在云函数环境下正常工作
 
-### ❌ 当前部署问题
+### ❌ 新发现的部署问题（2025-11-18 03:02）
 - **域名**: fredgao.cn 返回 HTTP 500
-- **超时**: 执行时间21秒后超时（X-Fc-Invocation-Duration: 21173ms）
-- **内存**: 内存使用2.2GB（X-Fc-Max-Memory-Usage: 2215.20MB）
-- **状态**: 函数运行但启动失败
+- **错误1**: Tailwind CSS编译失败 - `Module parse failed: Unexpected character '@'`
+- **错误2**: 缺少构建文件 - `ENOENT: no such file or directory, open '/code/.next/required-server-files.json'`
+- **根本原因**: 部署包缺少源代码和完整构建文件
 
 ## 紧急修复步骤
 
-### 方案一：阿里云控制台手动更新（推荐）
+### 方案一：完整重新部署（推荐）
 
 1. **登录阿里云函数计算控制台**
 2. **找到函数**: `aitoolsforteachers-gcn5`
-3. **更新代码**:
-   - 上传 `nextjs-deployment.tar.gz`
-   - 或在线编辑替换 `server.js` 和启动脚本
+3. **上传完整部署包**:
+   - 使用 `nextjs-complete-deployment.tar.gz` (103MB)
+   - 包含源代码、构建文件、配置文件
+   - 或者上传所有项目文件
 
-4. **关键修复内容**:
-   ```javascript
-   // server.js 第61行，将 isAlibabaCloud 改为 isCloudFunction
-   console.log(`📍 环境: ${isCloudFunction ? '阿里云函数计算' : '本地环境'}`);
+4. **必须包含的关键文件**:
+   ```
+   ✅ src/ (完整源代码目录)
+   ✅ .next/ (完整构建输出目录)
+   ✅ server.js (修复后的主服务器文件)
+   ✅ start-alibaba-enhanced.sh (优化启动脚本)
+   ✅ package.json & package-lock.json
+   ✅ tailwind.config.ts
+   ✅ postcss.config.mjs
+   ✅ next.config.js
    ```
 
-5. **环境变量设置**:
+5. **启动命令设置**:
+   ```
+   ./start-alibaba-enhanced.sh
+   ```
+
+6. **环境变量设置**:
    ```
    FUNCTION_NAME=aitoolsforteachers-gcn5
    FC_ACCOUNT_ID=151**********202
    FAAS_RUNTIME=nodejs18
    NODE_ENV=production
    ```
+
+### 方案二：使用部署脚本
+
+运行 `./deploy-alibaba-fc.sh` 进行完整的本地构建验证。
 
 ### 方案二：使用阿里云CLI部署
 

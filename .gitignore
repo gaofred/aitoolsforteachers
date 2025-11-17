@@ -70,3 +70,5 @@ logs
 # Temporary folders
 tmp/
 temp/
+nextjs-complete-deployment.tar.gz
+aliyun-cli-macosx-latest-universal.tgz
