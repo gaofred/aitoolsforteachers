@@ -3,6 +3,12 @@
 # 火山引擎 veFaaS 构建脚本
 # 用于 Node.js 20.x 环境下的 Next.js 项目构建
 
+# 确保脚本自身有执行权限
+if [ ! -x "$0" ]; then
+    echo "🔧 Setting execute permission for build script..."
+    chmod +x "$0"
+fi
+
 set -e  # 遇到错误立即退出
 
 echo "🚀 开始构建 Next.js 项目..."
