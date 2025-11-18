@@ -1272,25 +1272,13 @@ The future of AI depends on our ability to balance innovation with responsibilit
       .find(cat => cat.id === categoryId)
       ?.items.find(item => item.id === itemId);
 
-    // 批量修改工具点数检测
+    // 批量修改工具点数检测 - 移除登录检查，允许进入页面
     if ((itemId === 'batch-applicationwriting-polish' || itemId === 'batch-continuation-writing-polish') && item) {
-      const minRequiredPoints = 5; // 最低需要5点数（至少能处理5个学生）
+      // 移除强制登录检查，与其他工具保持一致
+      // 用户在实际使用功能时才会被要求登录
 
-      // 检查用户登录状态
-      if (!currentUser) {
-        setClickedToolId(null); // 重置点击状态
-        alert('请先登录后使用批量修改功能');
-        router.push('/auth/signin');
-        return;
-      }
-
-      // 检查用户点数
-      if (!currentUser.user_points || currentUser.user_points.points < minRequiredPoints) {
-        setClickedToolId(null); // 重置点击状态
-        const currentPoints = currentUser.user_points?.points || 0;
-        alert(`批量修改读后续写采用按学生数量计费：1个点数 = 1个学生。\n\n您当前只有${currentPoints}点数，至少需要${minRequiredPoints}点数才能使用此功能。\n\n点数不足，无法使用此功能。请通过以下方式获取更多点数：\n• 邀请好友奖励\n• 每日登录奖励\n• 兑换卡充值`);
-        return;
-      }
+      // 移除强制点数检查，允许用户进入页面了解功能
+      // 点数检查将在实际使用功能时进行
     }
 
     if (item && (item as any).route) {

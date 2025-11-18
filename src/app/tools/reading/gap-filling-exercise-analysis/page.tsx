@@ -280,22 +280,15 @@ export default function GapFillingExerciseAnalysisPage() {
     )
   }
 
-  // 只有在客户端状态下且确实没有用户时才显示登录提示
-  // 避免认证状态加载时的闪烁
-  if (isClient && !currentUser) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">请先登录</h1>
-          <Button onClick={() => router.push('/auth/signin')}>
-            前往登录
-          </Button>
-        </div>
-      </div>
-    )
-  }
+  // 移除强制登录检查，与其他工具保持一致
+  // 在实际使用功能时才检查登录状态
 
   const handleAnalyze = async () => {
+    if (!currentUser) {
+      alert('请先登录后再使用此功能')
+      return
+    }
+
     if (!text.trim()) {
       alert('请输入要分析的语法填空题内容')
       return
