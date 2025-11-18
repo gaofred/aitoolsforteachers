@@ -5,6 +5,7 @@ import ClientBody from "./ClientBody";
 import Script from "next/script";
 import { Providers } from "@/components/providers/SessionProvider";
 import { Analytics } from "@vercel/analytics/react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // 暂时使用系统字体变量，避免Google Fonts网络依赖
 const inter = {
@@ -163,9 +164,11 @@ export default function RootLayout({
         />
       </head>
       <body suppressHydrationWarning className="antialiased">
-        <Providers>
-          <ClientBody>{children}</ClientBody>
-        </Providers>
+        <ErrorBoundary>
+          <Providers>
+            <ClientBody>{children}</ClientBody>
+          </Providers>
+        </ErrorBoundary>
         <Analytics />
       </body>
     </html>
