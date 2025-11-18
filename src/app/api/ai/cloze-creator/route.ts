@@ -101,6 +101,44 @@ function formatClozeResultAsText(result: string): string {
   return formattedText;
 }
 
+/**
+ * 优化完形填空文本格式，将选项放在一起，使用纯文本格式
+ * @param text - 原始文本
+ * @returns 优化后的文本
+ */
+function optimizeClozeTextFormat(text: string): string {
+  if (!text) return '';
+
+  let optimizedText = text;
+
+  // 处理选项格式，将每题的选项放在一起
+  // 匹配类似 "1. A. gifted\n B. trained\n C. corrected\n D. observed" 的格式
+  optimizedText = optimizedText.replace(/(\d+\.\s*)(?:[A-D]\.\s+[^\n]+\s*\n\s*){4}/g, (match, questionNum) => {
+    // 提取四个选项
+    const options = [];
+    const optionMatches = match.matchAll(/[A-D]\.\s+([^\n]+)/g);
+
+    for (const optionMatch of optionMatches) {
+      options.push(optionMatch[1].trim());
+    }
+
+    // 将选项格式化为 A. xxx B. xxx C. xxx D. xxx 的格式
+    return questionNum + options.map((opt, index) =>
+      `${String.fromCharCode(65 + index)}. ${opt}`
+    ).join('  ') + '\n';
+  });
+
+  // 移除多余的空行
+  optimizedText = optimizedText.replace(/\n\s*\n\s*\n/g, '\n\n');
+
+  // 确保标题格式一致
+  if (!optimizedText.includes('完形填空试题')) {
+    optimizedText = '完形填空试题\n\n' + optimizedText;
+  }
+
+  return optimizedText.trim();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
@@ -374,16 +412,9 @@ export async function POST(request: NextRequest) {
     let textResult = formatClozeResultAsText(actualContent);
     console.log('📝 文本格式化完成，结果长度:', textResult.length);
 
-    // 将文本结果转换为HTML格式，以便前端正确显示
-    let structuredResult = `<div class="cloze-test">
-      <div class="header">
-        <h2>完形填空试题</h2>
-      </div>
-      <div class="content">
-        <pre style="white-space: pre-wrap; font-family: system-ui, -apple-system, sans-serif; line-height: 1.6;">${textResult.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-      </div>
-    </div>`;
-    console.log('🌐 HTML包装完成，最终长度:', structuredResult.length);
+    // 优化输出格式为纯文本，选项格式化更清晰
+    let structuredResult = optimizeClozeTextFormat(textResult);
+    console.log('📝 文本格式优化完成，最终长度:', structuredResult.length);
 
     console.log('🔍 最终格式化结果预览:', structuredResult.substring(0, 300) + '...');
 
@@ -406,6 +437,8 @@ export async function POST(request: NextRequest) {
 
     if (historyError) {
       console.error('记录AI生成历史失败:', historyError);
+    } else {
+      console.log('✅ AI生成历史记录成功');
     }
 
     // 获取更新后的用户点数
