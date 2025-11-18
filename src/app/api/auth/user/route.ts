@@ -42,16 +42,28 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 获取用户扩展信息
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select(`
-        *,
-        user_points (*),
-        memberships (*)
-      `)
-      .eq('id', user.id as any)
-      .single()
+    // 优化查询：使用并行查询减少数据库往返时间
+    const [userDataResult, userPointsResult, membershipResult] = await Promise.all([
+      supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id as any)
+        .single(),
+      supabase
+        .from('user_points')
+        .select('*')
+        .eq('user_id', user.id as any)
+        .single(),
+      supabase
+        .from('memberships')
+        .select('*')
+        .eq('user_id', user.id as any)
+        .single()
+    ]);
+
+    const { data: userData, error: userError } = userDataResult;
+    const { data: userPointsData } = userPointsResult;
+    const { data: membershipData } = membershipResult;
 
     if (userError) {
       console.warn('⚠️ 获取用户数据错误，使用基本用户信息:', {
@@ -68,8 +80,8 @@ export async function GET(request: NextRequest) {
         avatar_url: user.user_metadata?.avatar_url,
         provider: user.app_metadata?.provider || 'email',
         role: 'USER',
-        user_points: { points: 25 }, // 默认积分
-        memberships: { membership_type: 'FREE', is_active: true }
+        user_points: userPointsData || { points: 25 }, // 使用查询到的积分或默认积分
+        memberships: membershipData || { membership_type: 'FREE', is_active: true } // 使用查询到的会员信息或默认
       }
 
       console.log('✅ 返回基本用户数据:', basicUserData.name);
@@ -82,13 +94,16 @@ export async function GET(request: NextRequest) {
 
     const responseData = {
       ...userData,
+      user_points: userPointsData || { points: 25 }, // 确保积分数据存在
+      memberships: membershipData || { membership_type: 'FREE', is_active: true }, // 确保会员数据存在
       processingTime: Date.now() - startTime,
       retryCount
     };
 
     console.log('✅ 用户API成功返回:', {
       name: userData.name,
-      points: userData.user_points?.points,
+      points: userPointsData?.points || 25,
+      membership: membershipData?.membership_type || 'FREE',
       processingTime: responseData.processingTime,
       retryCount
     });

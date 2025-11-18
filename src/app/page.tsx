@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, startTransition } from "react";
+import { useState, useEffect, useRef, startTransition, useMemo, useCallback } from "react";
 
 // 直接在组件中使用条件渲染避免水合问题
 import { useRouter } from "next/navigation";
@@ -353,6 +353,7 @@ export default function Home() {
   const [showDailyReward, setShowDailyReward] = useState(false); // 是否显示每日奖励弹窗
   const [isClaimingReward, setIsClaimingReward] = useState(false); // 防重复点击状态
   const [isCopying, setIsCopying] = useState(false); // 复制状态
+  const [clickedToolId, setClickedToolId] = useState<string | null>(null); // 工具按钮点击状态
 
   // 图片识别相关状态
   const [uploadedImages, setUploadedImages] = useState<Array<{file: File, preview: string}>>([]);
@@ -834,23 +835,20 @@ export default function Home() {
   const minChars = activeItem === "text-generator" ? 5 : activeItem === "image-generator" ? 10 : 50;
   const canAnalyze = charCount >= minChars;
 
-  // 获取当前工具的点数消耗
-  const getCurrentToolCost = () => {
+  // 使用useMemo优化性能：避免每次渲染都重新计算
+  const toolCost = useMemo(() => {
     for (const category of navigationData) {
       const item = category.items.find(item => item.id === activeItem);
       if (item) return item.cost;
     }
     return 3; // 默认消耗
-  };
+  }, [activeItem]);
 
-  // 获取当前工具配置
-  const getCurrentToolConfig = () => {
+  const hasEnoughPoints = useMemo(() => userPoints >= toolCost, [userPoints, toolCost]);
+
+  const currentTool = useMemo(() => {
     return toolConfig[activeItem as keyof typeof toolConfig] || toolConfig["text-analysis"];
-  };
-
-  const toolCost = getCurrentToolCost();
-  const hasEnoughPoints = userPoints >= toolCost;
-  const currentTool = getCurrentToolConfig();
+  }, [activeItem]);
 
   // 检测文本中是否包含题干和选项
   const detectQuizOptions = (inputText: string) => {
@@ -1256,15 +1254,18 @@ The future of AI depends on our ability to balance innovation with responsibilit
     }
   };
 
-  const toggleCategory = (categoryId: string) => {
+  const toggleCategory = useCallback((categoryId: string) => {
     setExpandedCategories(prev =>
       prev.includes(categoryId)
         ? prev.filter(id => id !== categoryId)
         : [...prev, categoryId]
     );
-  };
+  }, []);
 
-  const handleItemClick = (categoryId: string, itemId: string) => {
+  const handleItemClick = useCallback((categoryId: string, itemId: string) => {
+    // 立即显示点击反馈
+    setClickedToolId(itemId);
+
     // 检查是否有独立路由
     const item = navigationData
       .find(cat => cat.id === categoryId)
@@ -1276,6 +1277,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
 
       // 检查用户登录状态
       if (!currentUser) {
+        setClickedToolId(null); // 重置点击状态
         alert('请先登录后使用批量修改功能');
         router.push('/auth/signin');
         return;
@@ -1283,6 +1285,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
 
       // 检查用户点数
       if (!currentUser.user_points || currentUser.user_points.points < minRequiredPoints) {
+        setClickedToolId(null); // 重置点击状态
         const currentPoints = currentUser.user_points?.points || 0;
         alert(`批量修改读后续写采用按学生数量计费：1个点数 = 1个学生。\n\n您当前只有${currentPoints}点数，至少需要${minRequiredPoints}点数才能使用此功能。\n\n点数不足，无法使用此功能。请通过以下方式获取更多点数：\n• 邀请好友奖励\n• 每日登录奖励\n• 兑换卡充值`);
         return;
@@ -1302,7 +1305,10 @@ The future of AI depends on our ability to balance innovation with responsibilit
     if (!expandedCategories.includes(categoryId)) {
       setExpandedCategories(prev => [...prev, categoryId]);
     }
-  };
+
+    // 短暂延迟后重置点击状态，提供视觉反馈
+    setTimeout(() => setClickedToolId(null), 300);
+  }, [currentUser, router, expandedCategories]);
 
   const handlePurchasePoints = async () => {
     // 模拟购买点数
@@ -1814,7 +1820,9 @@ The future of AI depends on our ability to balance innovation with responsibilit
                             handleItemClick(category.id, item.id);
                           }
                         }}
-                        className="group relative bg-white/60 backdrop-blur-lg rounded-xl p-3.5 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border border-white/50 w-full text-left hover:bg-white/70"
+                        className={`group relative bg-white/60 backdrop-blur-lg rounded-xl p-3.5 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border border-white/50 w-full text-left hover:bg-white/70 ${
+                      clickedToolId === item.id ? 'scale-95 shadow-inner bg-white/80' : ''
+                    }`}
                       >
                         <div className={`absolute inset-0 bg-gradient-to-r ${theme.overlay} rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
                         <div className="relative z-0 flex items-center gap-3.5">
