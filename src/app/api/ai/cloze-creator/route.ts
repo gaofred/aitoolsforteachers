@@ -2,6 +2,135 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
+/**
+ * 格式化完形填空结果为用户友好的HTML格式
+ * @param result - Coze工作流返回的原始结果
+ * @returns 格式化后的HTML字符串
+ */
+function formatClozeResultAsHTML(result: any): string {
+  if (!result || typeof result !== 'object') {
+    return `<div class="error">结果格式错误</div>`;
+  }
+
+  try {
+    const { title, passage, questions, answers, analysis } = result;
+    let html = `<div class="cloze-test">
+      <div class="header">
+        <h2>${title || '完形填空试题'}</h2>
+      </div>`;
+
+    // 原文内容（带空格）
+    if (passage) {
+      html += `<div class="passage">${passage}</div>`;
+    }
+
+    // 完形填空题
+    if (questions && Array.isArray(questions)) {
+      html += `<div class="questions">`;
+      questions.forEach((q: any, index: number) => {
+        const options = q.options || [];
+        html += `<div class="question" data-question="${index + 1}">`;
+        html += `<div class="question-text">${q.question || `第 ${index + 1}题`}</div>`;
+
+        // 选项
+        if (options.length > 0) {
+          html += `<div class="options">`;
+          ['A', 'B', 'C', 'D'].forEach((letter: string, optionIndex: number) => {
+            const option = options[optionIndex] || '';
+            const isActive = optionIndex === q.correctAnswer;
+            html += `<div class="option ${isActive ? 'correct' : 'normal'}" data-option="${letter}">${letter}. ${option}</div>`;
+          });
+          html += `</div>`;
+        }
+        html += `</div>`;
+      });
+      html += `</div>`;
+    }
+
+    // 答案和解析
+    if (answers && Array.isArray(answers)) {
+      html += `<div class="answers">`;
+      answers.forEach((answer: any, index: number) => {
+        html += `<div class="answer" data-answer="${index + 1}">${answer}</div>`;
+      });
+      html += `</div>`;
+    }
+
+    // 教师建议和解析
+    if (analysis) {
+      html += `<div class="analysis">`;
+      html += `<h3>教师建议</h3>`;
+      html += `<p>${analysis}</p>`;
+      html += `</div>`;
+    }
+
+    html += `</div>`;
+    return html;
+  } catch (error) {
+    console.error('格式化结果失败:', error);
+    return `<div class="error">格式化失败，请检查工作流输出格式</div>`;
+  }
+}
+
+/**
+ * 格式化完形填空结果为纯文本格式（备用方案）
+ * @param result - Coze工作流返回的原始结果
+ * @returns 格式化后的文本字符串
+ */
+function formatClozeResultAsText(result: string): string {
+  if (!result || typeof result !== 'string') {
+    return '结果格式错误';
+  }
+
+  try {
+    const parsedResult = JSON.parse(result);
+    if (typeof parsedResult === 'object') {
+      let text = '';
+
+      // 题干内容
+      if (parsedResult.passage) {
+        text += `完形填空题\n\n${parsedResult.passage}\n\n`;
+      }
+
+      // 试题
+      if (parsedResult.questions && Array.isArray(parsedResult.questions)) {
+        text += '试题：\n\n';
+        parsedResult.questions.forEach((q: any, index: number) => {
+          text += `${index + 1}. ${q.question}\n`;
+          if (q.options && Array.isArray(q.options)) {
+            q.options.forEach((option: string, optIndex: number) => {
+              const correctAnswer = q.correctAnswer === optIndex + 1; // 选项索引从0开始，正确答案从1开始
+              text += `  ${String.fromCharCode(65 + optIndex)}. ${option}\n`;
+            });
+          }
+          text += `\n`;
+        });
+      }
+
+      // 答案
+      if (parsedResult.answers && Array.isArray(parsedResult.answers)) {
+        text += '\n参考答案：\n';
+        parsedResult.answers.forEach((answer: string, index: number) => {
+          text += `${answer}\n`;
+        });
+        text += '\n';
+      }
+
+      // 教师建议和解析
+      if (parsedResult.analysis) {
+        text += '\n教师建议：\n';
+        text += `${parsedResult.analysis}\n`;
+      }
+
+      text += '\n---完形填空生成完成---';
+      return text;
+    }
+  } catch (error) {
+    console.error('解析结果失败:', error);
+    return result; // 返回原始文本
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
@@ -282,14 +411,59 @@ export async function POST(request: NextRequest) {
 
     console.log('🎉 完形填空命题完成，结果长度:', clozeResult.length);
 
+    // 解析Coze工作流返回的结果，结构化处理
+    let structuredResult = '';
+    try {
+      // 尝试解析JSON格式
+      const parsedResult = JSON.parse(clozeResult);
+      if (typeof parsedResult === 'object' && parsedResult) {
+        // 如果是结构化数据，格式化为更好的HTML格式
+        structuredResult = formatClozeResultAsHTML(parsedResult);
+      } else {
+        // 如果是纯文本，按段落格式化
+        structuredResult = formatClozeResultAsText(clozeResult);
+      }
+    } catch (e) {
+      console.log('解析结果失败，使用原始文本格式:', e);
+      structuredResult = formatClozeResultAsText(clozeResult);
+    }
+
+    // 记录AI生成历史
+    const { error: historyError } = await supabase
+      .from('ai_generations')
+      .insert({
+        user_id: user.id,
+        tool_name: 'cloze_creator',
+        tool_type: 'reading',
+        model_type: 'COZE_WORKFLOW',
+        input_data: { text: text },
+        output_data: {
+          structuredResult: structuredResult,
+          originalResult: clozeResult
+        },
+        points_cost: pointsCost,
+        status: 'COMPLETED'
+      } as any);
+
+    if (historyError) {
+      console.error('记录AI生成历史失败:', historyError);
+    }
+
+    // 获取更新后的用户点数
+    const { data: updatedUserPoints } = await supabase
+      .from('user_points')
+      .select('points')
+      .single();
+
     return NextResponse.json({
       success: true,
-      result: clozeResult,
+      result: structuredResult,
       pointsCost: pointsCost,
       remainingPoints: (updatedUserPoints as any)?.points || 0,
       metadata: {
         textLength: text.length,
-        resultLength: clozeResult.length
+        resultLength: clozeResult.length,
+        format: 'structured'
       }
     });
 
