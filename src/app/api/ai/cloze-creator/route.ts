@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         workflow_id: "7549582126108016681",
         parameters: {
-          text: text
+          input: text
         }
       })
     });
