@@ -1055,6 +1055,25 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         </Card>
       )}
 
+      {/* 重要提醒 */}
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.502 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-red-800 mb-2 flex items-center gap-2">
+              重要提醒
+            </h3>
+            <p className="text-sm text-red-700 font-medium">
+              因国际线路问题，批量识图在晚上20:00-22:00容易出现无法识别的情况。如果遇到，可换个时间段重试。
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* 操作按钮 */}
       <div className="flex justify-between items-center">
         <Button variant="outline" onClick={onPrev} disabled={isProcessing}>

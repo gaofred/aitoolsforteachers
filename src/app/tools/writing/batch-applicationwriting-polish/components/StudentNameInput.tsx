@@ -266,6 +266,15 @@ const StudentNameInput: React.FC<StudentNameInputProps> = ({
               <li>无需固定模板。只要保证学生的作文在一张图片上即可</li>
               <li>文字识别率较高。不过尽量让学生写名字时，别连笔</li>
               <li>答题卡尽量有姓名：XXX字样。如 姓名:李萍萍。 这样AI可以更好识别</li>
+              <li className="text-red-700 font-semibold bg-red-50 p-2 rounded border border-red-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.502 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <span>重要提醒</span>
+                </div>
+                因国际线路问题，批量识图在晚上20:00-22:00容易出现无法识别的情况。如果遇到，可换个时间段重试。
+              </li>
             </ul>
           </div>
         </div>

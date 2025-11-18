@@ -18,6 +18,19 @@ export default function ClozeCreatorPage() {
   const toolCost = 5
   const hasEnoughPoints = userPoints >= toolCost
 
+  // 单词计数函数
+  const countWords = (text: string): number => {
+    // 移除多余的空格和换行符，然后按空格分割
+    const cleanText = text.trim().replace(/\s+/g, ' ')
+    if (!cleanText) return 0
+    return cleanText.split(' ').length
+  }
+
+  const wordCount = countWords(text)
+  const minWords = 200
+  const maxWords = 500
+  const isValidWordCount = wordCount >= minWords && wordCount <= maxWords
+
   // 摄像头相关状态
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
@@ -300,9 +313,14 @@ export default function ClozeCreatorPage() {
       return
     }
 
-    // 检查文本长度
-    if (text.length < 300) {
-      alert('篇章内容过短，请提供至少300字符的英文内容以便生成完形填空')
+    // 检查单词数量
+    if (wordCount < minWords) {
+      alert(`篇章内容过短，请提供至少${minWords}个单词的英文内容以便生成完形填空（当前${wordCount}个单词）`)
+      return
+    }
+
+    if (wordCount > maxWords) {
+      alert(`篇章内容过长，请限制在${maxWords}个单词以内以便生成完形填空（当前${wordCount}个单词）`)
       return
     }
 
@@ -403,7 +421,7 @@ export default function ClozeCreatorPage() {
                     placeholder="在此粘贴英文篇章内容，或使用拍照识别图片中的文字...
 
 要求：
-• 篇章长度：300-8000字符
+• 篇章长度：200-500个单词
 • 文章类型：适合高中英语的阅读理解文章
 • 内容完整：包含完整的句子和段落结构
 • 难度适中：词汇和语法难度适合完形填空命题
@@ -419,9 +437,16 @@ AI将自动分析文章内容，生成包含：
 
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-600 space-y-1">
-                    <div>字符数: <span className="font-semibold">{text.length}</span></div>
-                    <div className={text.length < 300 ? "text-orange-600" : "text-green-600"}>
-                      {text.length < 300 ? `需要至少${300 - text.length}个字符` : "字符数符合要求"}
+                    <div>单词数: <span className="font-semibold">{wordCount}</span></div>
+                    <div className={isValidWordCount ? "text-green-600" : "text-orange-600"}>
+                      {wordCount < minWords
+                        ? `需要至少${minWords - wordCount}个单词`
+                        : wordCount > maxWords
+                        ? `超出${wordCount - maxWords}个单词，请删减`
+                        : "单词数符合要求"}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      要求: {minWords}-{maxWords}个单词
                     </div>
                   </div>
                   <div className="text-sm text-gray-600">
@@ -521,7 +546,7 @@ AI将自动分析文章内容，生成包含：
                 <div className="flex items-center justify-between">
                   <Button
                     onClick={handleGenerate}
-                    disabled={!hasEnoughPoints || isGenerating || !text.trim() || text.length < 300}
+                    disabled={!hasEnoughPoints || isGenerating || !text.trim() || !isValidWordCount}
                     className="px-6 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
                   >
                     {isGenerating ? (
