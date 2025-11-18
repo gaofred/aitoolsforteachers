@@ -372,7 +372,7 @@ export default function Home() {
   // 确保组件只在客户端渲染
   useEffect(() => {
     setIsMounted(true);
-    checkCurrentUser();
+    // 移除checkCurrentUser()调用，完全依赖UserContext
     // 清除任何可能缓存的analysisResult
     setAnalysisResult(null);
   }, []);
@@ -463,8 +463,8 @@ export default function Home() {
         const userData = await response.json();
         console.log('用户登录成功:', userData);
 
-        // 检查每日奖励状态
-        checkDailyRewardStatus();
+        // 暂时注释掉每日奖励状态检查，避免频繁API请求
+        // checkDailyRewardStatus();
       } else {
         console.log('用户未登录或认证失败');
 

@@ -310,21 +310,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 简化刷新机制，只在必要时刷新
-  useEffect(() => {
-    // 页面可见性变化时的简化处理
-    const handleVisibilityChange = () => {
-      if (!document.hidden && currentUser) {
-        console.log('👁️ 页面重新可见，但跳过自动刷新以减少API请求');
-        // 移除自动刷新，让用户手动刷新或使用refreshUser方法
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [currentUser]);
+  // 完全移除页面可见性监听，避免任何自动刷新
+  // 用户状态更新完全依赖手动调用refreshUser
 
   // 移除网络状态监听以减少频繁请求
   // 网络恢复不再自动刷新用户状态
