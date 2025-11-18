@@ -118,13 +118,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 保存用户数据到本地存储
+  // 保存用户数据到本地存储（带时间戳）
   const saveToLocalStorage = (userData: any, points: number) => {
     try {
       if (typeof window !== 'undefined') {
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
         localStorage.setItem(USER_POINTS_KEY, points.toString());
-        console.log('💾 用户数据已保存到本地存储');
+        // 保存更新时间戳，用于缓存有效性检查
+        localStorage.setItem('english_teaching_user_last_update', Date.now().toString());
+        console.log('💾 用户数据已保存到本地存储（带时间戳）');
       }
     } catch (error) {
       console.error('❌ 保存到本地存储失败:', error);
@@ -332,18 +334,35 @@ export function UserProvider({ children }: { children: ReactNode }) {
       console.warn('恢复本地存储数据失败:', error);
     }
 
-    // 只在有明确需要时才调用refreshUser
+    // 智能的用户状态检查逻辑
     if (typeof window !== 'undefined') {
       const hasSessionToken = localStorage.getItem('sb-access-token') ||
                              sessionStorage.getItem('sb-access-token');
 
-      if (hasSessionToken && !currentUser) {
-        console.log('🔄 检测到会话token但无用户数据，开始刷新');
+      // 检查本地缓存是否有效（5分钟内的数据认为是有效的）
+      const checkCacheValidity = () => {
+        const lastUpdate = localStorage.getItem('english_teaching_user_last_update');
+        if (lastUpdate) {
+          const timeDiff = Date.now() - parseInt(lastUpdate);
+          return timeDiff < 5 * 60 * 1000; // 5分钟内
+        }
+        return false;
+      };
+
+      const isCacheValid = checkCacheValidity();
+
+      if (currentUser || isCacheValid) {
+        // 有用户数据或缓存有效，直接使用，跳过API请求
+        console.log('📱 使用本地存储数据，缓存有效，跳过API请求');
+      } else if (hasSessionToken && !currentUser) {
+        // 有token但无用户数据，尝试刷新
+        console.log('🔄 检测到会话token但无有效用户数据，开始刷新');
         refreshUser().catch(error => {
           console.error('刷新用户数据失败:', error);
         });
       } else {
-        console.log('📱 使用本地存储数据，跳过API请求');
+        // 既无token也无有效数据，保持未登录状态
+        console.log('🔓 无有效会话信息，保持未登录状态');
       }
     }
   }, []);
