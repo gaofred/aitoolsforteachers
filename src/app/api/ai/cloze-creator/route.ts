@@ -8,7 +8,9 @@ import { createServerSupabaseClient } from '@/lib/supabase-server';
  * @returns 格式化后的HTML字符串
  */
 function formatClozeResultAsHTML(result: any): string {
+  console.log('🔍 HTML格式化函数收到数据:', typeof result, result ? '非空' : '空');
   if (!result || typeof result !== 'object') {
+    console.log('❌ HTML格式化失败：数据不是对象类型');
     return `<div class="error">结果格式错误</div>`;
   }
 
@@ -78,57 +80,25 @@ function formatClozeResultAsHTML(result: any): string {
  * @returns 格式化后的文本字符串
  */
 function formatClozeResultAsText(result: string): string {
+  console.log('🔧 文本格式化函数收到数据，长度:', result?.length || 0);
+
   if (!result || typeof result !== 'string') {
+    console.log('❌ 文本格式化失败：数据不是有效字符串');
     return '结果格式错误';
   }
 
-  try {
-    const parsedResult = JSON.parse(result);
-    if (typeof parsedResult === 'object') {
-      let text = '';
+  // Coze返回的内容已经格式化得很好，直接使用
+  console.log('✅ Coze内容已格式化，直接返回');
 
-      // 题干内容
-      if (parsedResult.passage) {
-        text += `完形填空题\n\n${parsedResult.passage}\n\n`;
-      }
+  let formattedText = result.trim();
 
-      // 试题
-      if (parsedResult.questions && Array.isArray(parsedResult.questions)) {
-        text += '试题：\n\n';
-        parsedResult.questions.forEach((q: any, index: number) => {
-          text += `${index + 1}. ${q.question}\n`;
-          if (q.options && Array.isArray(q.options)) {
-            q.options.forEach((option: string, optIndex: number) => {
-              const correctAnswer = q.correctAnswer === optIndex + 1; // 选项索引从0开始，正确答案从1开始
-              text += `  ${String.fromCharCode(65 + optIndex)}. ${option}\n`;
-            });
-          }
-          text += `\n`;
-        });
-      }
-
-      // 答案
-      if (parsedResult.answers && Array.isArray(parsedResult.answers)) {
-        text += '\n参考答案：\n';
-        parsedResult.answers.forEach((answer: string, index: number) => {
-          text += `${answer}\n`;
-        });
-        text += '\n';
-      }
-
-      // 教师建议和解析
-      if (parsedResult.analysis) {
-        text += '\n教师建议：\n';
-        text += `${parsedResult.analysis}\n`;
-      }
-
-      text += '\n---完形填空生成完成---';
-      return text;
-    }
-  } catch (error) {
-    console.error('解析结果失败:', error);
-    return result; // 返回原始文本
+  // 只在没有结束标记时添加
+  if (!formattedText.includes('---完形填空生成完成---')) {
+    formattedText += '\n\n---完形填空生成完成---';
   }
+
+  console.log('📝 文本格式化完成，最终长度:', formattedText.length);
+  return formattedText;
 }
 
 export async function POST(request: NextRequest) {
@@ -385,23 +355,37 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🎉 完形填空命题完成，结果长度:', clozeResult.length);
+    console.log('🔍 原始结果内容预览:', clozeResult.substring(0, 500) + '...');
 
-    // 解析Coze工作流返回的结果，结构化处理
-    let structuredResult = '';
+    // 处理Coze工作流返回的结果（实际是JSON格式，包含output字段）
+    console.log('📝 解析Coze返回的JSON结果');
+    let actualContent = clozeResult;
+
     try {
-      // 尝试解析JSON格式
       const parsedResult = JSON.parse(clozeResult);
-      if (typeof parsedResult === 'object' && parsedResult) {
-        // 如果是结构化数据，格式化为更好的HTML格式
-        structuredResult = formatClozeResultAsHTML(parsedResult);
-      } else {
-        // 如果是纯文本，按段落格式化
-        structuredResult = formatClozeResultAsText(clozeResult);
+      if (parsedResult && parsedResult.output) {
+        actualContent = parsedResult.output;
+        console.log('✅ 提取output字段成功，内容长度:', actualContent.length);
       }
     } catch (e) {
-      console.log('解析结果失败，使用原始文本格式:', e);
-      structuredResult = formatClozeResultAsText(clozeResult);
+      console.log('📝 无法解析JSON，直接使用原始内容');
     }
+
+    let textResult = formatClozeResultAsText(actualContent);
+    console.log('📝 文本格式化完成，结果长度:', textResult.length);
+
+    // 将文本结果转换为HTML格式，以便前端正确显示
+    let structuredResult = `<div class="cloze-test">
+      <div class="header">
+        <h2>完形填空试题</h2>
+      </div>
+      <div class="content">
+        <pre style="white-space: pre-wrap; font-family: system-ui, -apple-system, sans-serif; line-height: 1.6;">${textResult.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+      </div>
+    </div>`;
+    console.log('🌐 HTML包装完成，最终长度:', structuredResult.length);
+
+    console.log('🔍 最终格式化结果预览:', structuredResult.substring(0, 300) + '...');
 
     // 记录AI生成历史
     const historyError = await supabase
@@ -410,7 +394,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         tool_name: 'cloze_creator',
         tool_type: 'reading',
-        model_type: 'COZE_WORKFLOW',
+        model_type: 'STANDARD',
         input_data: { text: text },
         output_data: {
           structuredResult: structuredResult,
