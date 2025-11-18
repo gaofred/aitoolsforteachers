@@ -48,6 +48,7 @@ const navigationData = [
       { id: "textbook-passage-analysis", title: "课文文章分析", cost: 5, route: "/tools/reading/textbook_passage_analysis" },
       { id: "cd-adaptation", title: "外刊文章改编为CD篇", cost: 5, route: "/tools/reading/cd-adaptation" },
       { id: "cd-creator", title: "CD篇命题", active: true, cost: 4, route: "/tools/reading/cd-creator" },
+        { id: "cloze-creator", title: "完形填空命题", active: true, cost: 5, route: "/tools/reading/cloze-creator" },
         { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6, route: "/tools/reading/reading-comprehension-deep-analysis", disabled: false },
         { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true },
         { id: "gap-filling-exercise-analysis", title: "语法填空解析", active: true, cost: 4, route: "/tools/reading/gap-filling-exercise-analysis" },
