@@ -16,8 +16,9 @@ const isCloudFunction = (
   false
 );
 
-// 在云函数环境中强制使用开发模式，无论NODE_ENV设置如何
-const dev = !isProduction || isCloudFunction;
+// 在云函数环境中使用更智能的模式检测
+// 阿里云FC环境可以使用生产模式，但需要确保构建正确
+const dev = !isProduction;
 
 // 调试信息
 console.log('🔧 环境检测信息:');
@@ -48,10 +49,21 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
   createServer(async (req, res) => {
     try {
+      // 添加请求日志以便调试阿里云环境问题
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] ${req.method} ${req.url}`);
+
       const parsedUrl = parse(req.url, true);
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
+      console.error('Request headers:', req.headers);
+      console.error('Environment:', {
+        NODE_ENV: process.env.NODE_ENV,
+        isCloudFunction: !!isCloudFunction,
+        dev: dev
+      });
+
       res.statusCode = 500;
       res.end('internal server error');
     }
@@ -59,6 +71,7 @@ app.prepare().then(() => {
     console.log(`✅ 应用启动成功！`);
     console.log(`🔗 访问地址: http://${hostname}:${port}`);
     console.log(`📍 环境: ${isCloudFunction ? '阿里云函数计算' : '本地环境'}`);
+    console.log(`🔧 启动模式: ${dev ? 'Development' : 'Production'}`);
   });
 }).catch((err) => {
   console.error('❌ Next.js 应用准备失败:', err.message);

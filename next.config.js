@@ -11,7 +11,8 @@ const nextConfig = {
   env: {
     STATIC_URL: isProd ? process.env.STATIC_URL : "",
   },
-  assetPrefix: isProd ? process.env.STATIC_URL : "",
+  // 移除assetPrefix以避免阿里云环境的资源加载问题
+  // assetPrefix: isProd ? process.env.STATIC_URL : "",
 
   // Serverless 部署配置 - 使用传统构建模式配合自定义server.js
   // output: 'standalone', // 暂时注释掉，使用自定义server.js
