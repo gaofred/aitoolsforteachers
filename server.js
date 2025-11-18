@@ -16,8 +16,7 @@ const isCloudFunction = (
   false
 );
 
-// 在云函数环境中使用更智能的模式检测
-// 阿里云FC环境可以使用生产模式，但需要确保构建正确
+// ECS云服务器环境 - 正常的生产/开发模式检测
 const dev = !isProduction;
 
 // 调试信息
