@@ -102,7 +102,7 @@ function formatClozeResultAsText(result: string): string {
 }
 
 /**
- * 优化完形填空文本格式，将选项放在一起，使用纯文本格式
+ * 优化完形填空文本格式，将选项放在一起，清理多余符号
  * @param text - 原始文本
  * @returns 优化后的文本
  */
@@ -110,6 +110,14 @@ function optimizeClozeTextFormat(text: string): string {
   if (!text) return '';
 
   let optimizedText = text;
+
+  // 移除多余的星号装饰
+  optimizedText = optimizedText.replace(/\*{3,}/g, '');
+
+  // 清理多余的空格和空行
+  optimizedText = optimizedText.replace(/\n\s*\n\s*\n+/g, '\n\n');
+  optimizedText = optimizedText.replace(/^\s+|\s+$/g, '');
+  optimizedText = optimizedText.replace(/\n{3,}/g, '\n\n');
 
   // 处理选项格式，将每题的选项放在一起
   // 匹配类似 "1. A. gifted\n B. trained\n C. corrected\n D. observed" 的格式
@@ -122,19 +130,42 @@ function optimizeClozeTextFormat(text: string): string {
       options.push(optionMatch[1].trim());
     }
 
-    // 将选项格式化为 A. xxx B. xxx C. xxx D. xxx 的格式
+    // 将选项格式化为 A. xxx B. xxx C. xxx D. xxx 的格式，用两个空格分隔
     return questionNum + options.map((opt, index) =>
       `${String.fromCharCode(65 + index)}. ${opt}`
     ).join('  ') + '\n';
   });
 
-  // 移除多余的空行
-  optimizedText = optimizedText.replace(/\n\s*\n\s*\n/g, '\n\n');
+  // 处理试题选项部分的格式
+  optimizedText = optimizedText.replace(/###\s*试题选项\s*\n/g, '');
+
+  // 处理参考答案格式，让它更简洁
+  optimizedText = optimizedText.replace(/###\s*参考答案\s*\n/g, '参考答案：\n');
+  optimizedText = optimizedText.replace(/1-\d+\s+[A-Z]+/g, (match) => {
+    return match.trim();
+  });
+
+  // 清理标题部分，只保留必要的
+  if (optimizedText.includes('高考英语完形填空模拟试题')) {
+    optimizedText = optimizedText.replace(/.*?高考英语完形填空模拟试题.*?\n/, '完形填空试题\n\n');
+  }
+
+  // 移除"第一节 完形填空"这样的描述
+  optimizedText = optimizedText.replace(/第一节\s+完形填空\s*[^\n]*\n/g, '');
+
+  // 移除"(共15小题；每小题1.5分，满分22.5分)"这样的描述
+  optimizedText = optimizedText.replace(/\(共\d+小题；每小题[\d.]+分，满分[\d.]+分\)\s*\n/g, '');
+
+  // 移除"阅读下面短文，从短文后各题所给的A、B、C和D四个选项中，选出可以填入空白处的最佳选项。"这样的描述
+  optimizedText = optimizedText.replace(/阅读下面短文[^。]*。\s*\n/g, '');
 
   // 确保标题格式一致
   if (!optimizedText.includes('完形填空试题')) {
     optimizedText = '完形填空试题\n\n' + optimizedText;
   }
+
+  // 最终清理多余的空行
+  optimizedText = optimizedText.replace(/\n\s*\n\s*\n/g, '\n\n');
 
   return optimizedText.trim();
 }
@@ -419,7 +450,7 @@ export async function POST(request: NextRequest) {
     console.log('🔍 最终格式化结果预览:', structuredResult.substring(0, 300) + '...');
 
     // 记录AI生成历史
-    const historyError = await supabase
+    const { error: historyError } = await supabase
       .from('ai_generations')
       .insert({
         user_id: user.id,
@@ -436,7 +467,7 @@ export async function POST(request: NextRequest) {
       } as any);
 
     if (historyError) {
-      console.error('记录AI生成历史失败:', historyError);
+      console.error('❌ 记录AI生成历史失败:', historyError);
     } else {
       console.log('✅ AI生成历史记录成功');
     }
