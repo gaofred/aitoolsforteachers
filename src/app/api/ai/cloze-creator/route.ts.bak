@@ -384,6 +384,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 记录AI生成历史
+    const { error: historyError } = await supabase
+      .from('ai_generations')
+      .insert({
+        user_id: user.id,
+        tool_name: 'cloze_creator',
+        tool_type: 'reading',
+        model_type: 'COZE_WORKFLOW',
+        input_data: { text: text },
+        output_data: { clozeResult: clozeResult },
+        points_cost: pointsCost,
+        status: 'COMPLETED'
+      } as any);
+
+    if (historyError) {
+      console.error('记录AI生成历史失败:', historyError);
+    }
+
+    // 获取更新后的用户点数
+    const { data: updatedUserPoints } = await supabase
+      .from('user_points')
+      .select('points')
+      .eq('user_id', user.id as any)
+      .single();
+
     console.log('🎉 完形填空命题完成，结果长度:', clozeResult.length);
 
     // 解析Coze工作流返回的结果，结构化处理
@@ -404,7 +429,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 记录AI生成历史
-    const historyError = await supabase
+    const { error: historyError } = await supabase
       .from('ai_generations')
       .insert({
         user_id: user.id,
