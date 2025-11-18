@@ -12,6 +12,10 @@ import toast from 'react-hot-toast'
 export default function GapFillingExerciseAnalysisPage() {
   const router = useRouter()
   const { currentUser, userPoints, refreshUser } = useUser()
+
+  // 调试日志：页面加载检查
+  console.log('🔍 语法填空解析页面加载完成, currentUser:', currentUser ? '已登录' : '未登录');
+
   const [text, setText] = useState('')
   const [analysisResult, setAnalysisResult] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)

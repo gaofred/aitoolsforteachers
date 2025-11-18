@@ -1276,6 +1276,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
     if ((itemId === 'batch-applicationwriting-polish' || itemId === 'batch-continuation-writing-polish') && item) {
       // 移除强制登录检查，与其他工具保持一致
       // 用户在实际使用功能时才会被要求登录
+      console.log(`🔍 批量修改工具点击: ${itemId}, 允许进入页面`);
 
       // 移除强制点数检查，允许用户进入页面了解功能
       // 点数检查将在实际使用功能时进行

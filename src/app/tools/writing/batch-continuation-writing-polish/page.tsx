@@ -40,6 +40,9 @@ const BatchContinuationWritingPolish = () => {
   const router = useRouter();
   const { currentUser } = useUser();
   const [currentStep, setCurrentStep] = useState(1);
+
+  // 调试日志：页面加载检查
+  console.log('🔍 批量修改读后续写页面加载完成, currentUser:', currentUser ? '已登录' : '未登录');
   const [isMobile, setIsMobile] = useState(false);
   const [task, setTask] = useState<ContinuationWritingBatchTask | null>(null);
   const [isLoading, setIsLoading] = useState(false);
