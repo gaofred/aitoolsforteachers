@@ -146,31 +146,8 @@ const BatchContinuationWritingPolish = () => {
     }
   };
 
-  // 用户未登录时的显示
-  // 未登录时自动跳转到登录页面
-  useEffect(() => {
-    if (!currentUser) {
-      router.push('/auth/signin');
-    }
-  }, [currentUser, router]);
-
-  if (!currentUser) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-gray-600 mb-4">请先登录后使用批量读后续写批改功能</p>
-            <Button
-              onClick={() => router.push('/auth/signin')}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              前往登录
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // 移除自动跳转登录的逻辑
+  // 改为在实际使用功能时才检查登录状态，与其他工具保持一致
 
   // 移动设备访问限制 - 已取消，允许移动端访问
   // if (isMobile) {

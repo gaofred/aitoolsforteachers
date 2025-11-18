@@ -297,20 +297,8 @@ const BatchAssignmentPolish = () => {
     }
   };
 
-  if (!currentUser) {
-    if (typeof window !== 'undefined') {
-      router.push('/auth/signin');
-    }
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-gray-600 mb-4">请先登录后使用批量作业润色功能</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // 移除自动跳转登录的逻辑
+  // 页面可以正常显示，只有在实际使用功能时才检查登录状态
 
   return (
     <NoSSR>
