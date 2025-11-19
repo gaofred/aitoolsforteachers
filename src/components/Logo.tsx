@@ -1,7 +1,4 @@
-"use client";
-
 import Image from "next/image";
-import { useState } from "react";
 
 export function Logo({ size = "normal" }: { size?: "small" | "normal" | "large" }) {
   const sizeClasses = {
@@ -37,24 +34,6 @@ export function LogoWithText({ size = "normal" }: { size?: "small" | "normal" | 
     large: "text-2xl"
   };
 
-  // 页面加载时生成固定时间，作为版本号
-  const [versionTime] = useState(() => {
-    if (typeof window === 'undefined') {
-      return ''; // 服务端渲染时为空
-    }
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-
-    // 获取星期几
-    const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    const weekDay = weekDays[now.getDay()];
-
-    return `${month}月${day}日${weekDay}${hours}:${minutes}`;
-  });
-
   return (
     <div className="flex items-center gap-2 md:gap-3">
       <Logo size={size} />
@@ -65,11 +44,9 @@ export function LogoWithText({ size = "normal" }: { size?: "small" | "normal" | 
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          {versionTime && (
-            <span className="text-xs text-muted-foreground">
-              {versionTime}
-            </span>
-          )}
+          <span className="text-xs text-muted-foreground">
+            v0.1
+          </span>
           {size === "large" && (
             <span className="text-xs text-muted-foreground">
               • Professional English Teaching Assistant
