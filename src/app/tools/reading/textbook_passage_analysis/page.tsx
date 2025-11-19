@@ -280,27 +280,7 @@ export default function TextbookPassageAnalysisPage() {
     )
   }
 
-  // 检查用户登录状态（异步检查，避免阻塞页面渲染）
-  const checkCurrentUser = async () => {
-    try {
-      const response = await fetch('/api/auth/user');
-      if (response.ok) {
-        const userData = await response.json();
-        console.log('用户登录成功:', userData);
-      } else {
-        console.log('用户未登录');
-      }
-    } catch (error) {
-      console.error('检查用户状态失败:', error);
-    }
-  };
-
-  useEffect(() => {
-    if (isClient) {
-      checkCurrentUser();
-    }
-  }, [isClient]);
-
+  
   const handleAnalyze = async () => {
     if (!text.trim()) {
       alert('请输入要分析的课文文章内容')
