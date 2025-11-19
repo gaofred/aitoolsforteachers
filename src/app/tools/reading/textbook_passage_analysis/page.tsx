@@ -280,23 +280,37 @@ export default function TextbookPassageAnalysisPage() {
     )
   }
 
-  // 只有在客户端状态下且确实没有用户时才显示登录提示
-  if (isClient && !currentUser) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">请先登录</h1>
-          <Button onClick={() => router.push('/auth/signin')}>
-            前往登录
-          </Button>
-        </div>
-      </div>
-    )
-  }
+  // 检查用户登录状态（异步检查，避免阻塞页面渲染）
+  const checkCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/user');
+      if (response.ok) {
+        const userData = await response.json();
+        console.log('用户登录成功:', userData);
+      } else {
+        console.log('用户未登录');
+      }
+    } catch (error) {
+      console.error('检查用户状态失败:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isClient) {
+      checkCurrentUser();
+    }
+  }, [isClient]);
 
   const handleAnalyze = async () => {
     if (!text.trim()) {
       alert('请输入要分析的课文文章内容')
+      return
+    }
+
+    // 检查用户登录状态
+    if (!currentUser) {
+      alert('请先登录')
+      router.push('/auth/signin')
       return
     }
 
