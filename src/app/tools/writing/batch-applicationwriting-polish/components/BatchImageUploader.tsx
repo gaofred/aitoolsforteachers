@@ -362,8 +362,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
         throw new Error('OCR处理已中断');
       }
 
-      // 使用极客智坊OCR API，提供更好的作文识别效果
-      const response = await fetch('/api/ai/ocr-geekai', {
+      // 使用SSVIP DMX豆包模型OCR API，提供更好的作文识别效果
+      const response = await fetch('/api/ai/ocr-ssvip-dmx', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
