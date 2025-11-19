@@ -772,8 +772,8 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
 
       console.log(`🔄 开始处理图片 ${image.id.substring(0, 8)}... (尝试${retryCount + 1}/${maxRetries + 1})`);
 
-      // 使用SSVIP DMX豆包模型OCR API，提供更好的读后续写识别效果
-      const response = await fetch('/api/ai/ocr-ssvip-dmx', {
+      // 使用火山引擎豆包直连OCR API，提供更好的读后续写识别效果
+      const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1676,7 +1676,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
               重要提醒
             </h3>
             <p className="text-sm text-red-700 font-medium">
-              因国际线路问题，批量识图在晚上20:00-22:00容易出现无法识别的情况。如果遇到，可换个时间段重试。
+              请一定要使用国内站<a href="https://fredgao.cn" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">fredgao.cn</a>来改作文。aitoolsforteachers.net为新加坡站，容易识图卡顿
             </p>
           </div>
         </div>

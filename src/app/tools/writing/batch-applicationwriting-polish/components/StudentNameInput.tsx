@@ -273,7 +273,7 @@ const StudentNameInput: React.FC<StudentNameInputProps> = ({
                   </svg>
                   <span>重要提醒</span>
                 </div>
-                因国际线路问题，批量识图在晚上20:00-22:00容易出现无法识别的情况。如果遇到，可换个时间段重试。
+                请一定要使用国内站<a href="https://fredgao.cn" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">fredgao.cn</a>来改作文。aitoolsforteachers.net为新加坡站，容易识图卡顿
               </li>
             </ul>
           </div>
