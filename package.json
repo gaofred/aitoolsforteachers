@@ -3,11 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -H 0.0.0.0",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "start:server": "node server.js",
-    "start:alibaba": "./start-alibaba.sh",
     "lint": "npx tsc --noEmit && next lint",
     "format": "npx biome format --write"
   },

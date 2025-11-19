@@ -1,49 +1,16 @@
 /** @type {import('next').NextConfig} */
 const path = require('path');
-const isProd = process.env.NODE_ENV === "production";
-
-// 忽略 Node.js 版本警告
-if (process.env.NODE_NO_WARNINGS !== '1') {
-  console.log('🔍 当前 Node.js 版本可能不完全兼容 Next.js，将尝试兼容模式构建');
-}
 
 const nextConfig = {
-  env: {
-    STATIC_URL: isProd ? process.env.STATIC_URL : "",
-  },
-  // 移除assetPrefix以避免阿里云环境的资源加载问题
-  // assetPrefix: isProd ? process.env.STATIC_URL : "",
-
-  // Serverless 部署配置 - 使用传统构建模式配合自定义server.js
-  // output: 'standalone', // 暂时注释掉，使用自定义server.js
-
   // 服务器外部包配置（Next.js 15.x）
   serverExternalPackages: ['@supabase/supabase-js'],
 
-  // 编译器优化
-  compiler: {
-    removeConsole: {
-      exclude: ['error', 'warn'],
-    },
-  },
-
-  // 实验性功能（如果需要可以取消注释）
-  // experimental: {
-  //   optimizePackageImports: ['@supabase/supabase-js']
-  // },
-  allowedDevOrigins: ["*.preview.same-app.com"],
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  // 跳过 Node.js 版本检查和其他兼容性检查
-  experimental: {
-    forceSwcTransforms: true,
-  },
-  // 禁用构建时的严格检查
-  distDir: '.next',
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
