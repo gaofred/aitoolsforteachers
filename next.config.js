@@ -50,7 +50,7 @@ const nextConfig = {
       },
     ],
   },
-  // 简化CSP配置以避免冲突
+  // 更灵活的CSP配置以支持各种环境
   async headers() {
     return [
       {
@@ -58,7 +58,18 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: chrome-extension:; style-src 'self' 'unsafe-inline' data: blob:; img-src 'self' data: https: http: blob:; font-src 'self' data: https: blob:; connect-src 'self' https: http: ws: wss:; frame-src 'self' https:; object-src 'none';"
+            value: [
+              "default-src 'self' data: blob:;",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' data: blob: chrome-extension: chrome-extension:;",
+              "style-src 'self' 'unsafe-inline' data: blob:;",
+              "img-src 'self' data: https: http: blob:;",
+              "font-src 'self' data: https: blob:;",
+              "connect-src 'self' https: http: ws: wss: blob:;",
+              "frame-src 'self' https: blob:;",
+              "object-src 'none';",
+              "base-uri 'self';",
+              "form-action 'self';"
+            ].join(' ')
           }
         ]
       }
