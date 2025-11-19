@@ -3,11 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
+  let user = null;
+  let supabase = null;
+
   try {
-    const supabase = createServerSupabaseClient();
+    supabase = createServerSupabaseClient();
 
     // 使用Supabase的session获取用户信息
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user: userData }, error: authError } = await supabase.auth.getUser();
+    user = userData;
 
     if (authError || !user) {
       console.error('文本分析认证错误:', authError);
@@ -70,23 +74,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await fetch('https://api.coze.cn/v1/workflow/stream_run', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${cozeToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        workflow_id: "7564939251578781737",
-        parameters: {
-          text: text
-        }
-      })
-    });
+    // 创建AbortController用于超时控制
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 60000); // 60秒超时
+
+    let response;
+    try {
+      response = await fetch('https://api.coze.cn/v1/workflow/stream_run', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cozeToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          workflow_id: "7564939251578781737",
+          parameters: {
+            text: text
+          }
+        }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       const errorData = await response.text();
       console.error('Coze工作流API错误:', errorData);
+      console.error('HTTP状态码:', response.status, '状态文本:', response.statusText);
 
       // API调用失败，退还点数
       try {
@@ -140,6 +157,7 @@ export async function POST(request: NextRequest) {
     const reader = response.body?.getReader();
 
     if (!reader) {
+      console.error('无法获取响应流读取器');
       // 无法读取响应数据，退还点数
       try {
         const { error: refundError } = await supabase.rpc('add_user_points', {
@@ -364,37 +382,50 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('文本分析处理错误:', error);
 
-    // 尝试退回积分
-    try {
-      const { error: refundError } = await supabase.rpc('add_user_points', {
-        p_user_id: user.id,
-        p_amount: 6, // 使用固定的6点数
-        p_type: 'REFUND',
-        p_description: '文本分析失败 - 系统异常退回',
-        p_related_id: null
-      } as any);
+    // 只有在有用户信息时才尝试退回积分
+    if (user && supabase) {
+      try {
+        const { error: refundError } = await supabase.rpc('add_user_points', {
+          p_user_id: user.id,
+          p_amount: 6, // 使用固定的6点数
+          p_type: 'REFUND',
+          p_description: '文本分析失败 - 系统异常退回',
+          p_related_id: null
+        } as any);
 
-      console.log('异常处理点数退还结果:', refundError ? '失败' : '成功');
+        console.log('异常处理点数退还结果:', refundError ? '失败' : '成功');
 
-      return NextResponse.json(
-        {
-          error: '文本分析处理失败',
-          refunded: !refundError,
-          pointsRefunded: refundError ? 0 : 6
-        },
-        { status: 500 }
-      );
-    } catch (refundError) {
-      console.error('异常处理中退还点数失败:', refundError);
-      return NextResponse.json(
-        {
-          error: '文本分析处理失败',
-          refunded: false,
-          pointsRefunded: 0,
-          refundError: '点数退还失败，请联系客服'
-        },
-        { status: 500 }
-      );
+        return NextResponse.json(
+          {
+            error: '文本分析处理失败',
+            refunded: !refundError,
+            pointsRefunded: refundError ? 0 : 6
+          },
+          { status: 500 }
+        );
+      } catch (refundError) {
+        console.error('异常处理中退还点数失败:', refundError);
+        return NextResponse.json(
+          {
+            error: '文本分析处理失败',
+            refunded: false,
+            pointsRefunded: 0,
+            refundError: '点数退还失败，请联系客服'
+          },
+          { status: 500 }
+        );
+      }
     }
+
+    // 没有用户信息时的错误响应
+    return NextResponse.json(
+      {
+        error: '文本分析处理失败',
+        refunded: false,
+        pointsRefunded: 0,
+        errorDetails: error instanceof Error ? error.message : '未知错误'
+      },
+      { status: 500 }
+    );
   }
 }
