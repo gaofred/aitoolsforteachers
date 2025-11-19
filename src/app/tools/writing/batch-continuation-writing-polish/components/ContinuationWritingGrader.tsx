@@ -1100,16 +1100,14 @@ ${assignment.gradingResult.improvedVersion}` : ''}
 
       console.log('📝 准备发送全班共性问题分析请求');
 
-      // 调用极客智坊Gemini 2.5 Pro API进行共性问题分析
-      const response = await fetch('/api/ai/continuation-writing-common-issues', {
+      // 调用通用共性问题分析API
+      const response = await fetch('/api/ai/common-issues-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           topic: task?.topic || '读后续写',
-          p1Content: '', // 原文第一段内容，如果有的话
-          p2Content: '', // 原文第二段内容，如果有的话
           studentEssays: analysisData.map(data => ({
             studentName: data.studentName,
             content: data.content,

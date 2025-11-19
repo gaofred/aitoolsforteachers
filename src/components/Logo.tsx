@@ -45,7 +45,7 @@ export function LogoWithText({ size = "normal" }: { size?: "small" | "normal" | 
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            v0.2
+            v0.3
           </span>
           {size === "large" && (
             <span className="text-xs text-muted-foreground">
