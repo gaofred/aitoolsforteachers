@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
         if (data.session?.access_token) {
           response.cookies.set('sb-access-token', data.session.access_token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: false, // 修复IP访问问题：允许非HTTPS连接使用cookie
             sameSite: 'lax',
             path: '/',
             maxAge: data.session.expires_in || 60 * 60 * 24 * 7 // 7天
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         if (data.session?.refresh_token) {
           response.cookies.set('sb-refresh-token', data.session.refresh_token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: false, // 修复IP访问问题：允许非HTTPS连接使用cookie
             sameSite: 'lax',
             path: '/',
             maxAge: 60 * 60 * 24 * 30 // 30天

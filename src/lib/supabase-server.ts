@@ -50,12 +50,13 @@ export const createServerSupabaseClient = () => {
           const cookieStore = await cookies()
           cookiesToSet.forEach(({ name, value, options }) => {
             // 添加更长的过期时间和更安全的cookie设置
+            // 修复IP访问时的认证问题：开发环境总是不设置secure，生产环境也允许非secure以支持IP访问
             const secureOptions = {
               ...options,
               path: '/',
               maxAge: 60 * 60 * 24 * 7, // 7天
               httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
+              secure: false, // 修复IP访问问题：允许非HTTPS连接使用cookie
               sameSite: 'lax' as const
             }
             cookieStore.set(name, value, secureOptions)

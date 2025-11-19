@@ -116,9 +116,10 @@ export async function POST(request: NextRequest) {
       }))
       
       // 设置主认证cookie
+      // 修复IP访问时的认证问题：允许非HTTPS连接使用cookie
       response.cookies.set(`sb-${projectRef}-auth-token`, cookieValue, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: false, // 修复IP访问问题：允许非HTTPS连接使用cookie
         sameSite: 'lax',
         path: '/',
         maxAge: 60 * 60 * 24 * 7 // 7天
