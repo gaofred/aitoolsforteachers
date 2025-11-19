@@ -488,20 +488,28 @@ export default function Home() {
       if (urlParams.get('signed_in') === 'true') {
         // 清除URL参数
         window.history.replaceState({}, document.title, window.location.pathname);
-        // 重新检查用户状态
-        setTimeout(() => {
-          checkCurrentUser();
 
-          // 检查并处理邀请奖励（仅对首次登录的用户）
-          if (currentUser) {
-            processInviteForNewUser(currentUser.id).catch((error) => {
-              console.error('页面加载时处理邀请奖励失败:', error);
-            });
-          }
-        }, 1000);
+        console.log('🔔 检测到signed_in参数，刷新用户状态');
+
+        // 延迟刷新用户状态，确保UserContext事件监听器有时间处理
+        setTimeout(() => {
+          // 使用UserContext的refreshUser而不是checkCurrentUser
+          refreshUser().then(() => {
+            console.log('✅ signed_in参数处理后用户状态已刷新');
+
+            // 检查并处理邀请奖励（仅对首次登录的用户）
+            if (currentUser) {
+              processInviteForNewUser(currentUser.id).catch((error) => {
+                console.error('页面加载时处理邀请奖励失败:', error);
+              });
+            }
+          }).catch((error) => {
+            console.error('signed_in参数处理时刷新用户失败:', error);
+          });
+        }, 500); // 减少延迟时间，因为现在有事件机制
       }
     }
-  }, [isMounted]);
+  }, [isMounted, refreshUser, currentUser]);
 
   // 检查每日奖励状态（每次请求后重新检查）
   const checkDailyRewardStatus = async () => {

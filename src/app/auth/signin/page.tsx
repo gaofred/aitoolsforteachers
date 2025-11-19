@@ -161,6 +161,17 @@ function SignInPageContent() {
       console.log('🔐 登录成功，准备跳转到:', redirectTo);
       console.log('🔐 完整跳转URL:', redirectTo + (redirectTo.includes('?') ? '&' : '?') + 'signed_in=true');
 
+      // 触发自定义登录成功事件，通知UserContext刷新状态
+      try {
+        const signInEvent = new CustomEvent('signInSuccess', {
+          detail: { user: data, timestamp: Date.now() }
+        });
+        window.dispatchEvent(signInEvent);
+        console.log('🔔 已触发signInSuccess事件');
+      } catch (error) {
+        console.error('触发signInSuccess事件失败:', error);
+      }
+
       // 延迟跳转确保状态完全同步
       setTimeout(() => {
         window.location.href = redirectTo + (redirectTo.includes('?') ? '&' : '?') + 'signed_in=true';

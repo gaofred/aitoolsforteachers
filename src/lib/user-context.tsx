@@ -367,6 +367,43 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // 监听登录成功事件，确保状态同步
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleSignInSuccess = (event: CustomEvent) => {
+        console.log('🔔 UserContext收到登录成功事件');
+        // 短暂延迟后刷新用户状态，确保token已保存
+        setTimeout(() => {
+          refreshUser().catch(error => {
+            console.error('响应登录事件时刷新用户数据失败:', error);
+          });
+        }, 100);
+      };
+
+      // 监听自定义登录成功事件
+      window.addEventListener('signInSuccess', handleSignInSuccess as EventListener);
+
+      // 同时监听storage变化，处理跨tab登录
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'sb-access-token' && e.newValue) {
+          console.log('🔔 检测到token更新，刷新用户状态');
+          setTimeout(() => {
+            refreshUser().catch(error => {
+              console.error('响应token变化时刷新用户数据失败:', error);
+            });
+          }, 100);
+        }
+      };
+
+      window.addEventListener('storage', handleStorageChange);
+
+      return () => {
+        window.removeEventListener('signInSuccess', handleSignInSuccess as EventListener);
+        window.removeEventListener('storage', handleStorageChange);
+      };
+    }
+  }, []);
+
   return (
     <UserContext.Provider value={{
       currentUser,
