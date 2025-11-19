@@ -1706,8 +1706,7 @@ The future of AI depends on our ability to balance innovation with responsibilit
                 </p>
                 <p className="text-base text-green-200 leading-relaxed mb-4 font-semibold">
                   🌐 网站访问地址：<br/>
-                  • <a href="https://aitoolsforteachers.net" target="_blank" rel="noopener noreferrer" className="text-green-100 hover:text-white underline transition-colors duration-200">aitoolsforteachers.net</a> (主站）<br/>
-                  • <a href="https://fredgao.cn" target="_blank" rel="noopener noreferrer" className="text-green-100 hover:text-white underline transition-colors duration-200">fredgao.cn</a> (备用站)
+                  • <a href="https://aitoolsforteachers.net" target="_blank" rel="noopener noreferrer" className="text-green-100 hover:text-white underline transition-colors duration-200">aitoolsforteachers.net</a>
                 </p>
 
                 {/* 会员通道按钮 */}

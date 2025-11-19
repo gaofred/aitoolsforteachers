@@ -40,6 +40,27 @@ export default function GapFillingExerciseAnalysisPage() {
     setIsClient(true)
   }, [])
 
+  // 检查用户登录状态（异步检查，避免阻塞页面渲染）
+  const checkCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/user');
+      if (response.ok) {
+        const userData = await response.json();
+        console.log('用户登录成功:', userData);
+      } else {
+        console.log('用户未登录');
+      }
+    } catch (error) {
+      console.error('检查用户状态失败:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isClient) {
+      checkCurrentUser();
+    }
+  }, [isClient]);
+
   // 组件卸载时清理摄像头
   useEffect(() => {
     return () => {
