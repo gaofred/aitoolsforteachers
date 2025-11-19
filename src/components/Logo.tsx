@@ -47,7 +47,12 @@ export function LogoWithText({ size = "normal" }: { size?: "small" | "normal" | 
     const day = now.getDate();
     const hours = now.getHours().toString().padStart(2, '0');
     const minutes = now.getMinutes().toString().padStart(2, '0');
-    return `${month}月${day}日 ${hours}:${minutes}`;
+
+    // 获取星期几
+    const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const weekDay = weekDays[now.getDay()];
+
+    return `${month}月${day}日${weekDay}${hours}:${minutes}`;
   });
 
   return (
