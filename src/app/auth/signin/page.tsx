@@ -156,7 +156,15 @@ function SignInPageContent() {
 
       // 登录成功，重定向到原始请求页面或主页
       const redirectTo = searchParams.get('redirect') || '/'
-      window.location.href = redirectTo + (redirectTo.includes('?') ? '&' : '?') + 'signed_in=true'
+
+      // 添加调试信息和延迟，确保状态同步
+      console.log('🔐 登录成功，准备跳转到:', redirectTo);
+      console.log('🔐 完整跳转URL:', redirectTo + (redirectTo.includes('?') ? '&' : '?') + 'signed_in=true');
+
+      // 延迟跳转确保状态完全同步
+      setTimeout(() => {
+        window.location.href = redirectTo + (redirectTo.includes('?') ? '&' : '?') + 'signed_in=true';
+      }, 500);
 
     } catch (error) {
       console.error('登录异常:', error)
