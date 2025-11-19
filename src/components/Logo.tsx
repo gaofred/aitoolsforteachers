@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useState, useEffect } from "react";
 
 export function Logo({ size = "normal" }: { size?: "small" | "normal" | "large" }) {
   const sizeClasses = {
@@ -34,18 +37,45 @@ export function LogoWithText({ size = "normal" }: { size?: "small" | "normal" | 
     large: "text-2xl"
   };
 
+  const [currentTime, setCurrentTime] = useState('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const day = now.getDate();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      setCurrentTime(`${month}月${day}日 ${hours}:${minutes}`);
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 60000); // 每分钟更新一次
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="flex items-center gap-2 md:gap-3">
       <Logo size={size} />
       <div className="flex flex-col">
-        <h1 className={`${textSizes[size]} font-bold text-foreground truncate`} style={{ fontFamily: "'Inter', sans-serif" }}>
-          英语AI教学工具
-        </h1>
-        {size === "large" && (
-          <p className="text-xs text-muted-foreground">
-            Professional English Teaching Assistant
-          </p>
-        )}
+        <div className="flex items-center gap-2">
+          <h1 className={`${textSizes[size]} font-bold text-foreground truncate`} style={{ fontFamily: "'Inter', sans-serif" }}>
+            英语AI教学工具
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          {currentTime && (
+            <span className="text-xs text-muted-foreground">
+              {currentTime}
+            </span>
+          )}
+          {size === "large" && (
+            <span className="text-xs text-muted-foreground">
+              • Professional English Teaching Assistant
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
