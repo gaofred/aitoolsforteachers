@@ -147,19 +147,19 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🚀 读后续写批改API被调用！');
 
-    // 在API入口处就检查极客智坊环境变量配置
-    console.log('🔍 检查极客智坊API环境变量配置:');
-    console.log('- GEEKAI_API_KEY:', process.env.GEEKAI_API_KEY ? '已设置' : '未设置');
+    // 在API入口处就检查阿里云通义千问环境变量配置
+    console.log('🔍 检查阿里云通义千问API环境变量配置:');
+    console.log('- DASHSCOPE_API_KEY:', process.env.DASHSCOPE_API_KEY ? '已设置' : '未设置');
 
     // 立即检查API密钥是否配置，避免后续处理浪费资源
-    if (!GEEKAI_API_KEY) {
-      console.error('❌ 批改API早期检查失败：极客智坊API密钥未配置');
+    if (!DASHSCOPE_API_KEY) {
+      console.error('❌ 批改API早期检查失败：阿里云通义千问API密钥未配置');
       return NextResponse.json({
         success: false,
-        error: '极客智坊API密钥未配置，请联系管理员配置环境变量',
+        error: '阿里云通义千问API密钥未配置，请联系管理员配置环境变量',
         details: {
           missingEnvVars: [
-            'GEEKAI_API_KEY (极客智坊API密钥)'
+            'DASHSCOPE_API_KEY (阿里云通义千问API密钥)'
           ],
           environment: process.env.NODE_ENV,
           isVercel: !!process.env.VERCEL
