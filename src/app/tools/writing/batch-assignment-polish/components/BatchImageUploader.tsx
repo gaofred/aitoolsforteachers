@@ -228,19 +228,19 @@ export const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error(`阿里云新加坡OCR API错误: ${response.status}`);
+        throw new Error(`火山引擎OCR API错误: ${response.status}`);
       }
 
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || '阿里云新加坡OCR识别失败');
+        throw new Error(data.error || '火山引擎OCR识别失败');
       }
 
-      // 阿里云新加坡返回格式：使用result字段
+      // 火山引擎返回格式：使用result字段
       const ocrText = data.result;
-      console.log(`🤖 阿里云新加坡OCR识别 (尝试${retryCount + 1}):`, ocrText);
-      console.log(`📊 阿里云新加坡OCR信息:`, {
+      console.log(`🤖 火山引擎OCR识别 (尝试${retryCount + 1}):`, ocrText);
+      console.log(`📊 火山引擎OCR信息:`, {
         模型: data.model || 'qwen3-vl-flash',
         处理时间: data.usage?.processing_time || '未知',
         原文长度: ocrText?.length || '未知',

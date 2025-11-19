@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabasePointsService } from '@/lib/supabase-points-service';
 
-// 极客智坊API配置
-const GEEKAI_API_URL = 'https://geekai.co/api/v1/chat/completions';
-const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
+// 阿里云通义千问API配置
+const DASHSCOPE_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
 
 export async function POST(request: NextRequest) {
   console.log('应用文批改API - 开始处理请求');
@@ -301,20 +301,20 @@ ${useMediumStandard ? `
 
     const prompt = buildGradingPrompt(studentName, topic, content, gradingType as 'scoring' | 'revision' | 'both', useMediumStandard);
 
-    // 检查极客智坊API Key配置
-    if (!GEEKAI_API_KEY) {
+    // 检查阿里云通义千问API Key配置
+    if (!DASHSCOPE_API_KEY) {
       return NextResponse.json({
         success: false,
-        error: '极客智坊API Key未配置，请检查环境变量 GEEKAI_API_KEY'
+        error: '阿里云通义千问API Key未配置，请检查环境变量 DASHSCOPE_API_KEY'
       }, { status: 500 });
     }
 
-    // 调用极客智坊AI API
-    const response = await fetch(GEEKAI_API_URL, {
+    // 调用阿里云通义千问AI API
+    const response = await fetch(DASHSCOPE_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GEEKAI_API_KEY}`
+        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`
       },
       body: JSON.stringify({
         model: "qwen-plus",

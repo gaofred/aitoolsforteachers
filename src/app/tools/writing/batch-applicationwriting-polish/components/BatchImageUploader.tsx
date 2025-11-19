@@ -377,22 +377,22 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       let data;
       try {
         const responseText = await response.text();
-        console.log('🔍 阿里云新加坡OCR API响应前200字符:', responseText.substring(0, 200));
+        console.log('🔍 火山引擎OCR API响应前200字符:', responseText.substring(0, 200));
 
         // 检查响应是否为JSON格式
         const trimmedText = responseText.trim();
         if (!trimmedText.startsWith('{') && !trimmedText.startsWith('[')) {
-          console.error('❌ 阿里云新加坡OCR API返回非JSON格式响应:', responseText.substring(0, 500));
+          console.error('❌ 火山引擎OCR API返回非JSON格式响应:', responseText.substring(0, 500));
           throw new Error(`API返回非JSON格式响应: ${responseText.substring(0, 200)}...`);
         }
 
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('❌ 阿里云新加坡OCR JSON解析失败:', parseError);
+        console.error('❌ 火山引擎OCR JSON解析失败:', parseError);
         throw new Error(`API响应解析失败: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
       }
 
-      console.log('📝📝📝 阿里云新加坡OCR API响应数据检查：', {
+      console.log('📝📝📝 火山引擎OCR API响应数据检查：', {
         success: data.success,
         result: data.result ? data.result.substring(0, 100) + '...' : 'null',
         englishOnly: data.englishOnly ? data.englishOnly.substring(0, 100) + '...' : 'null',
@@ -404,11 +404,11 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
       if (data.success && data.result) {
         // 直接解析OCR结果，使用作文OCR的英文分离结果，包含图片数据
         const parsedResult = parseOCRResult(data.result, data.englishOnly || data.result, image.id, base64);
-        console.log(`✅ 阿里云新加坡OCR识别完成 (${image.id.substring(0, 8)}...)`)
+        console.log(`✅ 火山引擎OCR识别完成 (${image.id.substring(0, 8)}...)`)
         return parsedResult;
       } else {
         // 构建详细错误信息
-        let errorMessage = data.error || '阿里云新加坡OCR识别失败';
+        let errorMessage = data.error || '火山引擎OCR识别失败';
         if (data.details) {
           if (typeof data.details === 'string') {
             errorMessage += ` (${data.details})`;
