@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabasePointsService } from '@/lib/supabase-points-service';
 
-// 极客智坊API配置 - 和应用文批改保持一致
-const GEEKAI_API_URL = 'https://geekai.co/api/v1/chat/completions';
-const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
+// 阿里云通义千问API配置
+const DASHSCOPE_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
 
 interface GradingRequest {
   studentName: string;
@@ -36,26 +36,26 @@ interface GradingResponse {
   remainingPoints?: number;
 }
 
-// 调用极客智坊API的函数 - 和应用文批改保持一致
-const callGeekaiAI = async (prompt: string, useMediumStandard: boolean = false): Promise<string> => {
-  console.log('🤖 开始调用极客智坊AI API...');
+// 调用阿里云通义千问API的函数
+const callDashscopeAI = async (prompt: string, useMediumStandard: boolean = false): Promise<string> => {
+  console.log('🤖 开始调用阿里云通义千问AI API...');
 
-  // 检查极客智坊API密钥是否配置
-  if (!GEEKAI_API_KEY) {
-    console.error('❌ 极客智坊API密钥未配置，请检查环境变量: GEEKAI_API_KEY');
-    throw new Error('极客智坊API密钥未配置，请联系管理员配置环境变量');
+  // 检查阿里云API密钥是否配置
+  if (!DASHSCOPE_API_KEY) {
+    console.error('❌ 阿里云通义千问API密钥未配置，请检查环境变量: DASHSCOPE_API_KEY');
+    throw new Error('阿里云通义千问API密钥未配置，请联系管理员配置环境变量');
   }
 
-  console.log('✅ 极客智坊API密钥验证通过，密钥长度:', GEEKAI_API_KEY.length);
-  console.log('🌐 发起API请求到:', GEEKAI_API_URL);
+  console.log('✅ 阿里云通义千问API密钥验证通过，密钥长度:', DASHSCOPE_API_KEY.length);
+  console.log('🌐 发起API请求到:', DASHSCOPE_API_URL);
   console.log('📝 请求模型: qwen-plus');
   console.log('📝 prompt长度:', prompt.length, '字符');
 
-  const response = await fetch(GEEKAI_API_URL, {
+  const response = await fetch(DASHSCOPE_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GEEKAI_API_KEY}`
+      'Authorization': `Bearer ${DASHSCOPE_API_KEY}`
     },
     body: JSON.stringify({
       model: "qwen-plus",
@@ -76,10 +76,10 @@ const callGeekaiAI = async (prompt: string, useMediumStandard: boolean = false):
   });
 
   if (!response.ok) {
-    console.error('❌ 极客智坊API HTTP错误:', {
+    console.error('❌ 阿里云通义千问API HTTP错误:', {
       status: response.status,
       statusText: response.statusText,
-      url: GEEKAI_API_URL
+      url: DASHSCOPE_API_URL
     });
 
     // 尝试读取错误响应
@@ -92,7 +92,7 @@ const callGeekaiAI = async (prompt: string, useMediumStandard: boolean = false):
       console.error('❌ 无法读取错误响应:', textError);
     }
 
-    throw new Error(`极客智坊API请求失败 (${response.status}): ${response.statusText} ${errorDetails ? `- ${errorDetails.substring(0, 200)}` : ''}`);
+    throw new Error(`阿里云通义千问API请求失败 (${response.status}): ${response.statusText} ${errorDetails ? `- ${errorDetails.substring(0, 200)}` : ''}`);
   }
 
   const data = await response.json();
@@ -409,10 +409,10 @@ ${content}`;
       console.log('📋 打分提示词长度:', scoringPrompt.length);
       console.log('📋 细致批改提示词长度:', detailedGradingPrompt.length);
 
-      // 并行调用极客智坊AI进行打分和细致批改
+      // 并行调用阿里云通义千问AI进行打分和细致批改
       const [scoringResult, detailedResult] = await Promise.all([
-        callGeekaiAI(scoringPrompt, useMediumStandard),
-        includeDetailedFeedback ? callGeekaiAI(detailedGradingPrompt, useMediumStandard) : Promise.resolve('')
+        callDashscopeAI(scoringPrompt, useMediumStandard),
+        includeDetailedFeedback ? callDashscopeAI(detailedGradingPrompt, useMediumStandard) : Promise.resolve('')
       ]);
 
       // 解析分数
