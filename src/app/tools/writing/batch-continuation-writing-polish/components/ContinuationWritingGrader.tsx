@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { SessionManager, useSessionMonitor } from "@/components/SessionManager";
 import { Loader2, CheckCircle, AlertCircle, Play, Pause, RotateCcw, Download, Eye, RefreshCw, FileText, BrainCircuit, TrendingUp, Coins, Brain, Copy } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
@@ -80,6 +81,9 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [classAnalysis, setClassAnalysis] = useState<string>('');
   const ITEMS_PER_PAGE = 6;
+
+  // 会话监控 - 在长时间操作时启用
+  const { isMonitoring, startMonitoring, stopMonitoring } = useSessionMonitor();
 
   const assignments = task?.assignments || [];
   const pendingAssignments = assignments.filter(a => a.status === 'pending');
@@ -323,6 +327,10 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
     setIsGradingCompleted(false);
     setCompletedCount(0);
     setErrorCount(0);
+
+    // 启用会话监控 - 防止长时间操作导致认证过期
+    startMonitoring();
+    console.log('🔍 批量批改开始，已启用会话监控');
     setGradingProgress(0);
     setGradingMessage(`🚀 正在启动AI批改引擎，准备高速处理 ${pendingAssignments.length} 份作文...`);
 
@@ -492,6 +500,10 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
     } finally {
       setIsGrading(false);
       setCurrentAssignmentIndex(0);
+
+      // 停止会话监控
+      stopMonitoring();
+      console.log('⏹️ 批量批改完成，已停止会话监控');
     }
   };
 
@@ -1553,7 +1565,8 @@ ${assignment.gradingResult.improvedVersion}` : ''}
   };
 
   return (
-    <div className="space-y-6">
+    <SessionManager enabled={isGrading}>
+      <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">AI批改</h2>
         <p className="text-gray-600 text-sm">
@@ -2164,6 +2177,7 @@ ${assignment.gradingResult.detailedFeedback}
         </div>
       </div>
     </div>
+    </SessionManager>
   );
 };
 

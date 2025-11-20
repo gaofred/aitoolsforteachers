@@ -12,6 +12,14 @@ export const createServerSupabaseClient = () => {
   }
 
   return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      // 延长会话时间到7天，防止批量处理过程中session过期
+      maxSessionTime: 60 * 60 * 24 * 7, // 7天 (秒)
+      // 设置更频繁的token刷新
+      refreshTime: 60 * 5, // 5分钟刷新一次
+    },
     cookies: {
       async getAll() {
         try {
@@ -54,7 +62,7 @@ export const createServerSupabaseClient = () => {
             const secureOptions = {
               ...options,
               path: '/',
-              maxAge: 60 * 60 * 24 * 7, // 7天
+              maxAge: 60 * 60 * 24 * 30, // 30天，延长认证有效期
               httpOnly: true,
               secure: false, // 修复IP访问问题：允许非HTTPS连接使用cookie
               sameSite: 'lax' as const

@@ -481,7 +481,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     // 显示进度提醒 - 15张超级并行处理的极速性能
     // 优化估计：15张并发，平均每张8秒（因为并发更高，整体效率提升），批次间延迟减少
     const estimatedMinutes = Math.max(1, Math.ceil((uploadedImages.length * 8) / 60) + Math.ceil(uploadedImages.length / 15) * 0.5);
-    const message = `AI超级并行处理中... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（${Math.min(15, uploadedImages.length)}张同时处理，极速性能模式）。`;
+    const message = `AI超级并行处理中... 预计${uploadedImages.length}张图片大约需要${estimatedMinutes}分钟（${Math.min(30, uploadedImages.length)}张同时处理，极速性能模式）。`;
     console.log(`🎯 ${message}`);
 
     // 设置进度消息
@@ -492,14 +492,14 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     let completedCount = 0;
 
     // 超级并行处理，最大化OCR识别效率
-    const batchSize = 15; // 优化并发：15张图片同时处理，提升处理效率
+    const batchSize = 30; // 优化并发：30张图片同时处理，提升处理效率
     const batches = [];
 
     for (let i = 0; i < uploadedImages.length; i += batchSize) {
       batches.push(uploadedImages.slice(i, i + batchSize));
     }
 
-    console.log(`📝 开始作文批量处理 ${uploadedImages.length} 张图片，超级并发数: ${batchSize} 张/批次（极速OCR版 - 15张并发）`);
+    console.log(`📝 开始作文批量处理 ${uploadedImages.length} 张图片，超级并发数: ${batchSize} 张/批次（极速OCR版 - 30张并发）`);
 
     // 性能监控
     const startTime = Date.now();
@@ -629,7 +629,7 @@ const BatchImageUploader: React.FC<BatchImageUploaderProps> = ({
     ⏱️ 总耗时: ${totalTime.toFixed(2)} 秒
     📈 平均每张: ${avgTimePerImage.toFixed(2)} 秒
     🚀 性能提升: ${(concurrencyRatio * 100).toFixed(0)}% 相比串行处理
-    🔥 极速模式: 15张并行处理，效率最大化！`);
+    🔥 极速模式: 30张并行处理，效率最大化！`);
 
     // 清除进度消息
     // 检查是否被中断，如果被中断则清理状态
