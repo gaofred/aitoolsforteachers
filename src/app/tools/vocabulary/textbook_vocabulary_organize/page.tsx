@@ -581,14 +581,17 @@ export default function TextbookVocabularyOrganisePage() {
   const recognizeText = async (images: string[]) => {
     if (images.length === 0) return
     setIsRecognizing(true)
-    alert('识图中，请稍等...')
+    alert('DeepSeek OCR识别中，请稍等...')
     try {
       const texts: string[] = []
       for (const img of images) {
-        const res = await fetch('/api/ai/image-recognition', {
+        const res = await fetch('/api/ai/ocr-deepseek', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: img })
+          body: JSON.stringify({
+            imageBase64: img,
+            prompt: '识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复"无文字内容"'
+          })
         })
         const d = await res.json()
         if (d.success && d.result) texts.push(d.result)
@@ -608,13 +611,13 @@ export default function TextbookVocabularyOrganisePage() {
           }
         })
 
-        alert(`识别成功！已将识别内容添加到文本框`)
+        alert(`DeepSeek OCR识别成功！已将识别内容添加到文本框`)
       } else {
         alert('识别失败，未检测到文本')
       }
     } catch (e) {
       console.error(e)
-      alert('识别错误，请重试')
+      alert('DeepSeek OCR识别错误，请重试')
     }
     setIsRecognizing(false)
     setIsCameraOpen(false)
@@ -629,32 +632,22 @@ export default function TextbookVocabularyOrganisePage() {
     setIsRecognizing(true)
     alert('正在进行阿里云OCR备用识别，请稍等...')
     try {
-      // 转换图片格式为base64数组（移除data:image前缀）
-      const processedImages = images.map(img => {
-        const base64Data = img.split(',')[1] || img;
-        return {
-          data: base64Data,
-          mimeType: img.startsWith('data:') ? img.split(':')[1].split(';')[0] : 'image/jpeg'
-        };
-      });
-
-      const response = await fetch('/api/ai/ocr-aliyun', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('sb-access-token') || '' : ''}`
-        },
-        body: JSON.stringify({
-          images: processedImages,
-          prompt: '识别图中文字，依次原文输出，不要增加其他多余的解释和说明'
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.result) {
+      const texts: string[] = []
+      for (const img of images) {
+        const res = await fetch('/api/ai/image-recognition', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: img,
+            prompt: '识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复"无文字内容"'
+          })
+        })
+        const d = await res.json()
+        if (d.success && d.result) texts.push(d.result)
+      }
+      if (texts.length) {
         // 直接输出OCR识别的原文内容
-        const recognizedText = data.result;
+        const recognizedText = texts.join('\n\n');
 
         // 更新词汇列表为OCR识别的原文
         setVocabularyList(prev => {
@@ -667,14 +660,13 @@ export default function TextbookVocabularyOrganisePage() {
           }
         })
 
-        alert(`阿里云OCR识别成功！已将识别内容添加到文本框`)
-        await refreshUser(); // 更新用户点数
+        alert(`DeepSeek OCR识别成功！已将识别内容添加到文本框`)
       } else {
-        alert(`阿里云OCR识别失败：${data.error || '未知错误'}`)
+        alert(`DeepSeek OCR识别失败：${data.error || '未知错误'}`)
       }
     } catch (e) {
-      console.error('阿里云OCR识别错误:', e)
-      alert('阿里云OCR识别错误，请重试')
+      console.error('DeepSeek OCR识别错误:', e)
+      alert('DeepSeek OCR识别错误，请重试')
     }
     setIsRecognizing(false)
     setIsCameraOpen(false)
@@ -1440,7 +1432,7 @@ export default function TextbookVocabularyOrganisePage() {
       {isBackupCameraOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-4 space-y-4">
-            <h3 className="text-lg font-semibold text-center">阿里云OCR备用识别</h3>
+            <h3 className="text-lg font-semibold text-center">DeepSeek OCR备用识别</h3>
             {backupPhoto ? (
               <img src={backupPhoto} alt="拍摄的照片" className="w-full rounded-lg" />
             ) : (
