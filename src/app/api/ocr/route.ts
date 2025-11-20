@@ -8,6 +8,10 @@ const VOLCENGINE_API_KEY = process.env.VOLCENGINE_API_KEY;
 const SSVIP_DMX_API_URL = "https://ssvip.dmxapi.com/v1/chat/completions";
 const SSVIP_DMX_API_KEY = process.env.ssvip_dmx;
 
+// DMXAPI DeepSeek OCR配置
+const DMXAPI_DEEPSEEK_URL = "https://www.dmxapi.cn/v1/chat/completions";
+const DMXAPI_DEEPSEEK_KEY = process.env.DMXAPI_KEY;
+
 export async function POST(request: Request) {
   try {
     // OCR识图是免费功能，无需认证检查
@@ -61,10 +65,20 @@ export async function POST(request: Request) {
         console.log('✅ SSVIP DMX OCR识别成功，原文长度:', rawText.length);
       } catch (ssvipDmxError) {
         console.error('❌ SSVIP DMX OCR识别也失败:', ssvipDmxError);
-        return NextResponse.json({
-          success: false,
-          error: "OCR识别失败：主要服务和备用服务均不可用"
-        }, { status: 500 });
+
+        // SSVIP DMX也失败，尝试DMXAPI DeepSeek OCR作为第三方案
+        try {
+          console.log('🧠 前两个服务都失败，尝试使用DMXAPI DeepSeek OCR作为第三方案...');
+          rawText = await recognizeWithDeepSeek(imageDataUrl);
+          usedProvider = 'DMXAPI-DeepSeek';
+          console.log('✅ DMXAPI DeepSeek OCR识别成功，原文长度:', rawText.length);
+        } catch (deepseekError) {
+          console.error('❌ DMXAPI DeepSeek OCR识别也失败:', deepseekError);
+          return NextResponse.json({
+            success: false,
+            error: "OCR识别失败：所有OCR服务均不可用（火山引擎、SSVIP DMX、DeepSeek）"
+          }, { status: 500 });
+        }
       }
     }
 
@@ -185,4 +199,73 @@ async function recognizeWithSsvipDmx(imageDataUrl: string): Promise<string> {
   }
 
   return ocrData.choices[0].message?.content || '';
+}
+
+// DMXAPI DeepSeek OCR识别函数（第三方案）
+async function recognizeWithDeepSeek(imageDataUrl: string): Promise<string> {
+  if (!DMXAPI_DEEPSEEK_KEY) {
+    throw new Error('DMXAPI DeepSeek OCR Key未配置');
+  }
+
+  const ocrResponse = await fetch(DMXAPI_DEEPSEEK_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${DMXAPI_DEEPSEEK_KEY}`
+    },
+    body: JSON.stringify({
+      model: "deepseek-ocr-chat",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "识别图中文字，原文输出。不要做任何改动。如果图片中没有文字，请回复'无文字内容'"
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageDataUrl
+              }
+            }
+          ]
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 1000
+    })
+  });
+
+  const ocrData = await ocrResponse.json();
+
+  if (!ocrResponse.ok) {
+    console.error("DMXAPI DeepSeek OCR API错误:", ocrData);
+    throw new Error(`DMXAPI DeepSeek OCR API调用失败: ${ocrData.error?.message || "未知错误"}`);
+  }
+
+  // DeepSeek OCR API使用OpenAI兼容格式
+  if (!ocrData.choices || !ocrData.choices[0]) {
+    throw new Error('DMXAPI DeepSeek OCR API返回格式异常');
+  }
+
+  let result = ocrData.choices[0].message?.content || '';
+
+  // 处理可能的Unicode转义字符
+  if (result && typeof result === 'string') {
+    try {
+      // 尝试解析JSON格式的内容
+      const parsed = JSON.parse(result);
+      result = JSON.stringify(parsed, null, 2);
+    } catch {
+      // 如果不是JSON格式，尝试解码unicode转义字符
+      try {
+        result = decodeURIComponent(result);
+      } catch {
+        // 如果解码失败，保持原样
+      }
+    }
+  }
+
+  return result;
 }
