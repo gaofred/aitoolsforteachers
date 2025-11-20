@@ -52,6 +52,30 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
   const [isEditing, setIsEditing] = useState<{[key: string]: boolean}>({});
   const [commonIssuesAnalysis, setCommonIssuesAnalysis] = useState<string | null>(null);
   const [isAnalyzingCommonIssues, setIsAnalyzingCommonIssues] = useState(false);
+
+  // 获取认证token（与应用文批改组件保持一致）
+  const getAuthToken = () => {
+    try {
+      let token = localStorage.getItem('sb-access-token');
+      if (token) return token;
+      token = sessionStorage.getItem('sb-access-token');
+      if (token) return token;
+      token = localStorage.getItem('supabase.auth.token');
+      if (token) {
+        try {
+          const parsedToken = JSON.parse(token);
+          return parsedToken.access_token || parsedToken.accessToken;
+        } catch {
+          return token;
+        }
+      }
+      console.warn('未找到认证token，用户可能未登录');
+      return null;
+    } catch (error) {
+      console.error('获取认证token失败:', error);
+      return null;
+    }
+  };
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [classAnalysis, setClassAnalysis] = useState<string>('');
@@ -211,11 +235,18 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
 
       console.log('📤 发送API请求:', requestBody.studentName);
 
+      // 获取认证token
+      const authToken = getAuthToken();
+      console.log('发送API请求到 /api/continuation-writing-grade，token存在:', !!authToken);
+
       const gradingResponse = await fetch('/api/continuation-writing-grade', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // 添加认证头，确保浏览器能正确传递认证信息
+          'Authorization': `Bearer ${authToken}`
         },
+        credentials: 'include', // 确保发送cookies
         body: JSON.stringify(requestBody),
       });
 
@@ -559,11 +590,18 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
 
       console.log('📤 重新批改API请求:', requestBody.studentName);
 
+      // 获取认证token
+      const authToken = getAuthToken();
+      console.log('发送重新批改API请求到 /api/continuation-writing-grade，token存在:', !!authToken);
+
       const gradingResponse = await fetch('/api/continuation-writing-grade', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // 添加认证头，确保浏览器能正确传递认证信息
+          'Authorization': `Bearer ${authToken}`
         },
+        credentials: 'include', // 确保发送cookies
         body: JSON.stringify(requestBody),
       });
 
@@ -1101,11 +1139,18 @@ ${assignment.gradingResult.improvedVersion}` : ''}
       console.log('📝 准备发送全班共性问题分析请求');
 
       // 调用通用共性问题分析API
+      // 获取认证token
+      const authToken = getAuthToken();
+      console.log('发送全班共性问题分析请求到 /api/ai/common-issues-analysis，token存在:', !!authToken);
+
       const response = await fetch('/api/ai/common-issues-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // 添加认证头，确保浏览器能正确传递认证信息
+          'Authorization': `Bearer ${authToken}`
         },
+        credentials: 'include', // 确保发送cookies
         body: JSON.stringify({
           topic: task?.topic || '读后续写',
           studentEssays: analysisData.map(data => ({
