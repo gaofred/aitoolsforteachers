@@ -52,6 +52,7 @@ const navigationData = [
         { id: "text-analysis", title: "阅读理解深度分析", active: true, cost: 6, route: "/tools/reading/reading-comprehension-deep-analysis", disabled: false },
         { id: "cloze-adaptation", title: "完形填空改编与命题", cost: 6, disabled: true },
         { id: "gap-filling-exercise-analysis", title: "语法填空解析", active: true, cost: 4, route: "/tools/reading/gap-filling-exercise-analysis" },
+        { id: "seven-choice-five-analysis", title: "七选五解析", active: true, cost: 4, route: "/tools/reading/seven-choice-five-analysis" },
         { id: "reading-comprehension-analysis", title: "阅读理解解析", cost: 2, route: "/tools/reading/reading-comprehension-analysis" },
         { id: "cloze-test-analysis", title: "完形填空解析", cost: 3, route: "/tools/reading/cloze-test-analysis" }
     ]
