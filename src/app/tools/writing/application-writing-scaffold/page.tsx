@@ -192,6 +192,7 @@ export default function ApplicationWritingScaffold() {
   // 文件处理相关状态
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const wordInputRef = useRef<HTMLInputElement>(null);
 
@@ -246,8 +247,236 @@ export default function ApplicationWritingScaffold() {
     }
   };
 
-  // 处理图片OCR识别
-  const handleImageOCR = async (file: File) => {
+  // 拍照功能
+  const handleCameraCapture = async () => {
+    try {
+      // 检查图片数量限制
+      if (selectedImages.length >= 2) {
+        toast.error('最多只能上传2张图片');
+        return;
+      }
+
+      // 请求相机权限
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+
+      // 创建视频元素和canvas
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+
+      // 等待视频加载
+      await new Promise((resolve) => {
+        video.onloadedmetadata = resolve;
+      });
+
+      // 创建canvas来捕获图片
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+
+        // 转换为data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+        // 停止相机流
+        stream.getTracks().forEach(track => track.stop());
+
+        // 添加到已选择的图片列表
+        setSelectedImages(prev => [...prev, dataUrl].slice(0, 2));
+        toast.success('拍照成功，已添加到图片列表');
+      }
+    } catch (error) {
+      console.error('相机访问错误:', error);
+      toast.error('无法访问相机，请检查权限设置或使用图片上传功能');
+    }
+  };
+
+  // 处理图片上传
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    // 检查图片数量限制
+    if (selectedImages.length + files.length > 2) {
+      toast.error('最多只能上传2张图片');
+      return;
+    }
+
+    // 检查每个文件
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        toast.error('请选择图片文件');
+        return false;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('图片大小不能超过10MB');
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    // 处理每个有效文件
+    const processFiles = validFiles.map(file => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            resolve(event.target.result.toString());
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(processFiles).then(dataUrls => {
+      setSelectedImages(prev => [...prev, ...dataUrls].slice(0, 2));
+      toast.success(`已添加${validFiles.length}张图片，共${selectedImages.length + validFiles.length}张`);
+    });
+  };
+
+  // 删除已选择的图片
+  const handleRemoveImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    toast.success('已删除图片');
+  };
+
+  // 批量OCR识别所有选中的图片
+  const handleBatchOCR = async () => {
+    if (selectedImages.length === 0) {
+      toast.error('请先选择图片');
+      return;
+    }
+
+    setIsProcessingFile(true);
+    setUploadedFileName(`识别${selectedImages.length}张图片`);
+
+    try {
+      // 并行处理所有图片
+      const batchPromises = selectedImages.map(async (img, index) => {
+        const res = await fetch('/api/ai/image-recognition', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            imageBase64: img
+          })
+        });
+
+        const data = await res.json();
+        if (data.success && data.result) {
+          return { index, result: data.result };
+        }
+        return null;
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+
+      // 过滤掉空结果并按索引排序
+      const validResults = batchResults
+        .filter((item): item is { index: number; result: string } => item !== null)
+        .sort((a, b) => a.index - b.index)
+        .map(item => item.result);
+
+      if (validResults.length > 0) {
+        const combinedText = validResults.join('\n\n');
+        setTopic(combinedText);
+        toast.success(`成功识别${validResults.length}张图片，已自动填入题目`);
+        setSelectedImages([]); // 清空已选择的图片
+      } else {
+        toast.error('未检测到有效文字内容');
+      }
+    } catch (err) {
+      console.error('批量识图请求错误:', err);
+      toast.error('识图请求失败，请检查网络连接');
+    } finally {
+      setIsProcessingFile(false);
+      setUploadedFileName('');
+    }
+  };
+
+  // 清空所有选择的图片
+  const handleClearImages = () => {
+    setSelectedImages([]);
+    toast.success('已清空所有图片');
+  };
+
+  // 复制所有结果内容
+  const handleCopyAllResults = () => {
+    if (!result) {
+      toast.error('没有可复制的内容');
+      return;
+    }
+
+    try {
+      let fullContent = `应用文写作支架练习\n题目：${topic}\n生成时间：${new Date().toLocaleString('zh-CN')}\n`;
+      fullContent += `${'='.repeat(50)}\n\n`;
+
+      // 写作支架范例 1
+      if (result.scaffold1) {
+        fullContent += `【写作支架范例 1 - 结构引导式】\n`;
+        fullContent += `${'─'.repeat(30)}\n`;
+        if (result.scaffold1.scaffold) {
+          fullContent += `支架内容：\n${result.scaffold1.scaffold}\n\n`;
+        }
+        if (result.scaffold1.fullAnswer) {
+          fullContent += `完整答案：\n${result.scaffold1.fullAnswer}\n\n`;
+        }
+      }
+
+      // 写作支架范例 2
+      if (result.scaffold2) {
+        fullContent += `【写作支架范例 2 - 句式引导式】\n`;
+        fullContent += `${'─'.repeat(30)}\n`;
+        if (result.scaffold2.scaffold) {
+          fullContent += `支架内容：\n${result.scaffold2.scaffold}\n\n`;
+        }
+        if (result.scaffold2.fullAnswer) {
+          fullContent += `完整答案：\n${result.scaffold2.fullAnswer}\n\n`;
+        }
+      }
+
+      // 配套练习题
+      if (result.exercises) {
+        fullContent += `【配套练习题】\n`;
+        fullContent += `${'─'.repeat(30)}\n`;
+        fullContent += `${result.exercises}\n\n`;
+      }
+
+      // 练习题答案
+      if (result.answerKey) {
+        fullContent += `【练习题答案】\n`;
+        fullContent += `${'─'.repeat(30)}\n`;
+        fullContent += `${result.answerKey}\n\n`;
+      }
+
+      fullContent += `\n${'='.repeat(50)}\n`;
+      fullContent += `本内容由英语AI教学工具平台生成\n`;
+      fullContent += `AI模型：智谱清言 GLM-4\n`;
+
+      // 复制到剪贴板
+      navigator.clipboard.writeText(fullContent).then(() => {
+        toast.success('已复制全部内容到剪贴板');
+      }).catch((err) => {
+        console.error('复制失败:', err);
+        toast.error('复制失败，请手动复制');
+      });
+    } catch (error) {
+      console.error('复制内容处理失败:', error);
+      toast.error('复制失败，请稍后重试');
+    }
+  };
+
+  // 处理图片OCR识别（通用方法）
+  const processImageOCR = async (file: File) => {
     if (!file) return;
 
     // 验证文件类型
@@ -265,22 +494,22 @@ export default function ApplicationWritingScaffold() {
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
-          // 移除data URL前缀，只保留base64数据
-          const base64Data = result.split(',')[1];
-          resolve(base64Data);
+          // 保留完整的data URL，包含mime type
+          resolve(result);
         };
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
 
       // 调用OCR API
-      const response = await fetch('/api/ocr', {
+      const response = await fetch('/api/ai/image-recognition', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // 确保发送cookies
         body: JSON.stringify({
-          imageBase64: base64,
+          imageBase64: base64
         }),
       });
 
@@ -449,16 +678,28 @@ export default function ApplicationWritingScaffold() {
 
               {/* 文件上传按钮区域 - 移动端优化 */}
               <div className="flex flex-wrap gap-2 sm:gap-3 mb-4">
-                {/* 图片OCR上传 */}
+                {/* 拍照按钮 */}
                 <Button
                   variant="outline"
-                  onClick={() => imageInputRef.current?.click()}
+                  onClick={handleCameraCapture}
                   disabled={isProcessingFile}
-                  className="flex-1 min-w-[120px] sm:flex-none text-sm sm:text-base"
+                  className="flex-1 min-w-[120px] sm:flex-none text-sm sm:text-base bg-green-50 text-green-600 border-green-200 hover:bg-green-100"
                   size="sm"
                 >
                   <Camera className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                  {isProcessingFile && uploadedFileName ? '识别中...' : '拍照/传图'}
+                  拍照识图
+                </Button>
+
+                {/* 图片上传按钮 */}
+                <Button
+                  variant="outline"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={isProcessingFile || selectedImages.length >= 2}
+                  className="flex-1 min-w-[120px] sm:flex-none text-sm sm:text-base bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                  size="sm"
+                >
+                  <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  选择图片 ({selectedImages.length}/2)
                 </Button>
 
                 {/* Word文件上传 */}
@@ -479,11 +720,8 @@ export default function ApplicationWritingScaffold() {
                 ref={imageInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageOCR(file);
-                }}
+                multiple
+                onChange={handleImageUpload}
                 style={{ display: 'none' }}
               />
               <input
@@ -504,6 +742,67 @@ export default function ApplicationWritingScaffold() {
                   <span className="text-xs sm:text-sm text-blue-700 truncate">
                     正在处理: {uploadedFileName}
                   </span>
+                </div>
+              )}
+
+              {/* 图片预览区域 */}
+              {selectedImages.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">已选择的图片</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={handleBatchOCR}
+                        disabled={isProcessingFile}
+                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm"
+                        size="sm"
+                      >
+                        {isProcessingFile ? (
+                          <>
+                            <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 animate-spin" />
+                            识别中...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                            批量识别
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleClearImages}
+                        variant="outline"
+                        disabled={isProcessingFile}
+                        className="text-xs sm:text-sm border-gray-300"
+                        size="sm"
+                      >
+                        清空全部
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {selectedImages.map((image, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
+                          alt={`预览图片 ${index + 1}`}
+                          className="w-full h-24 sm:h-32 object-cover rounded-md border border-gray-200"
+                        />
+                        <button
+                          onClick={() => handleRemoveImage(index)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <svg className="w-2 h-2 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                        <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded">
+                          图片 {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -672,13 +971,7 @@ export default function ApplicationWritingScaffold() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    const content = document.querySelector('.bg-white.p-3.sm\\:p-4.rounded.border');
-                    if (content) {
-                      navigator.clipboard.writeText(content.textContent || '');
-                      toast.success('已复制到剪贴板');
-                    }
-                  }}
+                  onClick={handleCopyAllResults}
                   className="w-full sm:w-auto text-sm sm:text-base"
                   size="sm"
                 >

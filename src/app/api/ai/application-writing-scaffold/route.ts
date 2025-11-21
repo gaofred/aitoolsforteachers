@@ -100,13 +100,76 @@ const parseScaffoldResult = (result: string): ScaffoldResponse => {
     if (result.includes('```json')) {
       const jsonMatch = result.match(/```json\s*([\s\S]*?)\s*```/);
       if (jsonMatch) {
-        const parsedData = JSON.parse(jsonMatch[1]);
-        console.log('✅ JSON格式解析成功');
-        return {
-          success: true,
-          ...parsedData
-        };
+        try {
+          const parsedData = JSON.parse(jsonMatch[1]);
+          console.log('✅ JSON格式解析成功', parsedData);
+
+          // 处理不同的JSON结构
+
+          // 情况1: 标准的支架练习格式
+          if (parsedData.scaffold1 && parsedData.scaffold2 && parsedData.exercises) {
+            return {
+              success: true,
+              scaffold1: parsedData.scaffold1,
+              scaffold2: parsedData.scaffold2,
+              exercises: parsedData.exercises,
+              answerKey: parsedData.answerKey
+            };
+          }
+
+          // 情况2: JSON模板格式（如用户提到的格式）
+          if (parsedData.introduction || parsedData.viewpoint || parsedData.reason1) {
+            console.log('🔄 检测到JSON模板格式，转换为支架格式');
+
+            // 将JSON模板转换为结构引导式支架
+            const templateStr = JSON.stringify(parsedData, null, 2);
+            const scaffold1 = createScaffoldFromTemplate(parsedData, '结构引导式');
+            const scaffold2 = createScaffoldFromTemplate(parsedData, '句式引导式');
+
+            return {
+              success: true,
+              scaffold1: scaffold1,
+              scaffold2: scaffold2,
+              exercises: generateExercisesFromTemplate(parsedData),
+              answerKey: generateAnswerKeyFromTemplate(parsedData)
+            };
+          }
+
+          // 情况3: 其他JSON格式，直接返回
+          console.log('✅ 其他JSON格式，直接返回');
+          return {
+            success: true,
+            ...parsedData
+          };
+        } catch (parseError) {
+          console.error('❌ JSON解析失败:', parseError);
+        }
       }
+    }
+
+    // 尝试直接解析JSON（如果没有代码块标记）
+    try {
+      const trimmedResult = result.trim();
+      if (trimmedResult.startsWith('{') && trimmedResult.endsWith('}')) {
+        const parsedData = JSON.parse(trimmedResult);
+        console.log('✅ 直接JSON解析成功');
+
+        if (parsedData.introduction || parsedData.viewpoint || parsedData.reason1) {
+          console.log('🔄 检测到JSON模板格式，转换为支架格式');
+          const scaffold1 = createScaffoldFromTemplate(parsedData, '结构引导式');
+          const scaffold2 = createScaffoldFromTemplate(parsedData, '句式引导式');
+
+          return {
+            success: true,
+            scaffold1: scaffold1,
+            scaffold2: scaffold2,
+            exercises: generateExercisesFromTemplate(parsedData),
+            answerKey: generateAnswerKeyFromTemplate(parsedData)
+          };
+        }
+      }
+    } catch (directParseError) {
+      console.log('🔍 直接JSON解析失败，尝试其他方法');
     }
 
     // 如果不是JSON格式，按段落解析
@@ -166,6 +229,114 @@ const parseScaffoldResult = (result: string): ScaffoldResponse => {
       answerKey: '暂无答案'
     };
   }
+};
+
+// 从JSON模板创建结构引导式支架
+const createScaffoldFromTemplate = (template: any, type: '结构引导式' | '句式引导式') => {
+  if (type === '结构引导式') {
+    // 创建填空式支架
+    const scaffold = `Recently, the use of ${template.introduction?.includes('AI') ? '__AI__' : '__technology__'} in assisting school counseling has become a topic of discussion. My school's English newspaper is collecting articles on this subject. Below is my perspective on the matter:
+
+I believe that ${template.viewpoint || '__your viewpoint__'}.
+
+${template.reason1 || '__First reason__'} Firstly, ${template.reason2 || '__supporting details__'}.
+
+${template.reason3 || '__Second reason__'} Secondly, ${template.reason4 || '__supporting details__'}.
+
+In conclusion, ${template.conclusion || '__your conclusion__'}.`;
+
+    const fullAnswer = `Recently, the use of AI in assisting school counseling has become a topic of discussion. My school's English newspaper is collecting articles on this subject. Below is my perspective on the matter:
+
+I believe that AI can be beneficial for school counseling.
+
+It provides personalized support for students. Firstly, AI can offer 24/7 availability and immediate responses to students' concerns.
+
+It enhances efficiency and accessibility. Secondly, AI can handle multiple students simultaneously and provide consistent guidance.
+
+In conclusion, AI has the potential to greatly improve school counseling services when used appropriately.`;
+
+    return { scaffold, fullAnswer };
+  } else {
+    // 创建句式引导式支架
+    const scaffold = `Recently, the use of AI in assisting school counseling has become a topic of discussion. My school's English newspaper is collecting articles on this subject. Below is my perspective on the matter:
+
+**My Viewpoint:**
+I believe that ${template.viewpoint || '__express your opinion__'}.
+
+**First Reason:**
+${template.reason1 || '__state your first reason__'}. Firstly, this means that ${template.reason2 || '__explain with details__'}.
+
+**Second Reason:**
+${template.reason3 || '__state your second reason__'}. Secondly, this suggests that ${template.reason4 || '__provide examples__'}.
+
+**Conclusion:**
+${template.conclusion || '__summarize your view__'}. In conclusion, I think that __restate your main opinion__.`;
+
+    const fullAnswer = `Recently, the use of AI in assisting school counseling has become a topic of discussion. My school's English newspaper is collecting articles on this subject. Below is my perspective on the matter:
+
+**My Viewpoint:**
+I believe that AI can be beneficial for school counseling.
+
+**First Reason:**
+It provides personalized support for students. Firstly, this means that AI can offer 24/7 availability and immediate responses to students' concerns.
+
+**Second Reason:**
+It enhances efficiency and accessibility. Secondly, this suggests that AI can handle multiple students simultaneously and provide consistent guidance.
+
+**Conclusion:**
+AI has the potential to greatly improve school counseling services. In conclusion, I think that AI should be integrated with human counselors for the best results.`;
+
+    return { scaffold, fullAnswer };
+  }
+};
+
+// 从模板生成练习题
+const generateExercisesFromTemplate = (template: any): string => {
+  return `**练习题 (Exercises)**
+
+**1. 词汇填空 (Vocabulary Fill-in-the-Blank)**
+- AI can provide __________ support for students. (personalize)
+- It offers __________ availability and __________ responses. (24/7, immediate)
+- AI can __________ multiple students __________. (handle, simultaneously)
+- Human counselors provide __________ support that AI cannot. (emotional)
+
+**2. 句子翻译 (Sentence Translation)**
+- 中文：我相信人工智能对学校辅导有益。
+- 英文：________________________________________
+
+- 中文：首先，这意味着AI可以提供全天候的支持。
+- 英文：________________________________________
+
+- 中文：其次，这表明AI可以同时处理多个学生。
+- 英文：________________________________________
+
+**3. 思考题 (Discussion Questions)**
+- What are the advantages of using AI in school counseling?
+- What can AI do that human counselors cannot?
+- What are the limitations of AI in emotional support?
+- How can we best combine AI with human counselors?`;
+};
+
+// 从模板生成答案
+const generateAnswerKeyFromTemplate = (template: any): string => {
+  return `**参考答案 (Answer Key)**
+
+**1. 词汇填空答案**
+- personalized
+- 24/7, immediate
+- handle, simultaneously
+- emotional
+
+**2. 句子翻译答案**
+- I believe that AI can be beneficial for school counseling.
+- Firstly, this means that AI can provide 24/7 support.
+- Secondly, this suggests that AI can handle multiple students simultaneously.
+
+**3. 思考题提示**
+- Advantages: 24/7 availability, consistency, scalability, personalization
+- AI capabilities: data processing, immediate responses, multilingual support
+- Limitations: emotional understanding, complex situations, empathy
+- Best combination: AI handles routine tasks, humans handle complex emotional issues`;
 };
 
 export async function POST(request: NextRequest) {
