@@ -601,9 +601,9 @@ export default function GapFillingExerciseAnalysisPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
-                      <span>分析结果</span>
+                      <span>语法填空解析结果</span>
                       <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                        生成完成
+                        AI生成完成
                       </span>
                     </span>
                     <div className="flex gap-2">
@@ -612,7 +612,7 @@ export default function GapFillingExerciseAnalysisPage() {
                         size="sm"
                         onClick={() => {
                           navigator.clipboard.writeText(analysisResult)
-                          toast.success('文本已复制到剪贴板')
+                          toast.success('解析内容已复制到剪贴板')
                         }}
                         className="flex items-center space-x-1"
                       >
@@ -620,7 +620,7 @@ export default function GapFillingExerciseAnalysisPage() {
                           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15H4a2 2 0 01-2v4a2 2 0 002 2h4a2 2 0 002-2v-4a2 2 0 01-2z" />
                         </svg>
-                        一键复制
+                        复制原文
                       </Button>
                       <Button
                         variant="outline"
@@ -629,7 +629,7 @@ export default function GapFillingExerciseAnalysisPage() {
                           const element = document.createElement('a')
                           const file = new Blob([analysisResult], { type: 'text/plain;charset=utf-8' })
                           element.href = URL.createObjectURL(file)
-                          element.download = 'gap_filling_exercise_analysis.txt'
+                          element.download = '语法填空解析.txt'
                           document.body.appendChild(element)
                           element.click()
                           document.body.removeChild(element)
@@ -648,12 +648,10 @@ export default function GapFillingExerciseAnalysisPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[400px] overflow-y-auto prose prose-gray prose-sm max-w-none">
-                    {analysisResult.split('\n').map((paragraph, index) => (
-                      <p key={index} className="mb-4">
-                        {paragraph}
-                      </p>
-                    ))}
+                  <div className="h-[600px] overflow-y-auto">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {analysisResult}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

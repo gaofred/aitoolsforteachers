@@ -45,21 +45,17 @@ export async function POST(request: NextRequest) {
 
     console.log('应用文批改API - 参数验证通过');
 
-    // 使用Supabase自动处理token（与/api/auth/user相同的方式）
-    const { createServerSupabaseClient } = await import('@/lib/supabase-server');
-    const supabase = createServerSupabaseClient();
+    // 使用双重认证机制 - 支持Cookie和Header认证
+    const { authenticateRequest, createAuthErrorResponse, logAuthSuccess } = await import('@/lib/auth-utils');
+    const authResult = await authenticateRequest(request);
 
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (!user || error) {
-      console.log('应用文批改API - 用户认证失败', { error: error?.message });
-      return NextResponse.json(
-        { success: false, error: '用户认证失败' },
-        { status: 401 }
-      );
+    if (!authResult.user) {
+      const errorResponse = createAuthErrorResponse(authResult, '应用文批改API');
+      return NextResponse.json(errorResponse, { status: 401 });
     }
 
-    console.log('应用文批改API - 用户验证成功', { userId: user.id, email: user.email });
+    const user = authResult.user;
+    logAuthSuccess(authResult, '应用文批改API');
 
     // 恢复点数检查功能
     const pointsCost = 1; // 每个学生1点数（批量批改优惠）

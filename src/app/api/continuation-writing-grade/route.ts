@@ -190,35 +190,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
     }
 
-    // 使用Supabase进行用户认证和点数管理
-    const { createServerSupabaseClient } = await import('@/lib/supabase-server');
-    const supabase = createServerSupabaseClient();
+    // 使用双重认证机制 - 支持Cookie和Header认证
+    const { authenticateRequest, createAuthErrorResponse, logAuthSuccess } = await import('@/lib/auth-utils');
+    const authResult = await authenticateRequest(request);
 
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (!user || error) {
-      console.error('续写批改API - 用户认证失败', {
-        error: error?.message,
-        errorCode: error?.code,
-        hasUser: !!user,
-        userId: user?.id,
-        userEmail: user?.email,
-        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ? '已设置' : '未设置',
-        supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '已设置' : '未设置'
-      });
-      return NextResponse.json(
-        { success: false, error: '用户认证失败，请重新登录' },
-        { status: 401 }
-      );
+    if (!authResult.user) {
+      const errorResponse = createAuthErrorResponse(authResult, '续写批改API');
+      return NextResponse.json(errorResponse, { status: 401 });
     }
 
-    console.log('续写批改API - 用户验证成功', {
-      userId: user.id,
-      email: user.email,
-      userCreated: user.created_at,
-      lastSignIn: user.last_sign_in_at,
-      currentTime: new Date().toISOString()
-    });
+    const user = authResult.user;
+    logAuthSuccess(authResult, '续写批改API');
 
     // 点数管理 - 每次批改消耗1点数（按学生计费）
     const pointsCost = 1;

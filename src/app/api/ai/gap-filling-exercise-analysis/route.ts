@@ -3,204 +3,124 @@ import { CloudMistService } from '@/lib/cloudmist-api'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 // 语法填空解析的专用提示词
-const GAP_FILLING_ANALYSIS_PROMPT = `你是一位专业的英语语法教师，擅长解析语法填空题。请对用户输入的语法填空题的每一道题做详细解析，结果应该包含以下内容：
+const GAP_FILLING_ANALYSIS_PROMPT = `你是一位专业的高中英语语法教师，专门教授英语语法填空题。请严格按照以下格式对用户输入的语法填空题目进行详细解析。
 
-1. 题目编号和空格位置
-2. 正确答案
-3. 语法考点分析（具体考查的语法知识点）
-4. 解题思路（如何通过上下文和语法规则确定答案）
-5. 相关知识点扩展（相关的语法规则、常用搭配等）
-6. 易错点提醒（学生容易犯的错误和注意事项）
+输出格式要求：
+- 使用【】符号标记各个部分，如【解析】、【导语】、【XX题详解】
+- 每道题目使用【XX题详解】格式，如【56题详解】
+- 不要使用任何Markdown格式化（无#、**、*、\`符号）
+- 使用纯文本格式输出
 
-请按照以下格式输出：
+必须包含的解析部分：
+1. 【解析】开头，包含【导语】分析文章类型和主题
+2. 对每个空格进行【XX题详解】，包括：
+   - 考查的具体语法点
+   - 句意翻译
+   - 详细的语法分析
+   - 解题思路和推理过程
+   - 正确答案及理由
 
-## 第1题
-**空格位置：** [原文中的空格位置描述]
-**正确答案：** [正确答案]
-**语法考点：** [具体的语法知识点]
-**解题思路：** [详细的解题分析过程]
-**知识点扩展：** [相关的语法知识补充]
-**易错点提醒：** [学生容易出错的地方]
+参考格式示例：
+【解析】
+【导语】这是一篇说明文。文章介绍了中国的独库公路，包括其地理位置、修建历史、壮丽景色、旅游价值以及经济文化意义。
 
-## 第2题
-...（以此类推，直到所有题目都解析完毕）
+【56题详解】
+考查非谓语动词。句意：独库公路，被视为中国新疆一条非凡的公路，全长561公里，连接北部的独山子和南部的库车。此处"view"与其逻辑主语"Duku Highway"之间是被动关系，即公路被视为，且该部分作定语修饰Duku Highway，相当于非限制性定语从句 "which is viewed..." 的省略。因此，应用过去分词作后置定语。故填viewed。
 
-【极其重要的输出要求】
-- 必须为输入文本中的每一个空格都提供完整的解析，不得遗漏任何题目
-- 每题解析都必须包含上述全部6个部分
-- 绝对不要在中途停止输出，即使内容较长也要完整生成
-- 解析完成后可以输出简单的结束语，但要确保所有题目都已解析完毕
-- 如果遇到技术问题，宁可重新开始也要保证输出完整性
+【57题详解】
+考查动词时态和主谓一致。句意：这条公路蜿蜒穿过奇妙的天山山脉，呈现出各种令人惊叹的景色。此处描述的是公路的一个客观事实特征，应用一般现在时。主语"This highway"是第三人称单数，谓语动词需用单三形式。故填winds。
 
-解析质量要求：
-- 解析要详细、专业、易于理解
-- 重点培养学生的语法思维和解题能力
-- 语言要适合中国高中生理解
-- 每题解析要包含足够的语法知识讲解
-- 提供实用的解题技巧和方法`
+解析要求：
+- 准确识别每个空格的语法考点
+- 提供详细的句意和语法分析
+- 清晰说明选择答案的理由和排除其他选项的原因
+- 使用专业但易懂的中文表达
+- 确保每道题都有完整的【XX题详解】格式
+
+请严格按照上述格式解析所有题目。`
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
 
-    // 使用Supabase标准认证方式
+    // Standard Supabase authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      console.error('认证错误:', authError);
+      console.error('Authentication error:', authError);
       return NextResponse.json(
-        { error: '未认证 - 请先登录' },
+        { error: 'Unauthorized - Please login first' },
         { status: 401 }
       );
     }
 
-    console.log('用户认证成功:', user.id);
+    console.log('User authenticated successfully:', user.id);
 
     const { text } = await request.json();
 
-    // 验证输入
-    if (!text || !text.trim()) {
-      return NextResponse.json({
-        error: '请输入要分析的语法填空题内容'
-      }, { status: 400 })
-    }
-
-    // 检查用户点数是否足够
-    const { data: userPoints, error: pointsError } = await supabase
-      .from('user_points')
-      .select('points')
-      .eq('user_id', user.id as any)
-      .single();
-
-    if (pointsError || !userPoints) {
+    // Parameter validation
+    if (!text || text.trim().length === 0) {
       return NextResponse.json(
-        { error: '获取用户点数失败' },
-        { status: 500 }
-      );
-    }
-
-    const requiredPoints = 4
-    if ((userPoints as any)?.points < requiredPoints) {
-      return NextResponse.json(
-        { error: `积分不足，需要${requiredPoints}点，当前${(userPoints as any)?.points}点` },
+        { error: 'Please provide gap-filling exercise content to analyze' },
         { status: 400 }
       );
     }
 
-    // 使用云雾API调用Gemini-2.5-Pro模型
-    try {
-      console.log('开始调用云雾API进行语法填空解析...')
-      console.log('使用模型: gemini-2.5-pro')
-      console.log('输入文本长度:', text.length)
+    console.log('Starting gap filling analysis:', { userId: user.id, textLength: text.length });
 
-      const result = await CloudMistService.chatCompletions({
-        model: 'gemini-2.5-pro',
-        messages: [
-          {
-            role: 'system',
-            content: GAP_FILLING_ANALYSIS_PROMPT
-          },
-          {
-            role: 'user',
-            content: `请分析以下语法填空题：\n\n${text}\n\n【重要提醒：请确保为每一道题目都生成完整的解析，包括所有6个部分，不要在中途停止输出！】`
-          }
-        ],
-        max_tokens: 16000, // 再次增加到16000 tokens，确保绝对够用
-        temperature: 0.2, // 进一步降低温度，确保更稳定的输出
-        stream: false
-      })
+    console.log('Starting CloudMist API call for gap filling analysis...');
+    console.log('Using model: gemini-2.5-pro');
+    console.log('Input text length:', text.length);
 
-      const analysisResult = result.choices[0]?.message?.content || '';
-      console.log('语法填空解析完成，结果长度:', analysisResult.length)
-
-      // 检查结果是否完整
-      if (analysisResult.length < 500) {
-        console.warn('⚠️ 警告：解析结果可能被截断，长度过短！')
-      }
-
-      // 检查是否包含完整的题目解析格式
-      const hasCompleteAnalysis = analysisResult.includes('## 第') &&
-                                  analysisResult.includes('**空格位置：**') &&
-                                  analysisResult.includes('**正确答案：**') &&
-                                  analysisResult.includes('**语法考点：**') &&
-                                  analysisResult.includes('**解题思路：**') &&
-                                  analysisResult.includes('**知识点扩展：**') &&
-                                  analysisResult.includes('**易错点提醒：**')
-
-      if (!hasCompleteAnalysis) {
-        console.warn('⚠️ 警告：解析结果格式不完整，缺少必要的分析部分！')
-      }
-
-      // 检查是否在中途停止（比如以不完整的句子结尾）
-      const endsAbruptly = analysisResult.endsWith('...') ||
-                          analysisResult.match(/[,:;]\s*$/) ||
-                          analysisResult.length < 1000
-
-      if (endsAbruptly) {
-        console.warn('⚠️ 警告：解析结果看起来被突然截断！')
-      }
-
-      // 扣除用户点数
-    const { error: deductError } = await supabase.rpc('add_user_points', {
-      p_user_id: user.id,
-      p_amount: -requiredPoints,
-      p_type: 'GENERATE',
-      p_description: '语法填空解析',
-      p_related_id: null
-    } as any);
-
-    if (deductError) {
-      console.error('扣除点数失败:', deductError);
-      return NextResponse.json(
-        { error: '点数扣除失败，请稍后重试' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      result: analysisResult,
-      pointsCost: requiredPoints,
-      remainingPoints: ((userPoints as any)?.points || 0) - requiredPoints
+    const result = await CloudMistService.chatCompletions({
+      model: 'gemini-2.5-pro',
+      messages: [
+        {
+          role: 'system',
+          content: GAP_FILLING_ANALYSIS_PROMPT
+        },
+        {
+          role: 'user',
+          content: `请分析以下语法填空题目：\n\n${text}`
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.3
     });
 
-    } catch (apiError) {
-      console.error('云雾API调用失败:', apiError)
+    console.log('Gap filling analysis API call successful');
 
-      // 退回积分
-      await supabase.rpc('add_user_points', {
-        p_user_id: user.id,
-        p_amount: requiredPoints,
-        p_type: 'REFUND',
-        p_description: '语法填空解析失败退费',
-        p_related_id: null
-      } as any);
+    if (result && result.choices && result.choices[0] && result.choices[0].message) {
+      const analysisResult = result.choices[0].message.content;
+
+      console.log('Analysis result length:', analysisResult?.length);
 
       return NextResponse.json({
-        error: 'AI分析服务暂时不可用，请稍后重试',
-        refunded: true,
-        pointsRefunded: requiredPoints
-      }, { status: 500 });
+        success: true,
+        result: analysisResult,
+        model: 'gemini-2.5-pro',
+        usage: result.usage
+      });
+    } else {
+      throw new Error('API returned empty result');
     }
 
-} catch (error) {
-    console.error('❌ 语法填空解析失败:', error);
+  } catch (error) {
+    console.error('Gap filling analysis failed:', error);
 
-    // 尝试退回积分
-    try {
-      await supabase.rpc('add_user_points', {
-        p_user_id: user.id,
-        p_amount: 4,
-        p_type: 'REFUND',
-        p_description: '语法填空解析系统错误退费',
-        p_related_id: null
-      } as any);
-    } catch (refundError) {
-      console.error('退回积分失败:', refundError);
-    }
+    // Detailed error logging
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
 
     return NextResponse.json({
-      error: error instanceof Error ? error.message : '服务器错误'
+      success: false,
+      error: `Gap filling analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      details: {
+        model: 'gemini-2.5-pro',
+        timestamp: new Date().toISOString()
+      }
     }, { status: 500 });
   }
 }
