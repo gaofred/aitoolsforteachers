@@ -35,7 +35,7 @@ export default function ReadingComprehensionDeepAnalysisPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isCopying, setIsCopying] = useState(false)
   
-  const toolCost = 6
+  const toolCost = 8
   const hasEnoughPoints = userPoints >= toolCost
 
   // 摄像头相关状态
@@ -70,6 +70,24 @@ export default function ReadingComprehensionDeepAnalysisPage() {
     setIsCameraOpen(false)
     setCameraError(null)
     console.log('🛑 [DEBUG] stopCamera completed')
+  }
+
+  // 清理和格式化结果，移除Markdown格式符号
+  const cleanResult = (result: string): string => {
+    if (!result) return ''
+    return result
+      .replace(/^#{1,6}\s+/gm, '') // 移除标题符号 (#、##、###等)
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // 移除加粗 (**text**)
+      .replace(/\*([^*]+)\*/g, '$1') // 移除斜体 (*text*)
+      .replace(/`([^`]+)`/g, '$1') // 移除行内代码 (`text`)
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // 移除链接，保留文字
+      .replace(/^\s*[-*+]\s+/gm, '') // 移除列表符号
+      .replace(/^\s*\d+\.\s+/gm, '') // 移除数字列表
+      .replace(/###\s*/g, '') // 移除剩余的###符号
+      .replace(/\*\*/g, '') // 移除剩余的**符号
+      .replace(/\*/g, '') // 移除剩余的*符号
+      .replace(/\n{3,}/g, '\n\n') // 合并多个换行为两个换行
+      .trim()
   }
 
   const clearUploadedImage = () => {
@@ -325,13 +343,13 @@ export default function ReadingComprehensionDeepAnalysisPage() {
 
     setIsCopying(true)
     try {
-      await navigator.clipboard.writeText(analysisResult)
+      await navigator.clipboard.writeText(cleanResult(analysisResult))
       toast.success('内容已复制到剪贴板！')
     } catch (error) {
       console.error('复制失败:', error)
       // 备用复制方法
       const textArea = document.createElement('textarea')
-      textArea.value = analysisResult
+      textArea.value = cleanResult(analysisResult)
       document.body.appendChild(textArea)
       textArea.select()
       document.execCommand('copy')
@@ -350,15 +368,8 @@ export default function ReadingComprehensionDeepAnalysisPage() {
     }
 
     try {
-      // 创建文件内容，移除HTML标签
-      const cleanText = analysisResult
-        .replace(/<[^>]*>/g, '') // 移除HTML标签
-        .replace(/&nbsp;/g, ' ') // 替换空格实体
-        .replace(/&lt;/g, '<') // 替换小于号实体
-        .replace(/&gt;/g, '>') // 替换大于号实体
-        .replace(/&amp;/g, '&') // 替换和号实体
-        .replace(/&quot;/g, '"') // 替换引号实体
-        .replace(/&#39;/g, "'"); // 替换单引号实体
+      // 创建文件内容，使用清理函数移除Markdown格式
+      const cleanText = cleanResult(analysisResult)
 
       // 创建Blob对象
       const blob = new Blob([cleanText], { type: 'text/plain;charset=utf-8' })
@@ -679,7 +690,7 @@ export default function ReadingComprehensionDeepAnalysisPage() {
               {isAnalyzing ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-2 border-white border-t-transparent mr-2 sm:mr-3" />
-                  AI分析中...
+                  AI分析中，请耐心等待两分钟。
                 </>
               ) : (
                 <>
@@ -705,7 +716,7 @@ export default function ReadingComprehensionDeepAnalysisPage() {
                   <ScrollArea className="h-[400px] sm:h-[600px]">
                     <div className="prose prose-xs sm:prose-sm max-w-none">
                       <pre className="whitespace-pre-wrap text-xs sm:text-sm leading-relaxed text-gray-700">
-                        {analysisResult}
+                        {cleanResult(analysisResult)}
                       </pre>
                     </div>
                   </ScrollArea>

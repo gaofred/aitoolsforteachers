@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 扣除用户点数
-    const pointsCost = 6
+    const pointsCost = 8
     try {
       const { default: SupabasePointsService } = await import('@/lib/supabase-points-service')
 
