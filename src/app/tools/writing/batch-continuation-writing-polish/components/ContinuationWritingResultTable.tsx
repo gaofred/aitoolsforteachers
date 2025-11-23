@@ -65,7 +65,7 @@ const ContinuationWritingResultTable: React.FC<ContinuationWritingResultTablePro
       };
 
       const authToken = getAuthToken();
-      const response = await fetch('/api/continuation-writing-grade', {
+      const response = await fetch('/api/ai/continuation-writing-grade', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -241,9 +241,9 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
 
       // 获取认证token
       const authToken = getAuthToken();
-      console.log('发送API请求到 /api/continuation-writing-grade，token存在:', !!authToken);
+      console.log('发送API请求到 /api/ai/continuation-writing-grade，token存在:', !!authToken);
 
-      const gradingResponse = await fetch('/api/continuation-writing-grade', {
+      const gradingResponse = await fetch('/api/ai/continuation-writing-grade', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -604,9 +604,9 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
 
       // 获取认证token
       const authToken = getAuthToken();
-      console.log('发送重新批改API请求到 /api/continuation-writing-grade，token存在:', !!authToken);
+      console.log('发送重新批改API请求到 /api/ai/continuation-writing-grade，token存在:', !!authToken);
 
-      const gradingResponse = await fetch('/api/continuation-writing-grade', {
+      const gradingResponse = await fetch('/api/ai/continuation-writing-grade', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
