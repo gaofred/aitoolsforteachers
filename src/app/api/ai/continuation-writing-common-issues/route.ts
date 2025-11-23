@@ -34,52 +34,46 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ 基本参数验证通过');
 
-    // 获取用户身份并验证积分
+    // 使用双重认证机制 - 支持Cookie和Header认证
+    const { authenticateRequest, createAuthErrorResponse, logAuthSuccess } = await import('@/lib/auth-utils');
+    const authResult = await authenticateRequest(request);
+
+    if (!authResult.user) {
+      const errorResponse = createAuthErrorResponse(authResult, '读后续写共性问题分析API');
+      return NextResponse.json(errorResponse, { status: 401 });
+    }
+
+    const user = authResult.user;
+    userId = user.id;
+    logAuthSuccess(authResult, '读后续写共性问题分析API');
+
+    // 检查用户积分是否足够 - 需要3积分
+    const pointsCost = 3;
+    const currentUserId = user.id;
+
+    // 获取用户积分信息
     try {
-      // 获取用户信息
-      // 获取请求的基础URL，支持动态端口
-    const requestUrl = request.headers.get('host')
-      ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      const pointsData = await SupabasePointsService.getUserPoints(currentUserId);
 
-    const userResponse = await fetch(`${requestUrl}/api/auth/user`, {
-        headers: {
-          'Cookie': request.headers.get('Cookie') || ''
-        }
-      });
-
-      if (!userResponse.ok) {
-        throw new Error('用户身份验证失败');
-      }
-
-      const userData = await userResponse.json();
-      userId = userData.id;
-
-      if (!userId) {
+      if (pointsData.points < pointsCost) {
         return NextResponse.json({
           success: false,
-          error: '用户身份验证失败，请重新登录'
-        }, { status: 401 });
-      }
-
-      console.log('🔐 用户身份验证成功:', { userId, userEmail: userData.email });
-
-      // 检查用户积分是否足够
-      if (userData.user_points && userData.user_points.points < 3) {
-        return NextResponse.json({
-          success: false,
-          error: '积分不足，需要3积分才能进行全班共性分析'
+          error: `积分不足，需要${pointsCost}积分才能进行全班共性分析（当前积分：${pointsData.points}）`
         }, { status: 402 });
       }
 
-      console.log('💰 用户积分充足:', { currentPoints: userData.user_points.points, requiredPoints: 3 });
+      console.log('💰 用户积分充足:', {
+        userId: currentUserId,
+        currentPoints: pointsData.points,
+        requiredPoints: pointsCost
+      });
 
-    } catch (authError) {
-      console.error('❌ 用户身份验证失败:', authError);
+    } catch (pointsError) {
+      console.error('❌ 积分检查失败:', pointsError);
       return NextResponse.json({
         success: false,
-        error: '用户身份验证失败，请重新登录'
-      }, { status: 401 });
+        error: '积分检查失败，请稍后重试'
+      }, { status: 500 });
     }
 
     console.log('📝 分析参数:', {
@@ -311,28 +305,16 @@ try {
 
       // 扣除用户积分
       try {
-        const requestUrl = request.headers.get('host')
-          ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-          : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        const pointsDeducted = await SupabasePointsService.deductPoints(
+          currentUserId,
+          pointsCost,
+          `读后续写全班共性分析 - ${studentEssays.length}名学生作文`
+        );
 
-        const deductResponse = await fetch(`${requestUrl}/api/points/deduct`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cookie': request.headers.get('Cookie') || ''
-          },
-          body: JSON.stringify({
-            userId: userId,
-            points: 3,
-            description: `读后续写全班共性分析 - ${studentEssays.length}名学生作文`
-          })
-        });
-
-        if (deductResponse.ok) {
-          pointsDeducted = true;
+        if (pointsDeducted) {
           console.log('💰 积分扣除成功: -3积分');
         } else {
-          console.warn('⚠️ 积分扣除失败:', await deductResponse.text());
+          console.warn('⚠️ 积分扣除失败');
         }
       } catch (deductError) {
         console.error('❌ 积分扣除异常:', deductError);
@@ -361,29 +343,18 @@ try {
         console.log('⏰ API请求超时中止');
 
         // 如果已经扣除了积分，需要退还
-        if (pointsDeducted && userId) {
+        if (pointsDeducted && currentUserId) {
           try {
-            const requestUrl = request.headers.get('host')
-              ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-              : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+            const refundResult = await SupabasePointsService.addPoints(
+              currentUserId,
+              pointsCost,
+              '读后续写全班共性分析超时退款'
+            );
 
-            const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Cookie': request.headers.get('Cookie') || ''
-              },
-              body: JSON.stringify({
-                userId: userId,
-                points: 3,
-                description: '读后续写全班共性分析超时退款'
-              })
-            });
-
-            if (refundResponse.ok) {
+            if (refundResult) {
               console.log('💰 已退还3积分（超时退款）');
             } else {
-              console.error('❌ 积分退还失败:', await refundResponse.text());
+              console.error('❌ 积分退还失败');
             }
           } catch (refundError) {
             console.error('❌ 积分退还错误:', refundError);
@@ -401,29 +372,18 @@ try {
         console.log('🚫 API请求被服务终止:', apiError);
 
         // 如果已经扣除了积分，需要退还
-        if (pointsDeducted && userId) {
+        if (pointsDeducted && currentUserId) {
           try {
-            const requestUrl = request.headers.get('host')
-              ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-              : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+            const refundResult = await SupabasePointsService.addPoints(
+              currentUserId,
+              pointsCost,
+              '读后续写全班共性分析服务终止退款'
+            );
 
-            const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Cookie': request.headers.get('Cookie') || ''
-              },
-              body: JSON.stringify({
-                userId: userId,
-                points: 3,
-                description: '读后续写全班共性分析服务终止退款'
-              })
-            });
-
-            if (refundResponse.ok) {
+            if (refundResult) {
               console.log('💰 已退还3积分（服务终止退款）');
             } else {
-              console.error('❌ 积分退还失败:', await refundResponse.text());
+              console.error('❌ 积分退还失败');
             }
           } catch (refundError) {
             console.error('❌ 积分退还错误:', refundError);
@@ -437,29 +397,18 @@ try {
       }
 
       // 如果已经扣除了积分，需要退还
-      if (pointsDeducted && userId) {
+      if (pointsDeducted && currentUserId) {
         try {
-          const requestUrl = request.headers.get('host')
-            ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-            : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+          const refundResult = await SupabasePointsService.addPoints(
+            currentUserId,
+            pointsCost,
+            '读后续写全班共性分析失败退款'
+          );
 
-          const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Cookie': request.headers.get('Cookie') || ''
-            },
-            body: JSON.stringify({
-              userId: userId,
-              points: 3,
-              description: '读后续写全班共性分析失败退款'
-            })
-          });
-
-          if (refundResponse.ok) {
+          if (refundResult) {
             console.log('💰 已退还3积分');
           } else {
-            console.error('❌ 积分退还失败:', await refundResponse.text());
+            console.error('❌ 积分退还失败');
           }
         } catch (refundError) {
           console.error('❌ 积分退还错误:', refundError);
