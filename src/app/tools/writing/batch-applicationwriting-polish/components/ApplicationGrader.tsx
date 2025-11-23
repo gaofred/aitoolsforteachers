@@ -314,7 +314,7 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
 
     // 计算预估时间
       const estimatedTimePerStudent = 7; // 每个学生预估7秒
-      const estimatedTotalTime = Math.ceil((task.assignments.length * estimatedTimePerStudent) / 20); // 并行20个，除以20
+      const estimatedTotalTime = Math.ceil((task.assignments.length * estimatedTimePerStudent) / 35); // 并行35个，除以35
       const estimatedMinutes = Math.ceil(estimatedTotalTime / 60);
 
       setCurrentGrading(`准备批量批改 ${task.assignments.length} 个学生，预计需要 ${estimatedMinutes} 分钟...`);
@@ -333,8 +333,8 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
 
       const authToken = getAuthToken();
 
-      // 真正的并行处理，限制并发数为20
-      const batchSize = 20; // 20个学生同时并行批改
+      // 真正的并行处理，限制并发数为35
+      const batchSize = 35; // 35个学生同时并行批改
       const batches = [];
 
       for (let i = 0; i < updatedAssignments.length; i += batchSize) {
@@ -726,7 +726,7 @@ const ApplicationGrader: React.FC<ApplicationGraderProps> = ({
 
     try {
       // 并行处理所有作文
-      const batchSize = 15; // 与批量API保持一致的并发限制
+      const batchSize = 35; // 与批量API保持一致的并发限制
       const batches = [];
 
       for (let i = 0; i < updatedAssignments.length; i += batchSize) {

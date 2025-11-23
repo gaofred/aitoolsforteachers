@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SupabasePointsService } from '@/lib/supabase-points-service';
 
 // 极客智坊API配置 - 与应用文API保持一致
 const GEEKAI_API_KEY = process.env.GEEKAI_API_KEY;
@@ -84,8 +85,21 @@ export async function POST(request: NextRequest) {
       topic: topic.substring(0, 100) + '...'
     });
 
+    // 限制学生作文数量，最多处理40份
+    const limitedEssays = studentEssays.slice(0, 40);
+    const originalCount = studentEssays.length;
+
+    if (studentEssays.length > 40) {
+      console.log(`⚠️ 学生作文数量超过限制，从${studentEssays.length}份限制为40份`);
+    }
+
+    // 对极大数据量的额外保护
+    if (originalCount > 100) {
+      console.log(`🚨 数据量极大（${originalCount}份作文），建议分批处理以获得最佳效果`);
+    }
+
     // 构建作文内容文本，包含批改结果
-    const essaysContent = studentEssays.map((essay, index) => {
+    const essaysContent = limitedEssays.map((essay, index) => {
       let essayText = `## 学生：${essay.studentName}\n`;
       essayText += `### 得分：${essay.score}/25分\n`;
       essayText += `### 作文内容：\n${essay.content}\n`;
@@ -114,34 +128,53 @@ export async function POST(request: NextRequest) {
     const totalDataSize = JSON.stringify({
       topic: topic,
       essaysContent: essaysContent,
-      studentCount: studentEssays.length
+      studentCount: limitedEssays.length
     }).length;
 
     console.log('📊 数据大小检查:', {
       topicLength: topic.length,
       essaysContentLength: essaysContent.length,
       totalDataSize: totalDataSize,
-      studentCount: studentEssays.length,
+      originalStudentCount: originalCount,
+      processedStudentCount: limitedEssays.length,
       dataSizeKB: Math.round(totalDataSize / 1024)
     });
 
-    // 如果数据太大，限制内容长度
+    // 多级数据大小保护机制，确保系统能处理大量数据
     let finalEssaysContent = essaysContent;
-    if (totalDataSize > 1500000) { // 增加到1.5MB限制，支持80个人的作文数据
-      console.log('⚠️ 数据过大，限制内容长度');
-      finalEssaysContent = studentEssays.slice(0, 50).map((essay, index) => { // 增加到50篇，即使数据过大也能分析更多内容
+    let processedEssaysCount = limitedEssays.length;
+
+    if (totalDataSize > 3000000) { // 3MB - 极大数据量
+      console.log('🚨 数据量极大，大幅截断内容');
+      // 只保留核心信息
+      finalEssaysContent = limitedEssays.map((essay, index) => {
+        let essayText = `## 学生：${essay.studentName} (得分: ${essay.score}/25)\n`;
+        essayText += `### 作文内容：\n${essay.content.substring(0, 800)}...\n`;
+        essayText += '\n---\n';
+        return essayText;
+      }).join('\n');
+    } else if (totalDataSize > 1500000) { // 1.5MB - 中等大数据量
+      console.log('⚠️ 数据过大，限制内容长度以避免超时');
+      finalEssaysContent = limitedEssays.map((essay, index) => {
         let essayText = `## 学生：${essay.studentName}\n`;
         essayText += `### 得分：${essay.score}/25分\n`;
-        essayText += `### 作文内容：\n${essay.content.substring(0, 2000)}...\n`;
+        essayText += `### 作文内容：\n${essay.content.substring(0, 1500)}...\n`;
 
         if (essay.feedback) {
-          essayText += `### AI批改反馈：\n${essay.feedback.substring(0, 1000)}...\n`;
+          essayText += `### AI批改反馈：\n${essay.feedback.substring(0, 800)}...\n`;
+        }
+
+        if (essay.detailedFeedback) {
+          essayText += `### 详细批改：\n${essay.detailedFeedback.substring(0, 800)}...\n`;
         }
 
         essayText += '\n---\n';
         return essayText;
       }).join('\n');
+    }
 
+    if (totalDataSize > 1500000) {
+      console.log(`📝 内容已截断，处理${limitedEssays.length}份作文，数据大小: ${Math.round(totalDataSize / 1024)}KB`);
     }
 
     // 构建给Gemini的提示词
@@ -158,6 +191,9 @@ ${p2Content}` : ''}
 
 ${plotAnalysis ? `## 正确情节走向分析
 ${plotAnalysis}` : ''}
+
+## 数据说明
+${originalCount > processedEssaysCount ? `**注意**：由于系统限制，本次分析仅包含前${processedEssaysCount}份学生作文（共${originalCount}份）。分析结果基于这些已处理的作文。\n\n` : ''}
 
 ## 学生作文与批改数据
 ${finalEssaysContent}
@@ -308,7 +344,7 @@ try {
         const pointsDeducted = await SupabasePointsService.deductPoints(
           currentUserId,
           pointsCost,
-          `读后续写全班共性分析 - ${studentEssays.length}名学生作文`
+          `读后续写全班共性分析 - ${limitedEssays.length}名学生作文（原始${originalCount}份）`
         );
 
         if (pointsDeducted) {
@@ -332,7 +368,10 @@ try {
         analysis: analysisResult,
         pointsDeducted: pointsDeducted,
         pointsCost: 3,
-        essaysAnalyzed: studentEssays.length
+        essaysAnalyzed: limitedEssays.length,
+        originalEssayCount: originalCount,
+        dataTruncated: totalDataSize > 1500000,
+        dataSizeKB: Math.round(totalDataSize / 1024)
       });
 
     } catch (apiError) {

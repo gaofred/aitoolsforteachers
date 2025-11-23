@@ -247,17 +247,23 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
 
       console.log('📤 发送API请求:', requestBody.studentName);
 
-      // 获取认证token
+      // 获取认证token（可选）
       const authToken = getAuthToken();
       console.log('发送API请求到 /api/ai/continuation-writing-grade，token存在:', !!authToken);
 
+      // 构建请求头
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+
+      // 只有在有token时才添加Authorization头
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
       const gradingResponse = await fetch('/api/ai/continuation-writing-grade', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // 添加认证头，确保浏览器能正确传递认证信息
-          'Authorization': `Bearer ${authToken}`
-        },
+        headers: headers,
         credentials: 'include', // 确保发送cookies
         body: JSON.stringify(requestBody),
       });
@@ -357,8 +363,8 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
 
       setGradingMessage(`⚡ AI批改系统全速运转中，正在智能分析 ${pendingAssignments.length} 份作文...`);
 
-      // 创建并行批改任务数组，每批26个作业
-      const BATCH_SIZE = 26; // 每批处理26个，与OCR保持一致的超级并行度
+      // 创建并行批改任务数组，每批35个作业
+      const BATCH_SIZE = 35; // 每批处理35个，与OCR保持一致的超级并行度
       const batches: ContinuationWritingAssignment[][] = [];
 
       for (let i = 0; i < pendingAssignments.length; i += BATCH_SIZE) {
@@ -1159,17 +1165,23 @@ ${assignment.gradingResult.improvedVersion}` : ''}
       console.log('📝 准备发送全班共性问题分析请求');
 
       // 调用通用共性问题分析API
-      // 获取认证token
+      // 获取认证token（可选）
       const authToken = getAuthToken();
       console.log('发送全班共性问题分析请求到 /api/ai/continuation-writing-common-issues，token存在:', !!authToken);
 
+      // 构建请求头
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+
+      // 只有在有token时才添加Authorization头
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
       const response = await fetch('/api/ai/continuation-writing-common-issues', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // 添加认证头，确保浏览器能正确传递认证信息
-          'Authorization': `Bearer ${authToken}`
-        },
+        headers: headers,
         credentials: 'include', // 确保发送cookies
         body: JSON.stringify({
           topic: task?.topic || '读后续写',
