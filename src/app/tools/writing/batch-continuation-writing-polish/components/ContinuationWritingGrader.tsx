@@ -1153,9 +1153,9 @@ ${assignment.gradingResult.improvedVersion}` : ''}
       // 调用通用共性问题分析API
       // 获取认证token
       const authToken = getAuthToken();
-      console.log('发送全班共性问题分析请求到 /api/ai/common-issues-analysis，token存在:', !!authToken);
+      console.log('发送全班共性问题分析请求到 /api/ai/continuation-writing-common-issues，token存在:', !!authToken);
 
-      const response = await fetch('/api/ai/common-issues-analysis', {
+      const response = await fetch('/api/ai/continuation-writing-common-issues', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
