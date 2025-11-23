@@ -56,26 +56,34 @@ const ContinuationWritingGrader: React.FC<ContinuationWritingGraderProps> = ({
 
   // 获取认证token（与应用文批改组件保持一致）
   const getAuthToken = () => {
-    try {
-      let token = localStorage.getItem('sb-access-token');
-      if (token) return token;
-      token = sessionStorage.getItem('sb-access-token');
-      if (token) return token;
-      token = localStorage.getItem('supabase.auth.token');
-      if (token) {
-        try {
-          const parsedToken = JSON.parse(token);
-          return parsedToken.access_token || parsedToken.accessToken;
-        } catch {
-          return token;
+    if (typeof window !== 'undefined') {
+      try {
+        // 优先从 localStorage 获取
+        let token = localStorage.getItem('sb-access-token');
+        if (token) return token;
+
+        // 备用：从 sessionStorage 获取
+        token = sessionStorage.getItem('sb-access-token');
+        if (token) return token;
+
+        // 兼容旧版本的token存储方式
+        token = localStorage.getItem('supabase.auth.token');
+        if (token) {
+          try {
+            const parsedToken = JSON.parse(token);
+            return parsedToken.access_token || parsedToken.accessToken;
+          } catch {
+            return token;
+          }
         }
+        console.warn('未找到认证token，用户可能未登录');
+        return null;
+      } catch (error) {
+        console.error('获取认证token失败:', error);
+        return null;
       }
-      console.warn('未找到认证token，用户可能未登录');
-      return null;
-    } catch (error) {
-      console.error('获取认证token失败:', error);
-      return null;
     }
+    return null;
   };
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
