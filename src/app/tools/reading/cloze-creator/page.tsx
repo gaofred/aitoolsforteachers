@@ -15,8 +15,12 @@ export default function ClozeCreatorPage() {
   const [text, setText] = useState('')
   const [clozeResult, setClozeResult] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isOptimizing, setIsOptimizing] = useState(false)
+  const [optimizedResult, setOptimizedResult] = useState('')
   const toolCost = 5
+  const optimizeCost = 2
   const hasEnoughPoints = userPoints >= toolCost
+  const hasEnoughPointsForOptimize = userPoints >= optimizeCost
 
   // 单词计数函数
   const countWords = (text: string): number => {
@@ -347,6 +351,7 @@ export default function ClozeCreatorPage() {
 
       if (data.success) {
         setClozeResult(data.result)
+        setOptimizedResult('') // 清空之前的优化结果
         await refreshUser()
       } else {
         // 显示错误信息，如果包含退点信息则一起显示
@@ -363,6 +368,54 @@ export default function ClozeCreatorPage() {
       await refreshUser() // 刷新用户信息，以防出现异常情况
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  const handleOptimizeDistractors = async () => {
+    if (!clozeResult.trim()) {
+      alert('请先生成完形填空，再进行干扰项优化')
+      return
+    }
+
+    if (!hasEnoughPointsForOptimize) {
+      alert(`点数不足，需要 ${optimizeCost} 个点数进行干扰项优化`)
+      return
+    }
+
+    setIsOptimizing(true)
+
+    try {
+      const response = await fetch('/api/ai/optimize-cloze-distractors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clozeText: clozeResult,
+          userId: currentUser.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setOptimizedResult(data.result)
+        await refreshUser()
+      } else {
+        // 显示错误信息，如果包含退点信息则一起显示
+        let errorMessage = data.error || '干扰项优化失败，请稍后重试'
+        if (data.refunded && data.pointsRefunded) {
+          errorMessage += `\n\n已退还 ${data.pointsRefunded} 点数到您的账户`
+        }
+        alert(errorMessage)
+        await refreshUser() // 刷新用户点数信息
+      }
+    } catch (error) {
+      console.error('干扰项优化错误:', error)
+      alert('干扰项优化失败，请稍后重试')
+      await refreshUser() // 刷新用户信息，以防出现异常情况
+    } finally {
+      setIsOptimizing(false)
     }
   }
 
@@ -544,28 +597,54 @@ AI将自动分析文章内容，生成包含：
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Button
-                    onClick={handleGenerate}
-                    disabled={!hasEnoughPoints || isGenerating || !text.trim() || !isValidWordCount}
-                    className="px-6 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        AI生成中...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                        </svg>
-                        生成完形填空
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={!hasEnoughPoints || isGenerating || !text.trim() || !isValidWordCount}
+                      className="px-6 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          AI生成中...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                          </svg>
+                          生成完形填空
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={handleOptimizeDistractors}
+                      disabled={!hasEnoughPointsForOptimize || isOptimizing || !clozeResult.trim()}
+                      variant="outline"
+                      className="px-6 border-orange-300 text-orange-600 hover:bg-orange-50 hover:border-orange-400"
+                    >
+                      {isOptimizing ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          优化中...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100-4m0 4v2m0-6V4" />
+                          </svg>
+                          优化干扰项 ({optimizeCost}点)
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -639,6 +718,7 @@ AI将自动分析文章内容，生成包含：
               </Card>
             )}
 
+            {/* 原始完形填空结果 */}
             {clozeResult && !isGenerating && (
               <Card>
                 <CardHeader>
@@ -702,11 +782,143 @@ AI将自动分析文章内容，生成包含：
               </Card>
             )}
 
-            {!clozeResult && !isGenerating && (
+            {/* 优化中的状态 */}
+            {isOptimizing && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-center">
+                    <span className="text-orange-600">
+                      正在优化干扰项......大约需要2-3分钟
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-[400px]">
+                  <div className="text-center space-y-6">
+                    {/* AI机器人动画 */}
+                    <div className="relative inline-flex">
+                      <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center animate-pulse">
+                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287-.947c.345.623 1.422 1.24 2.293.734.95-1.13-.082-2.302 1.062-2.792.836-.885.938-2.078.106-2.786-.837-.887-.837-2.327 0-3.213a1.532 1.532 0 01-.947-2.287c-.836-1.372.734-2.942 2.106-2.106z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+
+                      {/* 思维泡泡动画 */}
+                      <div className="absolute -top-2 -right-2 w-4 h-4 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                      <div className="absolute -top-4 -right-6 w-3 h-3 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '0.5s' }}></div>
+                      <div className="absolute -top-1 -right-8 w-2 h-2 bg-orange-300 rounded-full animate-bounce" style={{ animationDelay: '1s' }}></div>
+                    </div>
+
+                    {/* 打字机效果 */}
+                    <div className="space-y-2">
+                      <div className="flex space-x-1 justify-center">
+                        <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                        <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                      </div>
+                      <p className="text-sm text-gray-600 animate-pulse">
+                        正在使用AI深度优化干扰项...
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        基于情节逻辑、时序因果、主旨价值等维度进行优化，请耐心等待
+                      </p>
+                    </div>
+
+                    {/* 进度条动画 */}
+                    <div className="w-64 mx-auto">
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-orange-500 to-red-600 rounded-full animate-pulse"
+                             style={{
+                               width: '70%',
+                               animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                             }}>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 提示信息 */}
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 max-w-sm mx-auto">
+                      <div className="flex items-center space-x-2 text-orange-700 text-sm">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106z" clipRule="evenodd" />
+                        </svg>
+                        <span>AI正在深度优化干扰项，提升试题科学性和区分度</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 优化后的结果 */}
+            {optimizedResult && !isOptimizing && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <span>优化后的完形填空</span>
+                      <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                        干扰项已优化
+                      </span>
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(optimizedResult)
+                          toast.success('优化后的完形填空已复制到剪贴板')
+                        }}
+                        className="flex items-center space-x-1 border-orange-300 text-orange-600 hover:bg-orange-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15H4a2 2 0 01-2v4a2 2 0 002 2h4a2 2 0 002-2v-4a2 2 0 01-2z" />
+                        </svg>
+                        复制优化结果
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const element = document.createElement('a')
+                          const file = new Blob([optimizedResult], { type: 'text/plain;charset=utf-8' })
+                          element.href = URL.createObjectURL(file)
+                          element.download = 'optimized_cloze_test.txt'
+                          document.body.appendChild(element)
+                          element.click()
+                          document.body.removeChild(element)
+                          URL.revokeObjectURL(element.href)
+                          toast.success('导出成功')
+                        }}
+                        className="flex items-center space-x-1 border-orange-300 text-orange-600 hover:bg-orange-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6M8 21l4-4m0 0l4 4m-4-4v12a2 2 0 01-2 2H8a2 2 0 01-2-2V7a2 2 0 012-2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 2H6a2 2 0 00-2v6a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2z" />
+                        </svg>
+                        导出优化结果
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[400px] overflow-y-auto prose prose-gray prose-sm max-w-none">
+                    {optimizedResult.split('\n').map((paragraph, index) => (
+                      <p key={index} className="mb-4">
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {!clozeResult && !isGenerating && !isOptimizing && (
               <Card className="h-full">
                 <CardContent className="flex items-center justify-center h-full h-[400px]">
                   <div className="text-center text-gray-500">
                     <p>完形填空结果将在这里显示</p>
+                    <p className="text-sm mt-2">生成后可点击"优化干扰项"按钮进行深度优化</p>
                   </div>
                 </CardContent>
               </Card>

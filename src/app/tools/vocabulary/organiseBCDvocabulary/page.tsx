@@ -37,10 +37,10 @@ export default function BCDVocabularyOrganisePage() {
   };
 
   // 处理两张图片的并行OCR识别
-  const handleBatchOCRResult = async (images: string[]) => {
+  const handleBatchOCRResult = async (images: string[], type: 'B' | 'C' | 'D') => {
     if (images.length === 0) return;
 
-    setIsRecognizing(true);
+    setIsRecognizing(prev => ({ ...prev, [type]: true }));
     try {
       const batchSize = 2; // 最多同时处理2张图片
       const results: string[] = [];
@@ -70,16 +70,18 @@ export default function BCDVocabularyOrganisePage() {
 
       if (validResults.length > 0) {
         const combinedText = validResults.join('\n\n');
-        setText(prevText => prevText + (prevText ? '\n\n' : '') + combinedText);
-        alert(`成功识别${validResults.length}张图片！`);
+        const setTextFunc = type === 'B' ? setTextB : type === 'C' ? setTextC : setTextD;
+        const currentText = type === 'B' ? textB : type === 'C' ? textC : textD;
+        setTextFunc(currentText + (currentText ? '\n\n' : '') + combinedText);
+        alert(`${type}篇：成功识别${validResults.length}张图片！`);
       } else {
-        alert('未检测到有效文字内容');
+        alert(`${type}篇：未检测到有效文字内容`);
       }
     } catch (error) {
       console.error('批量OCR识别失败:', error);
       alert('批量识别失败，请重试');
     } finally {
-      setIsRecognizing(false);
+      setIsRecognizing(prev => ({ ...prev, [type]: false }));
     }
   };
 
@@ -549,6 +551,7 @@ ${resultD ? `\n\n=== D篇阅读词汇 ===\n${resultD.replace(/<[^>]*>/g, '')}` :
                       {useBatchOCR.B ? (
                         <BatchImageRecognition
                           onResultChange={(result) => handleOCRResult(result, 'B')}
+                          onBatchResultChange={(images) => handleBatchOCRResult(images, 'B')}
                           maxImages={2}
                         />
                       ) : (
@@ -619,6 +622,7 @@ ${resultD ? `\n\n=== D篇阅读词汇 ===\n${resultD.replace(/<[^>]*>/g, '')}` :
                       {useBatchOCR.C ? (
                         <BatchImageRecognition
                           onResultChange={(result) => handleOCRResult(result, 'C')}
+                          onBatchResultChange={(images) => handleBatchOCRResult(images, 'C')}
                           maxImages={2}
                         />
                       ) : (
@@ -689,6 +693,7 @@ ${resultD ? `\n\n=== D篇阅读词汇 ===\n${resultD.replace(/<[^>]*>/g, '')}` :
                       {useBatchOCR.D ? (
                         <BatchImageRecognition
                           onResultChange={(result) => handleOCRResult(result, 'D')}
+                          onBatchResultChange={(images) => handleBatchOCRResult(images, 'D')}
                           maxImages={2}
                         />
                       ) : (

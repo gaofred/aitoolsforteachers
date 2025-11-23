@@ -6,10 +6,11 @@ import { useUser } from "@/lib/user-context";
 
 interface BatchImageRecognitionProps {
   onResultChange?: (result: string) => void;
+  onBatchResultChange?: (images: string[]) => void;
   maxImages?: number;
 }
 
-export function BatchImageRecognition({ onResultChange, maxImages = 2 }: BatchImageRecognitionProps) {
+export function BatchImageRecognition({ onResultChange, onBatchResultChange, maxImages = 2 }: BatchImageRecognitionProps) {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [result, setResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -131,7 +132,13 @@ export function BatchImageRecognition({ onResultChange, maxImages = 2 }: BatchIm
     setError(null);
 
     try {
-      // 并行处理所有图片
+      // 如果提供了onBatchResultChange回调，则直接调用它传递图片数组
+      if (onBatchResultChange) {
+        onBatchResultChange(selectedImages);
+        return;
+      }
+
+      // 否则使用原有的处理逻辑
       const batchPromises = selectedImages.map(async (img, index) => {
         const res = await fetch('/api/ai/image-recognition', {
           method: 'POST',

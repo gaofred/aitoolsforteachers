@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from './supabase';
 import { Database } from '@/types/database';
+import { pointsEventManager } from './points-events';
 
 // 定义类型
 export interface PointTransaction {
@@ -67,12 +68,15 @@ export class SupabasePointsService {
    * 扣除用户点数
    */
   static async deductPoints(
-    userId: string, 
-    amount: number, 
+    userId: string,
+    amount: number,
     description: string,
     relatedId?: string,
-    metadata?: any
+    metadata?: any,
+    options?: { triggerEvent?: boolean }
   ): Promise<boolean> {
+    const { triggerEvent = true } = options || {};
+
     try {
       // 使用Supabase的RPC函数来处理事务
       const { data, error } = await supabase.rpc('deduct_user_points', {
@@ -86,6 +90,17 @@ export class SupabasePointsService {
       if (error) {
         console.error('扣除点数失败:', error);
         return false;
+      }
+
+      // 扣除成功后，触发点数变化事件（仅在直接调用时）
+      if (triggerEvent && data && typeof data === 'object' && 'new_balance' in data) {
+        const event = pointsEventManager.createDeductEvent(
+          userId,
+          amount,
+          data.new_balance,
+          description
+        );
+        pointsEventManager.emit(event, { forceRefresh: true });
       }
 
       return data;
@@ -104,8 +119,11 @@ export class SupabasePointsService {
     type: 'REDEEM' | 'BONUS' | 'PURCHASE' | 'MEMBERSHIP',
     description: string,
     relatedId?: string,
-    metadata?: any
+    metadata?: any,
+    options?: { triggerEvent?: boolean }
   ): Promise<boolean> {
+    const { triggerEvent = true } = options || {};
+
     try {
       const { data, error } = await supabase.rpc('add_user_points', {
         p_user_id: userId,
@@ -118,6 +136,17 @@ export class SupabasePointsService {
       if (error) {
         console.error('增加点数失败:', error);
         return false;
+      }
+
+      // 增加成功后，触发点数变化事件（仅在直接调用时）
+      if (triggerEvent && data && typeof data === 'object' && 'new_balance' in data) {
+        const event = pointsEventManager.createAddEvent(
+          userId,
+          amount,
+          data.new_balance,
+          description
+        );
+        pointsEventManager.emit(event, { forceRefresh: true });
       }
 
       return data;

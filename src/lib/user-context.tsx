@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { pointsEventManager, PointsEvent } from '@/lib/points-events';
 
 interface UserContextType {
   currentUser: any;
@@ -367,29 +368,66 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // 监听登录成功事件，确保状态同步
+  // 监听点数变化事件 - 智能刷新机制
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const handleSignInSuccess = (event: CustomEvent) => {
-        console.log('🔔 UserContext收到登录成功事件');
-        // 短暂延迟后刷新用户状态，确保token已保存
-        setTimeout(() => {
+      // 防抖控制变量
+      let refreshTimeout: NodeJS.Timeout | null = null;
+      let lastRefreshTime = 0;
+
+      const handlePointsChange = (event: any) => {
+        const { forceRefresh = false, clearCache = true } = event.detail || {};
+        console.log('💰 UserContext收到点数变化事件:', event.detail);
+
+        // 如果不强制刷新且最近刚刚刷新过（5秒内），跳过
+        const now = Date.now();
+        if (!forceRefresh && now - lastRefreshTime < 5000) {
+          console.log('⏭️ 跳过频繁的点数刷新请求');
+          return;
+        }
+
+        // 清除之前的延迟刷新
+        if (refreshTimeout) {
+          clearTimeout(refreshTimeout);
+        }
+
+        // 可选：清除点数相关缓存
+        if (clearCache) {
+          try {
+            localStorage.removeItem('english_teaching_user_points');
+            localStorage.removeItem('english_teaching_user_last_update');
+            console.log('🗑️ UserContext已清除点数本地缓存');
+          } catch (error) {
+            console.warn('⚠️ 清除点数缓存失败:', error);
+          }
+        }
+
+        // 根据刷新需求设置延迟时间
+        const delay = forceRefresh ? 100 : 300;
+
+        // 延迟刷新，确保API端点数已更新
+        refreshTimeout = setTimeout(() => {
+          console.log('🔄 响应点数变化，刷新用户状态');
+          lastRefreshTime = Date.now();
           refreshUser().catch(error => {
-            console.error('响应登录事件时刷新用户数据失败:', error);
+            console.error('响应点数变化时刷新用户数据失败:', error);
           });
-        }, 100);
+          refreshTimeout = null;
+        }, delay);
       };
 
-      // 监听自定义登录成功事件
-      window.addEventListener('signInSuccess', handleSignInSuccess as EventListener);
+      // 监听点数变化自定义事件
+      window.addEventListener('pointsChange', handlePointsChange as EventListener);
 
-      // 同时监听storage变化，处理跨tab登录
+      // 监听存储变化，处理跨tab点数同步
       const handleStorageChange = (e: StorageEvent) => {
-        if (e.key === 'sb-access-token' && e.newValue) {
-          console.log('🔔 检测到token更新，刷新用户状态');
+        // 如果是点数相关的存储变化，也需要刷新
+        if (e.key === 'english_teaching_user_points' ||
+            e.key === 'english_teaching_user_last_update') {
+          console.log('🔔 检测到点数缓存变化，刷新用户状态');
           setTimeout(() => {
             refreshUser().catch(error => {
-              console.error('响应token变化时刷新用户数据失败:', error);
+              console.error('响应点数缓存变化时刷新用户数据失败:', error);
             });
           }, 100);
         }
@@ -398,8 +436,34 @@ export function UserProvider({ children }: { children: ReactNode }) {
       window.addEventListener('storage', handleStorageChange);
 
       return () => {
-        window.removeEventListener('signInSuccess', handleSignInSuccess as EventListener);
+        // 清理定时器
+        if (refreshTimeout) {
+          clearTimeout(refreshTimeout);
+        }
+        window.removeEventListener('pointsChange', handlePointsChange as EventListener);
         window.removeEventListener('storage', handleStorageChange);
+      };
+    }
+  }, []);
+
+  // 监听登录成功事件，确保状态同步
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleSignInSuccess = (event: CustomEvent) => {
+        console.log('🔔 UserContext收到登录成功事件');
+        // 短暂延迟后刷新用户状态，确保token已保存
+        setTimeout(() => {
+          refreshUser().catch(error => {
+          console.error('响应登录事件时刷新用户数据失败:', error);
+        });
+        }, 100);
+      };
+
+      // 监听自定义登录成功事件
+      window.addEventListener('signInSuccess', handleSignInSuccess as EventListener);
+
+      return () => {
+        window.removeEventListener('signInSuccess', handleSignInSuccess as EventListener);
       };
     }
   }, []);

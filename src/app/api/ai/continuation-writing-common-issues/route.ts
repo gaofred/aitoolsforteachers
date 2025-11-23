@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       // 获取请求的基础URL，支持动态端口
     const requestUrl = request.headers.get('host')
       ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-      : process.env.NEXTAUTH_URL || 'http://localhost:3004';
+      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
     const userResponse = await fetch(`${requestUrl}/api/auth/user`, {
         headers: {
@@ -292,7 +292,7 @@ try {
       try {
         const requestUrl = request.headers.get('host')
           ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-          : process.env.NEXTAUTH_URL || 'http://localhost:3004';
+          : process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
         const deductResponse = await fetch(`${requestUrl}/api/points/deduct`, {
           method: 'POST',
@@ -344,7 +344,7 @@ try {
           try {
             const requestUrl = request.headers.get('host')
               ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-              : process.env.NEXTAUTH_URL || 'http://localhost:3004';
+              : process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
             const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
               method: 'POST',
@@ -384,7 +384,7 @@ try {
           try {
             const requestUrl = request.headers.get('host')
               ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-              : process.env.NEXTAUTH_URL || 'http://localhost:3004';
+              : process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
             const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
               method: 'POST',
@@ -420,7 +420,7 @@ try {
         try {
           const requestUrl = request.headers.get('host')
             ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`
-            : process.env.NEXTAUTH_URL || 'http://localhost:3004';
+            : process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
           const refundResponse = await fetch(`${requestUrl}/api/points/add`, {
             method: 'POST',
